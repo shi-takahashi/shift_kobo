@@ -1,3 +1,5 @@
+import 'package:flutter/material.dart';
+
 class ShiftType {
   static const String morning = '早番';
   static const String day = '日勤';
@@ -45,6 +47,18 @@ class ShiftType {
       endMinute: 0,
     ),
   };
+
+  static Map<String, Color> colors = {
+    morning: Colors.orange,
+    day: Colors.blue,
+    evening: Colors.purple,
+    night: Colors.indigo,
+    fullDay: Colors.green,
+  };
+
+  static Color getColor(String shiftType) {
+    return colors[shiftType] ?? Colors.grey;
+  }
 }
 
 class ShiftTimeRange {

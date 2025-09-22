@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:provider/provider.dart';
 // import 'package:google_mobile_ads/google_mobile_ads.dart'; // 一時的にコメントアウト
@@ -9,6 +10,7 @@ import 'models/shift_constraint.dart';
 import 'providers/staff_provider.dart';
 import 'providers/shift_provider.dart';
 import 'screens/home_screen.dart';
+import 'utils/test_data_helper.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -21,6 +23,9 @@ void main() async {
   await Hive.openBox<Staff>('staff');
   await Hive.openBox<Shift>('shifts');
   await Hive.openBox<ShiftConstraint>('constraints');
+  
+  // テスト用データの初期化
+  await TestDataHelper.initializeTestData();
   
   // MobileAds.instance.initialize(); // 一時的にコメントアウト
   
@@ -43,6 +48,15 @@ class MyApp extends StatelessWidget {
           colorScheme: ColorScheme.fromSeed(seedColor: Colors.blue),
           useMaterial3: true,
         ),
+        localizationsDelegates: const [
+          GlobalMaterialLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+        ],
+        supportedLocales: const [
+          Locale('ja', 'JP'),
+        ],
+        locale: const Locale('ja', 'JP'),
         home: const HomeScreen(),
       ),
     );
