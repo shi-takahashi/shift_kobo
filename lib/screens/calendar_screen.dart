@@ -189,12 +189,16 @@ class _CalendarScreenState extends State<CalendarScreen> {
                       ),
                       // 左側スペーサー（少し小さく）
                       Expanded(flex: 2, child: Container()),
-                      // 前月ボタン
+                      // 前ボタン（月表示: 前月、週表示: 前週）
                       IconButton(
                         icon: const Icon(Icons.chevron_left, size: 20),
                         onPressed: () {
                           setState(() {
-                            _focusedDay = DateTime(_focusedDay.year, _focusedDay.month - 1, 1);
+                            if (_calendarFormat == CalendarFormat.month) {
+                              _focusedDay = DateTime(_focusedDay.year, _focusedDay.month - 1, 1);
+                            } else {
+                              _focusedDay = _focusedDay.subtract(const Duration(days: 7));
+                            }
                             _selectedDay = null;
                           });
                           _selectedShifts.value = [];
@@ -209,12 +213,16 @@ class _CalendarScreenState extends State<CalendarScreen> {
                           textAlign: TextAlign.center,
                         ),
                       ),
-                      // 次月ボタン
+                      // 次ボタン（月表示: 次月、週表示: 次週）
                       IconButton(
                         icon: const Icon(Icons.chevron_right, size: 20),
                         onPressed: () {
                           setState(() {
-                            _focusedDay = DateTime(_focusedDay.year, _focusedDay.month + 1, 1);
+                            if (_calendarFormat == CalendarFormat.month) {
+                              _focusedDay = DateTime(_focusedDay.year, _focusedDay.month + 1, 1);
+                            } else {
+                              _focusedDay = _focusedDay.add(const Duration(days: 7));
+                            }
                             _selectedDay = null;
                           });
                           _selectedShifts.value = [];
