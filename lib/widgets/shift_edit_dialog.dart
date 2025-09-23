@@ -27,10 +27,12 @@ class _ShiftEditDialogState extends State<ShiftEditDialog> {
   TimeOfDay _startTime = const TimeOfDay(hour: 9, minute: 0);
   TimeOfDay _endTime = const TimeOfDay(hour: 17, minute: 0);
   String _note = '';
+  late DateTime _selectedDate;
 
   @override
   void initState() {
     super.initState();
+    _selectedDate = widget.selectedDate;
     if (widget.existingShift != null) {
       _initializeWithExistingShift();
     }
@@ -43,6 +45,7 @@ class _ShiftEditDialogState extends State<ShiftEditDialog> {
     _startTime = TimeOfDay.fromDateTime(shift.startTime);
     _endTime = TimeOfDay.fromDateTime(shift.endTime);
     _note = shift.note ?? '';
+    _selectedDate = shift.date;
   }
 
   @override
@@ -51,16 +54,35 @@ class _ShiftEditDialogState extends State<ShiftEditDialog> {
       child: Container(
         padding: const EdgeInsets.all(16),
         width: MediaQuery.of(context).size.width * 0.9,
+        height: MediaQuery.of(context).size.height * 0.8,
         child: Form(
           key: _formKey,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
               Text(
                 widget.existingShift != null ? 'シフト編集' : 'シフト追加',
                 style: Theme.of(context).textTheme.headlineSmall,
               ),
+              const SizedBox(height: 16),
+              
+              // 日付選択
+              InkWell(
+                onTap: () => _selectDate(context),
+                child: InputDecorator(
+                  decoration: const InputDecoration(
+                    labelText: '日付',
+                    border: OutlineInputBorder(),
+                    suffixIcon: Icon(Icons.calendar_today),
+                  ),
+                  child: Text(
+                    '${_selectedDate.year}年${_selectedDate.month}月${_selectedDate.day}日',
+                  ),
+                ),
+              ),
+              
               const SizedBox(height: 16),
               
               Consumer<StaffProvider>(
@@ -187,6 +209,7 @@ class _ShiftEditDialogState extends State<ShiftEditDialog> {
                 ],
               ),
             ],
+            ),
           ),
         ),
       ),
@@ -226,42 +249,65 @@ class _ShiftEditDialogState extends State<ShiftEditDialog> {
     }
   }
 
-  void _saveShift() {
+  Future<void> _selectDate(BuildContext context) async {
+    final DateTime? picked = await showDatePicker(
+      context: context,
+      initialDate: _selectedDate,
+      firstDate: DateTime.now().subtract(const Duration(days: 365)),
+      lastDate: DateTime.now().add(const Duration(days: 365)),
+    );
+    
+    if (picked != null) {
+      setState(() {
+        _selectedDate = picked;
+      });
+    }
+  }
+
+  void _saveShift() async {
     if (!_formKey.currentState!.validate()) {
       return;
     }
 
     final shiftProvider = context.read<ShiftProvider>();
     
+    // 重複チェック
+    final conflictShift = _checkForConflicts(shiftProvider);
+    if (conflictShift != null) {
+      _showConflictDialog(conflictShift);
+      return;
+    }
+    
     final startDateTime = DateTime(
-      widget.selectedDate.year,
-      widget.selectedDate.month,
-      widget.selectedDate.day,
+      _selectedDate.year,
+      _selectedDate.month,
+      _selectedDate.day,
       _startTime.hour,
       _startTime.minute,
     );
     
     final endDateTime = DateTime(
-      widget.selectedDate.year,
-      widget.selectedDate.month,
-      widget.selectedDate.day,
+      _selectedDate.year,
+      _selectedDate.month,
+      _selectedDate.day,
       _endTime.hour,
       _endTime.minute,
     );
 
     if (widget.existingShift != null) {
       final updatedShift = widget.existingShift!
+        ..date = _selectedDate
         ..staffId = _selectedStaffId!
         ..shiftType = _selectedShiftType
         ..startTime = startDateTime
         ..endTime = endDateTime
         ..note = _note.isEmpty ? null : _note;
       
-      shiftProvider.updateShift(updatedShift);
+      await shiftProvider.updateShift(updatedShift);
     } else {
       final newShift = Shift(
         id: DateTime.now().millisecondsSinceEpoch.toString(),
-        date: widget.selectedDate,
+        date: _selectedDate,
         staffId: _selectedStaffId!,
         shiftType: _selectedShiftType,
         startTime: startDateTime,
@@ -269,17 +315,49 @@ class _ShiftEditDialogState extends State<ShiftEditDialog> {
         note: _note.isEmpty ? null : _note,
       );
       
-      shiftProvider.addShift(newShift);
+      await shiftProvider.addShift(newShift);
     }
 
     Navigator.pop(context);
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
+  }
+
+  Shift? _checkForConflicts(ShiftProvider shiftProvider) {
+    final existingShifts = shiftProvider.getShiftsForDate(_selectedDate);
+    
+    for (final existingShift in existingShifts) {
+      // 自分自身は除外
+      if (widget.existingShift != null && existingShift.id == widget.existingShift!.id) {
+        continue;
+      }
+      
+      // 同じスタッフの重複チェック
+      if (existingShift.staffId == _selectedStaffId) {
+        return existingShift;
+      }
+    }
+    
+    return null;
+  }
+
+  void _showConflictDialog(Shift conflictShift) {
+    final staffProvider = context.read<StaffProvider>();
+    final staff = staffProvider.getStaffById(conflictShift.staffId);
+    
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('シフト重複エラー'),
         content: Text(
-          widget.existingShift != null
-              ? 'シフトを更新しました'
-              : 'シフトを追加しました',
+          '${staff?.name ?? 'スタッフ'}は既に${_selectedDate.month}/${_selectedDate.day}に'
+          '${conflictShift.shiftType}のシフトが入っています。\n\n'
+          '同じ日に同じスタッフを複数のシフトに割り当てることはできません。',
         ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('OK'),
+          ),
+        ],
       ),
     );
   }

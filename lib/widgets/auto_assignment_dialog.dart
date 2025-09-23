@@ -305,12 +305,6 @@ class _AutoAssignmentDialogState extends State<AutoAssignmentDialog> {
 
       if (mounted) {
         Navigator.of(context).pop(true);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('${_previewShifts!.length}件のシフトを割り当てました'),
-            backgroundColor: Colors.green,
-          ),
-        );
       }
     } catch (e) {
       setState(() {

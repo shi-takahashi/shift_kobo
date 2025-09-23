@@ -59,6 +59,21 @@ class ShiftType {
   static Color getColor(String shiftType) {
     return colors[shiftType] ?? Colors.grey;
   }
+
+  /// シフトタイプを時間順に並べた順序リスト
+  static const List<String> timeOrder = [
+    morning,  // 早番: 6:00-14:00
+    day,      // 日勤: 9:00-17:00  
+    evening,  // 遅番: 14:00-22:00
+    night,    // 夜勤: 22:00-6:00
+    fullDay,  // 終日: 9:00-21:00
+  ];
+
+  /// シフトタイプの時間順インデックスを取得
+  static int getTimeOrderIndex(String shiftType) {
+    final index = timeOrder.indexOf(shiftType);
+    return index == -1 ? timeOrder.length : index;
+  }
 }
 
 class ShiftTimeRange {
