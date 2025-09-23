@@ -11,6 +11,35 @@ class StaffListScreen extends StatefulWidget {
 }
 
 class _StaffListScreenState extends State<StaffListScreen> {
+  String _getDayOffText(List<int> daysOff) {
+    const dayNames = ['月', '火', '水', '木', '金', '土', '日'];
+    return daysOff.map((day) => dayNames[day - 1]).join('・');
+  }
+
+  Widget _buildConstraintsText(Staff staff) {
+    List<String> constraints = [];
+    
+    // 月間最大シフト数
+    constraints.add('月間最大: ${staff.maxShiftsPerMonth}回');
+    
+    // 休み希望（曜日）
+    if (staff.preferredDaysOff.isNotEmpty) {
+      constraints.add('休み希望: ${_getDayOffText(staff.preferredDaysOff)}');
+    }
+    
+    // 勤務不可シフトタイプ
+    if (staff.unavailableShiftTypes.isNotEmpty) {
+      constraints.add('不可: ${staff.unavailableShiftTypes.join('・')}');
+    }
+    
+    return Text(
+      constraints.join(' / '),
+      style: TextStyle(
+        fontSize: 12,
+        color: Colors.grey[600],
+      ),
+    );
+  }
   final TextEditingController _searchController = TextEditingController();
   String _searchQuery = '';
 
@@ -117,7 +146,8 @@ class _StaffListScreenState extends State<StaffListScreen> {
                         children: [
                           if (staff.phoneNumber != null)
                             Text('📞 ${staff.phoneNumber}'),
-                          Text('月間最大シフト: ${staff.maxShiftsPerMonth}回'),
+                          const SizedBox(height: 4),
+                          _buildConstraintsText(staff),
                         ],
                       ),
                       trailing: PopupMenuButton<String>(

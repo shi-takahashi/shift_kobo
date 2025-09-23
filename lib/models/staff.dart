@@ -1,4 +1,5 @@
 import 'package:hive/hive.dart';
+import 'shift_constraint.dart';
 
 part 'staff.g.dart';
 
@@ -31,6 +32,12 @@ class Staff extends HiveObject {
   @HiveField(8)
   DateTime? updatedAt;
 
+  @HiveField(9)
+  List<ShiftConstraint> constraints = [];
+
+  @HiveField(10)
+  List<String> unavailableShiftTypes = [];
+
   Staff({
     required this.id,
     required this.name,
@@ -41,8 +48,13 @@ class Staff extends HiveObject {
     this.isActive = true,
     DateTime? createdAt,
     this.updatedAt,
+    List<ShiftConstraint>? constraints,
+    List<String>? unavailableShiftTypes,
   })  : preferredDaysOff = preferredDaysOff ?? [],
-        createdAt = createdAt ?? DateTime.now();
+        createdAt = createdAt ?? DateTime.now() {
+    this.constraints = constraints ?? [];
+    this.unavailableShiftTypes = unavailableShiftTypes ?? [];
+  }
 
   Map<String, dynamic> toJson() {
     return {

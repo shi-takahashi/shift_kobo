@@ -7,6 +7,7 @@ import '../models/shift.dart';
 import '../models/shift_type.dart';
 import '../widgets/shift_edit_dialog.dart';
 import '../utils/japanese_calendar_utils.dart';
+import '../widgets/auto_assignment_dialog.dart';
 
 class CalendarScreen extends StatefulWidget {
   const CalendarScreen({super.key});
@@ -36,7 +37,27 @@ class _CalendarScreenState extends State<CalendarScreen> {
 
   List<Shift> _getShiftsForDay(DateTime day) {
     final shiftProvider = context.read<ShiftProvider>();
-    return shiftProvider.getShiftsForDate(day);
+    final shifts = shiftProvider.getShiftsForDate(day);
+    
+    // ソート: 1.シフトタイプ順 2.スタッフID順
+    shifts.sort((a, b) {
+      // シフトタイプの順序を定義
+      int aTypeIndex = ShiftType.all.indexOf(a.shiftType);
+      int bTypeIndex = ShiftType.all.indexOf(b.shiftType);
+      
+      // シフトタイプが見つからない場合は最後に配置
+      if (aTypeIndex == -1) aTypeIndex = ShiftType.all.length;
+      if (bTypeIndex == -1) bTypeIndex = ShiftType.all.length;
+      
+      // まずシフトタイプで比較
+      int typeComparison = aTypeIndex.compareTo(bTypeIndex);
+      if (typeComparison != 0) return typeComparison;
+      
+      // シフトタイプが同じ場合はスタッフIDで比較
+      return a.staffId.compareTo(b.staffId);
+    });
+    
+    return shifts;
   }
 
   @override
@@ -49,6 +70,16 @@ class _CalendarScreenState extends State<CalendarScreen> {
         );
 
         return Scaffold(
+          appBar: AppBar(
+            title: const Text('シフト管理'),
+            actions: [
+              IconButton(
+                icon: const Icon(Icons.auto_fix_high),
+                tooltip: '自動割り当て',
+                onPressed: () => _showAutoAssignmentDialog(context),
+              ),
+            ],
+          ),
           body: Column(
             children: [
               TableCalendar<Shift>(
@@ -188,15 +219,28 @@ class _CalendarScreenState extends State<CalendarScreen> {
             ),
           ],
           ),
-          floatingActionButton: _selectedDay != null 
-            ? FloatingActionButton(
-                onPressed: () => _showAddShiftDialog(context),
-                child: const Icon(Icons.add),
-              )
-            : null,
+          floatingActionButton: FloatingActionButton.extended(
+            onPressed: () => _showAutoAssignmentDialog(context),
+            label: const Text('自動作成'),
+            icon: const Icon(Icons.auto_fix_high),
+          ),
         );
       },
     );
+  }
+
+  void _showAutoAssignmentDialog(BuildContext context) {
+    showDialog<bool>(
+      context: context,
+      builder: (context) => AutoAssignmentDialog(
+        selectedMonth: _focusedDay,
+      ),
+    ).then((result) {
+      if (result == true && _selectedDay != null) {
+        setState(() {});
+        _selectedShifts.value = _getShiftsForDay(_selectedDay!);
+      }
+    });
   }
 
   void _onDaySelected(DateTime selectedDay, DateTime focusedDay) {

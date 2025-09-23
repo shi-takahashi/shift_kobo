@@ -24,7 +24,7 @@ void main() async {
   await Hive.openBox<Shift>('shifts');
   await Hive.openBox<ShiftConstraint>('constraints');
   
-  // テスト用データの初期化
+  // テスト用データの初期化（初回のみ）
   await TestDataHelper.initializeTestData();
   
   // MobileAds.instance.initialize(); // 一時的にコメントアウト

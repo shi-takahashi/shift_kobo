@@ -20,6 +20,7 @@ class TestDataHelper {
         isActive: true,
         preferredDaysOff: [7], // 日曜日
         maxShiftsPerMonth: 20,
+        unavailableShiftTypes: ['夜勤'], // 夜勤不可
       ),
       Staff(
         id: 'staff_002',
@@ -29,6 +30,7 @@ class TestDataHelper {
         isActive: true,
         preferredDaysOff: [6, 7], // 土日
         maxShiftsPerMonth: 15,
+        unavailableShiftTypes: [], // 全シフト可能
       ),
       Staff(
         id: 'staff_003',
@@ -38,6 +40,7 @@ class TestDataHelper {
         isActive: true,
         preferredDaysOff: [1], // 月曜日
         maxShiftsPerMonth: 18,
+        unavailableShiftTypes: ['早番', '夜勤'], // 早番・夜勤不可
       ),
       Staff(
         id: 'staff_004',
@@ -47,6 +50,7 @@ class TestDataHelper {
         isActive: true,
         preferredDaysOff: [3], // 水曜日
         maxShiftsPerMonth: 12,
+        unavailableShiftTypes: ['夜勤'], // 夜勤不可
       ),
     ];
     

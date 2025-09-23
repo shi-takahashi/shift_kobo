@@ -8,6 +8,7 @@ class StaffProvider extends ChangeNotifier {
 
   List<Staff> get staffList => _staffList;
   List<Staff> get activeStaffList => _staffList.where((s) => s.isActive).toList();
+  List<Staff> get staff => _staffList;
 
   StaffProvider() {
     _init();
