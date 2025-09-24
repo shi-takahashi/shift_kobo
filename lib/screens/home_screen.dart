@@ -129,14 +129,6 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget? _buildFloatingActionButton() {
-    if (_selectedIndex == 1) {
-      return FloatingActionButton(
-        onPressed: () {
-          Navigator.pushNamed(context, '/add_staff');
-        },
-        child: const Icon(Icons.person_add),
-      );
-    }
     return null;
   }
 

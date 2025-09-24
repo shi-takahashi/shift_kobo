@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/staff_provider.dart';
 import '../models/staff.dart';
+import '../widgets/staff_edit_dialog.dart';
 
 class StaffListScreen extends StatefulWidget {
   const StaffListScreen({super.key});
@@ -83,117 +84,161 @@ class _StaffListScreenState extends State<StaffListScreen> {
           ),
         ),
         Expanded(
-          child: Consumer<StaffProvider>(
-            builder: (context, staffProvider, child) {
-              final staffList = _searchQuery.isEmpty
-                  ? staffProvider.staffList
-                  : staffProvider.searchStaff(_searchQuery);
+          child: Padding(
+            padding: const EdgeInsets.only(right: 16.0),
+            child: Consumer<StaffProvider>(
+              builder: (context, staffProvider, child) {
+                var staffList = _searchQuery.isEmpty
+                    ? staffProvider.staffList
+                    : staffProvider.searchStaff(_searchQuery);
+                
+                // 有効なスタッフを上に、無効なスタッフを下に並べる
+                staffList.sort((a, b) {
+                  if (a.isActive && !b.isActive) return -1;
+                  if (!a.isActive && b.isActive) return 1;
+                  return a.name.compareTo(b.name);
+                });
 
-              if (staffList.isEmpty) {
-                return Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(
-                        Icons.people_outline,
-                        size: 64,
-                        color: Colors.grey[400],
-                      ),
-                      const SizedBox(height: 16),
-                      Text(
-                        _searchQuery.isEmpty
-                            ? 'スタッフが登録されていません'
-                            : '検索結果がありません',
-                        style: TextStyle(
-                          fontSize: 18,
-                          color: Colors.grey[600],
+                if (staffList.isEmpty) {
+                  return Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          Icons.people_outline,
+                          size: 64,
+                          color: Colors.grey[400],
                         ),
-                      ),
-                    ],
-                  ),
-                );
-              }
-
-              return ListView.builder(
-                itemCount: staffList.length,
-                itemBuilder: (context, index) {
-                  final staff = staffList[index];
-                  return Card(
-                    margin: const EdgeInsets.symmetric(
-                      horizontal: 8.0,
-                      vertical: 4.0,
-                    ),
-                    child: ListTile(
-                      leading: CircleAvatar(
-                        backgroundColor: staff.isActive
-                            ? Theme.of(context).colorScheme.primary
-                            : Colors.grey,
-                        child: Text(
-                          staff.name.substring(0, 1),
-                          style: const TextStyle(color: Colors.white),
+                        const SizedBox(height: 16),
+                        Text(
+                          _searchQuery.isEmpty
+                              ? 'スタッフが登録されていません'
+                              : '検索結果がありません',
+                          style: TextStyle(
+                            fontSize: 18,
+                            color: Colors.grey[600],
+                          ),
                         ),
-                      ),
-                      title: Text(
-                        staff.name,
-                        style: TextStyle(
-                          decoration: staff.isActive
-                              ? null
-                              : TextDecoration.lineThrough,
-                        ),
-                      ),
-                      subtitle: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          if (staff.phoneNumber != null)
-                            Text('📞 ${staff.phoneNumber}'),
-                          const SizedBox(height: 4),
-                          _buildConstraintsText(staff),
-                        ],
-                      ),
-                      trailing: PopupMenuButton<String>(
-                        onSelected: (value) {
-                          _handleMenuAction(value, staff);
-                        },
-                        itemBuilder: (context) => [
-                          const PopupMenuItem(
-                            value: 'edit',
-                            child: Row(
-                              children: [
-                                Icon(Icons.edit),
-                                SizedBox(width: 8),
-                                Text('編集'),
-                              ],
-                            ),
-                          ),
-                          PopupMenuItem(
-                            value: 'toggle',
-                            child: Row(
-                              children: [
-                                Icon(staff.isActive
-                                    ? Icons.person_off
-                                    : Icons.person),
-                                const SizedBox(width: 8),
-                                Text(staff.isActive ? '無効化' : '有効化'),
-                              ],
-                            ),
-                          ),
-                          const PopupMenuItem(
-                            value: 'delete',
-                            child: Row(
-                              children: [
-                                Icon(Icons.delete, color: Colors.red),
-                                SizedBox(width: 8),
-                                Text('削除', style: TextStyle(color: Colors.red)),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
+                      ],
                     ),
                   );
-                },
-              );
-            },
+                }
+
+                return Scrollbar(
+                  thumbVisibility: true,
+                  thickness: 6.0,
+                  radius: const Radius.circular(3.0),
+                  child: ListView.builder(
+                    itemCount: staffList.length,
+                    itemBuilder: (context, index) {
+                      final staff = staffList[index];
+                      return Card(
+                        margin: const EdgeInsets.symmetric(
+                          horizontal: 8.0,
+                          vertical: 4.0,
+                        ),
+                        child: ListTile(
+                          onTap: () {
+                            // スタッフタップで編集画面起動
+                            showDialog(
+                              context: context,
+                              builder: (context) => StaffEditDialog(existingStaff: staff),
+                            );
+                          },
+                          leading: CircleAvatar(
+                            backgroundColor: staff.isActive
+                                ? Theme.of(context).colorScheme.primary
+                                : Colors.grey,
+                            child: Text(
+                              staff.name.isNotEmpty ? staff.name.substring(0, 1) : '?',
+                              style: const TextStyle(color: Colors.white),
+                            ),
+                          ),
+                          title: Text(
+                            staff.name.isNotEmpty ? staff.name : '(名前未入力)',
+                            style: TextStyle(
+                              decoration: staff.isActive
+                                  ? null
+                                  : TextDecoration.lineThrough,
+                              fontStyle: staff.name.isEmpty ? FontStyle.italic : null,
+                              color: staff.name.isEmpty ? Colors.grey : null,
+                            ),
+                          ),
+                          subtitle: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              if (staff.phoneNumber != null)
+                                Text('📞 ${staff.phoneNumber}'),
+                              const SizedBox(height: 4),
+                              _buildConstraintsText(staff),
+                            ],
+                          ),
+                          trailing: PopupMenuButton<String>(
+                            onSelected: (value) {
+                              _handleMenuAction(value, staff);
+                            },
+                            itemBuilder: (context) => [
+                              const PopupMenuItem(
+                                value: 'edit',
+                                child: Row(
+                                  children: [
+                                    Icon(Icons.edit),
+                                    SizedBox(width: 8),
+                                    Text('編集'),
+                                  ],
+                                ),
+                              ),
+                              PopupMenuItem(
+                                value: 'toggle',
+                                child: Row(
+                                  children: [
+                                    Icon(staff.isActive
+                                        ? Icons.person_off
+                                        : Icons.person),
+                                    const SizedBox(width: 8),
+                                    Text(staff.isActive ? '無効化' : '有効化'),
+                                  ],
+                                ),
+                              ),
+                              const PopupMenuItem(
+                                value: 'delete',
+                                child: Row(
+                                  children: [
+                                    Icon(Icons.delete, color: Colors.red),
+                                    SizedBox(width: 8),
+                                    Text('削除', style: TextStyle(color: Colors.red)),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                );
+              },
+            ),
+          ),
+        ),
+        // スタッフ追加ボタン
+        Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: SizedBox(
+            width: double.infinity,
+            child: ElevatedButton.icon(
+              onPressed: () {
+                showDialog(
+                  context: context,
+                  builder: (context) => const StaffEditDialog(),
+                );
+              },
+              icon: const Icon(Icons.person_add),
+              label: const Text('スタッフを追加'),
+              style: ElevatedButton.styleFrom(
+                padding: const EdgeInsets.symmetric(vertical: 12),
+              ),
+            ),
           ),
         ),
       ],
@@ -205,8 +250,9 @@ class _StaffListScreenState extends State<StaffListScreen> {
 
     switch (action) {
       case 'edit':
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('編集機能は準備中です')),
+        showDialog(
+          context: context,
+          builder: (context) => StaffEditDialog(existingStaff: staff),
         );
         break;
       case 'toggle':

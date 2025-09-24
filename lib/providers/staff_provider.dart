@@ -31,7 +31,7 @@ class StaffProvider extends ChangeNotifier {
 
   Future<void> updateStaff(Staff staff) async {
     staff.updatedAt = DateTime.now();
-    await staff.save();
+    await _staffBox.put(staff.id, staff);
     _loadStaff();
   }
 

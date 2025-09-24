@@ -51,165 +51,186 @@ class _ShiftEditDialogState extends State<ShiftEditDialog> {
   @override
   Widget build(BuildContext context) {
     return Dialog(
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.zero,
+      ),
       child: Container(
-        padding: const EdgeInsets.all(16),
         width: MediaQuery.of(context).size.width * 0.9,
         height: MediaQuery.of(context).size.height * 0.8,
         child: Form(
           key: _formKey,
-          child: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-              Text(
-                widget.existingShift != null ? 'シフト編集' : 'シフト追加',
-                style: Theme.of(context).textTheme.headlineSmall,
-              ),
-              const SizedBox(height: 16),
-              
-              // 日付選択
-              InkWell(
-                onTap: () => _selectDate(context),
-                child: InputDecorator(
-                  decoration: const InputDecoration(
-                    labelText: '日付',
-                    border: OutlineInputBorder(),
-                    suffixIcon: Icon(Icons.calendar_today),
-                  ),
-                  child: Text(
-                    '${_selectedDate.year}年${_selectedDate.month}月${_selectedDate.day}日',
-                  ),
-                ),
-              ),
-              
-              const SizedBox(height: 16),
-              
-              Consumer<StaffProvider>(
-                builder: (context, staffProvider, child) {
-                  final activeStaff = staffProvider.activeStaffList;
-                  
-                  return DropdownButtonFormField<String>(
-                    decoration: const InputDecoration(
-                      labelText: 'スタッフ',
-                      border: OutlineInputBorder(),
+          child: Column(
+            children: [
+              // スクロール可能なコンテンツ部分
+              Expanded(
+                child: Scrollbar(
+                  thumbVisibility: true,
+                  thickness: 6.0,
+                  radius: const Radius.circular(3.0),
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          widget.existingShift != null ? 'シフト編集' : 'シフト追加',
+                          style: Theme.of(context).textTheme.headlineSmall,
+                        ),
+                        const SizedBox(height: 16),
+                        
+                        // 日付選択
+                        InkWell(
+                          onTap: () => _selectDate(context),
+                          child: InputDecorator(
+                            decoration: const InputDecoration(
+                              labelText: '日付',
+                              border: OutlineInputBorder(),
+                              suffixIcon: Icon(Icons.calendar_today),
+                            ),
+                            child: Text(
+                              '${_selectedDate.year}年${_selectedDate.month}月${_selectedDate.day}日',
+                            ),
+                          ),
+                        ),
+                        
+                        const SizedBox(height: 16),
+                        
+                        Consumer<StaffProvider>(
+                          builder: (context, staffProvider, child) {
+                            final activeStaff = staffProvider.activeStaffList;
+                            
+                            return DropdownButtonFormField<String>(
+                              decoration: const InputDecoration(
+                                labelText: 'スタッフ',
+                                border: OutlineInputBorder(),
+                              ),
+                              value: _selectedStaffId,
+                              items: activeStaff.map((staff) {
+                                return DropdownMenuItem(
+                                  value: staff.id,
+                                  child: Text(staff.name),
+                                );
+                              }).toList(),
+                              onChanged: (value) {
+                                setState(() {
+                                  _selectedStaffId = value;
+                                });
+                              },
+                              validator: (value) {
+                                if (value == null) {
+                                  return 'スタッフを選択してください';
+                                }
+                                return null;
+                              },
+                            );
+                          },
+                        ),
+                        
+                        const SizedBox(height: 16),
+                        
+                        DropdownButtonFormField<String>(
+                          decoration: const InputDecoration(
+                            labelText: 'シフトタイプ',
+                            border: OutlineInputBorder(),
+                          ),
+                          value: _selectedShiftType,
+                          items: ShiftType.all.map((type) {
+                            return DropdownMenuItem(
+                              value: type,
+                              child: Text(type),
+                            );
+                          }).toList(),
+                          onChanged: (value) {
+                            if (value != null) {
+                              setState(() {
+                                _selectedShiftType = value;
+                                _updateTimesByShiftType(value);
+                              });
+                            }
+                          },
+                        ),
+                        
+                        const SizedBox(height: 16),
+                        
+                        Row(
+                          children: [
+                            Expanded(
+                              child: InkWell(
+                                onTap: () => _selectTime(context, true),
+                                child: InputDecorator(
+                                  decoration: const InputDecoration(
+                                    labelText: '開始時間',
+                                    border: OutlineInputBorder(),
+                                    suffixIcon: Icon(Icons.access_time),
+                                  ),
+                                  child: Text(_startTime.format(context)),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: InkWell(
+                                onTap: () => _selectTime(context, false),
+                                child: InputDecorator(
+                                  decoration: const InputDecoration(
+                                    labelText: '終了時間',
+                                    border: OutlineInputBorder(),
+                                    suffixIcon: Icon(Icons.access_time),
+                                  ),
+                                  child: Text(_endTime.format(context)),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        
+                        const SizedBox(height: 16),
+                        
+                        TextFormField(
+                          decoration: const InputDecoration(
+                            labelText: '備考（任意）',
+                            border: OutlineInputBorder(),
+                            hintText: '特記事項があれば入力',
+                          ),
+                          initialValue: _note,
+                          maxLines: 3,
+                          onChanged: (value) {
+                            _note = value;
+                          },
+                        ),
+                      ],
                     ),
-                    value: _selectedStaffId,
-                    items: activeStaff.map((staff) {
-                      return DropdownMenuItem(
-                        value: staff.id,
-                        child: Text(staff.name),
-                      );
-                    }).toList(),
-                    onChanged: (value) {
-                      setState(() {
-                        _selectedStaffId = value;
-                      });
-                    },
-                    validator: (value) {
-                      if (value == null || value.isEmpty) {
-                        return 'スタッフを選択してください';
-                      }
-                      return null;
-                    },
-                  );
-                },
-              ),
-              
-              const SizedBox(height: 16),
-              
-              DropdownButtonFormField<String>(
-                decoration: const InputDecoration(
-                  labelText: 'シフトタイプ',
-                  border: OutlineInputBorder(),
+                  ),
                 ),
-                value: _selectedShiftType,
-                items: ShiftType.all.map((type) {
-                  return DropdownMenuItem(
-                    value: type,
-                    child: Text(type),
-                  );
-                }).toList(),
-                onChanged: (value) {
-                  if (value != null) {
-                    setState(() {
-                      _selectedShiftType = value;
-                      _updateTimesByShiftType(value);
-                    });
-                  }
-                },
               ),
-              
-              const SizedBox(height: 16),
-              
-              Row(
-                children: [
-                  Expanded(
-                    child: InkWell(
-                      onTap: () => _selectTime(context, true),
-                      child: InputDecorator(
-                        decoration: const InputDecoration(
-                          labelText: '開始時間',
-                          border: OutlineInputBorder(),
-                        ),
-                        child: Text(
-                          '${_startTime.hour.toString().padLeft(2, '0')}:'
-                          '${_startTime.minute.toString().padLeft(2, '0')}',
-                        ),
+              // 固定のアクションボタン
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: const BoxDecoration(
+                  color: Colors.white,
+                  border: Border(
+                    top: BorderSide(color: Colors.grey, width: 1.0),
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed: () => Navigator.pop(context),
+                        child: const Text('キャンセル'),
                       ),
                     ),
-                  ),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: InkWell(
-                      onTap: () => _selectTime(context, false),
-                      child: InputDecorator(
-                        decoration: const InputDecoration(
-                          labelText: '終了時間',
-                          border: OutlineInputBorder(),
-                        ),
-                        child: Text(
-                          '${_endTime.hour.toString().padLeft(2, '0')}:'
-                          '${_endTime.minute.toString().padLeft(2, '0')}',
-                        ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: FilledButton(
+                        onPressed: _saveShift,
+                        child: Text(widget.existingShift != null ? '更新' : '追加'),
                       ),
                     ),
-                  ),
-                ],
-              ),
-              
-              const SizedBox(height: 16),
-              
-              TextFormField(
-                decoration: const InputDecoration(
-                  labelText: 'メモ（任意）',
-                  border: OutlineInputBorder(),
+                  ],
                 ),
-                initialValue: _note,
-                maxLines: 2,
-                onChanged: (value) {
-                  _note = value;
-                },
-              ),
-              
-              const SizedBox(height: 24),
-              
-              Row(
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: [
-                  TextButton(
-                    onPressed: () => Navigator.pop(context),
-                    child: const Text('キャンセル'),
-                  ),
-                  const SizedBox(width: 8),
-                  FilledButton(
-                    onPressed: _saveShift,
-                    child: Text(widget.existingShift != null ? '更新' : '追加'),
-                  ),
-                ],
               ),
             ],
-            ),
           ),
         ),
       ),
@@ -253,7 +274,7 @@ class _ShiftEditDialogState extends State<ShiftEditDialog> {
     final DateTime? picked = await showDatePicker(
       context: context,
       initialDate: _selectedDate,
-      firstDate: DateTime.now().subtract(const Duration(days: 365)),
+      firstDate: DateTime.now().subtract(const Duration(days: 30)),
       lastDate: DateTime.now().add(const Duration(days: 365)),
     );
     
@@ -264,101 +285,55 @@ class _ShiftEditDialogState extends State<ShiftEditDialog> {
     }
   }
 
-  void _saveShift() async {
-    if (!_formKey.currentState!.validate()) {
-      return;
-    }
-
-    final shiftProvider = context.read<ShiftProvider>();
-    
-    // 重複チェック
-    final conflictShift = _checkForConflicts(shiftProvider);
-    if (conflictShift != null) {
-      _showConflictDialog(conflictShift);
-      return;
-    }
-    
-    final startDateTime = DateTime(
-      _selectedDate.year,
-      _selectedDate.month,
-      _selectedDate.day,
-      _startTime.hour,
-      _startTime.minute,
-    );
-    
-    final endDateTime = DateTime(
-      _selectedDate.year,
-      _selectedDate.month,
-      _selectedDate.day,
-      _endTime.hour,
-      _endTime.minute,
-    );
-
-    if (widget.existingShift != null) {
-      final updatedShift = widget.existingShift!
-        ..date = _selectedDate
-        ..staffId = _selectedStaffId!
-        ..shiftType = _selectedShiftType
-        ..startTime = startDateTime
-        ..endTime = endDateTime
-        ..note = _note.isEmpty ? null : _note;
+  void _saveShift() {
+    if (_formKey.currentState!.validate()) {
+      final shiftProvider = context.read<ShiftProvider>();
       
-      await shiftProvider.updateShift(updatedShift);
-    } else {
-      final newShift = Shift(
-        id: DateTime.now().millisecondsSinceEpoch.toString(),
-        date: _selectedDate,
-        staffId: _selectedStaffId!,
-        shiftType: _selectedShiftType,
-        startTime: startDateTime,
-        endTime: endDateTime,
-        note: _note.isEmpty ? null : _note,
+      final startDateTime = DateTime(
+        _selectedDate.year,
+        _selectedDate.month,
+        _selectedDate.day,
+        _startTime.hour,
+        _startTime.minute,
       );
       
-      await shiftProvider.addShift(newShift);
-    }
-
-    Navigator.pop(context);
-  }
-
-  Shift? _checkForConflicts(ShiftProvider shiftProvider) {
-    final existingShifts = shiftProvider.getShiftsForDate(_selectedDate);
-    
-    for (final existingShift in existingShifts) {
-      // 自分自身は除外
-      if (widget.existingShift != null && existingShift.id == widget.existingShift!.id) {
-        continue;
+      final endDateTime = DateTime(
+        _selectedDate.year,
+        _selectedDate.month,
+        _selectedDate.day,
+        _endTime.hour,
+        _endTime.minute,
+      );
+      
+      if (widget.existingShift != null) {
+        // 編集モード
+        final updatedShift = Shift(
+          id: widget.existingShift!.id,
+          staffId: _selectedStaffId!,
+          date: _selectedDate,
+          startTime: startDateTime,
+          endTime: endDateTime,
+          shiftType: _selectedShiftType,
+          note: _note.isNotEmpty ? _note : null,
+        );
+        
+        shiftProvider.updateShift(updatedShift);
+      } else {
+        // 追加モード
+        final newShift = Shift(
+          id: DateTime.now().millisecondsSinceEpoch.toString(),
+          staffId: _selectedStaffId!,
+          date: _selectedDate,
+          startTime: startDateTime,
+          endTime: endDateTime,
+          shiftType: _selectedShiftType,
+          note: _note.isNotEmpty ? _note : null,
+        );
+        
+        shiftProvider.addShift(newShift);
       }
       
-      // 同じスタッフの重複チェック
-      if (existingShift.staffId == _selectedStaffId) {
-        return existingShift;
-      }
+      Navigator.pop(context, true);
     }
-    
-    return null;
-  }
-
-  void _showConflictDialog(Shift conflictShift) {
-    final staffProvider = context.read<StaffProvider>();
-    final staff = staffProvider.getStaffById(conflictShift.staffId);
-    
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('シフト重複エラー'),
-        content: Text(
-          '${staff?.name ?? 'スタッフ'}は既に${_selectedDate.month}/${_selectedDate.day}に'
-          '${conflictShift.shiftType}のシフトが入っています。\n\n'
-          '同じ日に同じスタッフを複数のシフトに割り当てることはできません。',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('OK'),
-          ),
-        ],
-      ),
-    );
   }
 }

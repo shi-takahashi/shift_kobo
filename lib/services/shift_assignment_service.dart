@@ -20,7 +20,7 @@ class ShiftAssignmentService {
     Map<String, int> dailyShiftRequirements,
   ) async {
     List<Shift> assignedShifts = [];
-    List<Staff> availableStaff = staffProvider.staff;
+    List<Staff> availableStaff = staffProvider.activeStaffList;
     int shiftIdCounter = 0;
     
     // デバッグ: スタッフ数を確認
