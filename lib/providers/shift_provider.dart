@@ -35,8 +35,23 @@ class ShiftProvider extends ChangeNotifier {
   }
 
   Future<void> updateShift(Shift shift) async {
-    shift.updatedAt = DateTime.now();
-    await shift.save();
+    // 既存のShiftをボックスから取得
+    final existingShift = _shiftBox.get(shift.id);
+    if (existingShift != null) {
+      // 既存のShiftを更新
+      existingShift.staffId = shift.staffId;
+      existingShift.date = shift.date;
+      existingShift.startTime = shift.startTime;
+      existingShift.endTime = shift.endTime;
+      existingShift.shiftType = shift.shiftType;
+      existingShift.note = shift.note;
+      existingShift.updatedAt = DateTime.now();
+      await existingShift.save();
+    } else {
+      // 存在しない場合は新規追加（通常は起こらないが安全のため）
+      shift.updatedAt = DateTime.now();
+      await _shiftBox.put(shift.id, shift);
+    }
     _loadData();
   }
 

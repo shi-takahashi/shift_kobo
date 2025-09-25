@@ -439,28 +439,34 @@ class _CalendarScreenState extends State<CalendarScreen> {
   void _showAddShiftDialog(BuildContext context) {
     if (_selectedDay == null) return;
     
-    showDialog<void>(
+    showDialog<bool>(
       context: context,
       builder: (context) => ShiftEditDialog(selectedDate: _selectedDay!),
-    ).then((_) {
-      if (_selectedDay != null) {
-        setState(() {});
-        _selectedShifts.value = _getShiftsForDay(_selectedDay!);
+    ).then((result) {
+      if (result == true && _selectedDay != null) {
+        // 少し遅延させてからデータを再取得（Providerの更新を待つため）
+        Future.delayed(const Duration(milliseconds: 100), () {
+          setState(() {});
+          _selectedShifts.value = _getShiftsForDay(_selectedDay!);
+        });
       }
     });
   }
 
   void _showEditShiftDialog(BuildContext context, Shift shift) {
-    showDialog<void>(
+    showDialog<bool>(
       context: context,
       builder: (context) => ShiftEditDialog(
         selectedDate: shift.date,
         existingShift: shift,
       ),
-    ).then((_) {
-      if (_selectedDay != null) {
-        setState(() {});
-        _selectedShifts.value = _getShiftsForDay(_selectedDay!);
+    ).then((result) {
+      if (result == true && _selectedDay != null) {
+        // 少し遅延させてからデータを再取得（Providerの更新を待つため）
+        Future.delayed(const Duration(milliseconds: 100), () {
+          setState(() {});
+          _selectedShifts.value = _getShiftsForDay(_selectedDay!);
+        });
       }
     });
   }

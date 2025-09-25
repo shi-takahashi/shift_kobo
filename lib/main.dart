@@ -7,8 +7,10 @@ import 'package:provider/provider.dart';
 import 'models/staff.dart';
 import 'models/shift.dart';
 import 'models/shift_constraint.dart';
+import 'models/shift_time_setting.dart';
 import 'providers/staff_provider.dart';
 import 'providers/shift_provider.dart';
+import 'providers/shift_time_provider.dart';
 import 'screens/home_screen.dart';
 import 'utils/test_data_helper.dart';
 
@@ -19,6 +21,8 @@ void main() async {
   Hive.registerAdapter(StaffAdapter());
   Hive.registerAdapter(ShiftAdapter());
   Hive.registerAdapter(ShiftConstraintAdapter());
+  Hive.registerAdapter(ShiftTypeAdapter());
+  Hive.registerAdapter(ShiftTimeSettingAdapter());
   
   await Hive.openBox<Staff>('staff');
   await Hive.openBox<Shift>('shifts');
@@ -41,6 +45,7 @@ class MyApp extends StatelessWidget {
       providers: [
         ChangeNotifierProvider(create: (_) => StaffProvider()),
         ChangeNotifierProvider(create: (_) => ShiftProvider()),
+        ChangeNotifierProvider(create: (_) => ShiftTimeProvider()..initialize()),
       ],
       child: MaterialApp(
         title: 'シフト工房',

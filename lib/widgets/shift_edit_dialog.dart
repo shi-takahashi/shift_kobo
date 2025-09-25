@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../models/shift.dart';
-import '../models/shift_type.dart';
+import '../models/shift_type.dart' as old_shift_type;
+import '../models/shift_time_setting.dart';
 import '../providers/staff_provider.dart';
 import '../providers/shift_provider.dart';
+import '../providers/shift_time_provider.dart';
 
 class ShiftEditDialog extends StatefulWidget {
   final DateTime selectedDate;
@@ -23,19 +25,44 @@ class _ShiftEditDialogState extends State<ShiftEditDialog> {
   final _formKey = GlobalKey<FormState>();
   
   String? _selectedStaffId;
-  String _selectedShiftType = ShiftType.day;
-  TimeOfDay _startTime = const TimeOfDay(hour: 9, minute: 0);
-  TimeOfDay _endTime = const TimeOfDay(hour: 17, minute: 0);
+  String _selectedShiftType = old_shift_type.ShiftType.day;
+  ShiftTimeSetting? _selectedShiftTimeSetting;
+  TimeOfDay _startTime = const TimeOfDay(hour: 0, minute: 0);
+  TimeOfDay _endTime = const TimeOfDay(hour: 0, minute: 0);
   String _note = '';
   late DateTime _selectedDate;
+
+  // 旧ShiftType（文字列）から新ShiftType（enum）へのマッピング
+  static Map<String, ShiftType> get _shiftTypeMapping => {
+    '早番': ShiftType.shift1,
+    '日勤': ShiftType.shift2,
+    '遅番': ShiftType.shift3,
+    '夜勤': ShiftType.shift4,
+    '終日': ShiftType.shift5,
+  };
 
   @override
   void initState() {
     super.initState();
     _selectedDate = widget.selectedDate;
+    
+    // 既存シフト編集の場合は先に初期化
     if (widget.existingShift != null) {
       _initializeWithExistingShift();
     }
+  }
+
+  String _getStringFromShiftType(ShiftType shiftType) {
+    return _shiftTypeMapping.entries
+        .firstWhere((entry) => entry.value == shiftType, orElse: () => MapEntry('日勤', ShiftType.shift2))
+        .key;
+  }
+
+  void _updateTimeFromSetting(ShiftTimeSetting setting) {
+    final startParts = setting.startTime.split(':');
+    final endParts = setting.endTime.split(':');
+    _startTime = TimeOfDay(hour: int.parse(startParts[0]), minute: int.parse(startParts[1]));
+    _endTime = TimeOfDay(hour: int.parse(endParts[0]), minute: int.parse(endParts[1]));
   }
 
   void _initializeWithExistingShift() {
@@ -46,6 +73,8 @@ class _ShiftEditDialogState extends State<ShiftEditDialog> {
     _endTime = TimeOfDay.fromDateTime(shift.endTime);
     _note = shift.note ?? '';
     _selectedDate = shift.date;
+    
+    // ShiftTimeSettingの初期化はConsumer内で行うため、ここでは何もしない
   }
 
   @override
@@ -128,25 +157,119 @@ class _ShiftEditDialogState extends State<ShiftEditDialog> {
                         
                         const SizedBox(height: 16),
                         
-                        DropdownButtonFormField<String>(
-                          decoration: const InputDecoration(
-                            labelText: 'シフトタイプ',
-                            border: OutlineInputBorder(),
-                          ),
-                          value: _selectedShiftType,
-                          items: ShiftType.all.map((type) {
-                            return DropdownMenuItem(
-                              value: type,
-                              child: Text(type),
-                            );
-                          }).toList(),
-                          onChanged: (value) {
-                            if (value != null) {
-                              setState(() {
-                                _selectedShiftType = value;
-                                _updateTimesByShiftType(value);
-                              });
+                        Consumer<ShiftTimeProvider>(
+                          builder: (context, shiftTimeProvider, child) {
+                            final activeSettings = shiftTimeProvider.settings.where((s) => s.isActive).toList();
+                            
+                            // 初回読み込み時にactiveSettingsが空の場合は、初期化完了を待つ
+                            if (activeSettings.isEmpty) {
+                              return DropdownButtonFormField<String>(
+                                decoration: const InputDecoration(
+                                  labelText: 'シフトタイプ',
+                                  border: OutlineInputBorder(),
+                                ),
+                                items: const [],
+                                onChanged: null,
+                              );
                             }
+                            
+                            // 既存シフトの場合、マッピングを実行
+                            if (widget.existingShift != null && _selectedShiftTimeSetting == null) {
+                              final shift = widget.existingShift!;
+                              final mappedShiftType = _shiftTypeMapping[shift.shiftType];
+                              if (mappedShiftType != null) {
+                                ShiftTimeSetting? foundSetting;
+                                try {
+                                  foundSetting = activeSettings
+                                      .where((s) => s.shiftType == mappedShiftType)
+                                      .first;
+                                } catch (e) {
+                                  foundSetting = null;
+                                }
+                                
+                                WidgetsBinding.instance.addPostFrameCallback((_) {
+                                  setState(() {
+                                    if (foundSetting != null) {
+                                      _selectedShiftTimeSetting = foundSetting;
+                                      // 既存シフト編集時は実際の保存時間を維持（設定時間で上書きしない）
+                                      // ただし、_selectedShiftTypeは正しく更新する
+                                      _selectedShiftType = _getStringFromShiftType(foundSetting.shiftType);
+                                    } else {
+                                      // マッピング対象が見つからない場合は最初の設定を使用
+                                      _selectedShiftTimeSetting = activeSettings.first;
+                                      _selectedShiftType = _getStringFromShiftType(activeSettings.first.shiftType);
+                                    }
+                                  });
+                                });
+                              }
+                            }
+                            
+                            // 新規シフト作成時は自動選択しない（ユーザーに選択させる）
+                            
+                            return DropdownButtonFormField<ShiftTimeSetting>(
+                              decoration: const InputDecoration(
+                                labelText: 'シフトタイプ',
+                                border: OutlineInputBorder(),
+                              ),
+                              hint: const Text('シフトタイプを選択してください'),
+                              value: _selectedShiftTimeSetting,
+                              items: activeSettings.map((setting) {
+                                return DropdownMenuItem(
+                                  value: setting,
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      CircleAvatar(
+                                        radius: 8,
+                                        backgroundColor: setting.shiftType.color,
+                                        child: Icon(
+                                          setting.shiftType.icon,
+                                          size: 12,
+                                          color: Colors.white,
+                                        ),
+                                      ),
+                                      const SizedBox(width: 8),
+                                      Text('${setting.displayName} (${setting.timeRange})'),
+                                    ],
+                                  ),
+                                );
+                              }).toList(),
+                              selectedItemBuilder: (context) {
+                                return activeSettings.map((setting) {
+                                  return Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      CircleAvatar(
+                                        radius: 8,
+                                        backgroundColor: setting.shiftType.color,
+                                        child: Icon(
+                                          setting.shiftType.icon,
+                                          size: 12,
+                                          color: Colors.white,
+                                        ),
+                                      ),
+                                      const SizedBox(width: 8),
+                                      Text('${setting.displayName} (${setting.timeRange})'),
+                                    ],
+                                  );
+                                }).toList();
+                              },
+                              onChanged: (setting) {
+                                if (setting != null) {
+                                  setState(() {
+                                    _selectedShiftTimeSetting = setting;
+                                    _selectedShiftType = _getStringFromShiftType(setting.shiftType);
+                                    _updateTimeFromSetting(setting);
+                                  });
+                                }
+                              },
+                              validator: (value) {
+                                if (value == null) {
+                                  return 'シフトタイプを選択してください';
+                                }
+                                return null;
+                              },
+                            );
                           },
                         ),
                         
@@ -216,7 +339,7 @@ class _ShiftEditDialogState extends State<ShiftEditDialog> {
                   children: [
                     Expanded(
                       child: OutlinedButton(
-                        onPressed: () => Navigator.pop(context),
+                        onPressed: () => Navigator.pop(context, false),
                         child: const Text('キャンセル'),
                       ),
                     ),
@@ -237,21 +360,6 @@ class _ShiftEditDialogState extends State<ShiftEditDialog> {
     );
   }
 
-  void _updateTimesByShiftType(String shiftType) {
-    final timeRange = ShiftType.defaultTimeRanges[shiftType];
-    if (timeRange != null) {
-      setState(() {
-        _startTime = TimeOfDay(
-          hour: timeRange.startHour,
-          minute: timeRange.startMinute,
-        );
-        _endTime = TimeOfDay(
-          hour: timeRange.endHour,
-          minute: timeRange.endMinute,
-        );
-      });
-    }
-  }
 
   Future<void> _selectTime(BuildContext context, bool isStartTime) async {
     final TimeOfDay? picked = await showTimePicker(
@@ -307,26 +415,38 @@ class _ShiftEditDialogState extends State<ShiftEditDialog> {
       
       if (widget.existingShift != null) {
         // 編集モード
+        // ShiftTimeSettingから対応する旧ShiftType文字列を取得
+        String shiftTypeForSave = _selectedShiftType;
+        if (_selectedShiftTimeSetting != null) {
+          shiftTypeForSave = _getStringFromShiftType(_selectedShiftTimeSetting!.shiftType);
+        }
+        
         final updatedShift = Shift(
           id: widget.existingShift!.id,
           staffId: _selectedStaffId!,
           date: _selectedDate,
           startTime: startDateTime,
           endTime: endDateTime,
-          shiftType: _selectedShiftType,
+          shiftType: shiftTypeForSave,
           note: _note.isNotEmpty ? _note : null,
         );
         
         shiftProvider.updateShift(updatedShift);
       } else {
         // 追加モード
+        // ShiftTimeSettingから対応する旧ShiftType文字列を取得
+        String shiftTypeForSave = _selectedShiftType;
+        if (_selectedShiftTimeSetting != null) {
+          shiftTypeForSave = _getStringFromShiftType(_selectedShiftTimeSetting!.shiftType);
+        }
+        
         final newShift = Shift(
           id: DateTime.now().millisecondsSinceEpoch.toString(),
           staffId: _selectedStaffId!,
           date: _selectedDate,
           startTime: startDateTime,
           endTime: endDateTime,
-          shiftType: _selectedShiftType,
+          shiftType: shiftTypeForSave,
           note: _note.isNotEmpty ? _note : null,
         );
         

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'shift_time_settings_screen.dart';
 
 class SettingsScreen extends StatelessWidget {
   const SettingsScreen({super.key});
@@ -22,8 +23,10 @@ class SettingsScreen extends StatelessWidget {
           title: const Text('シフト時間設定'),
           subtitle: const Text('各シフトタイプの時間を設定'),
           onTap: () {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('準備中の機能です')),
+            Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (context) => const ShiftTimeSettingsScreen(),
+              ),
             );
           },
         ),
