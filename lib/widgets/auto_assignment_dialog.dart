@@ -38,10 +38,9 @@ class _AutoAssignmentDialogState extends State<AutoAssignmentDialog> {
     '終日': ShiftType.shift5,
   };
   
-  String _getStringFromShiftType(ShiftType shiftType) {
-    return _shiftTypeMapping.entries
-        .firstWhere((entry) => entry.value == shiftType, orElse: () => const MapEntry('日勤', ShiftType.shift2))
-        .key;
+  String _getStringFromShiftType(ShiftType shiftType, ShiftTimeSetting setting) {
+    // ShiftTimeSettingのdisplayNameを直接使用
+    return setting.displayName;
   }
 
   @override
@@ -60,7 +59,7 @@ class _AutoAssignmentDialogState extends State<AutoAssignmentDialog> {
     
     // アクティブな設定に対してコントローラーを作成
     for (var setting in activeSettings) {
-      final shiftTypeString = _getStringFromShiftType(setting.shiftType);
+      final shiftTypeString = _getStringFromShiftType(setting.shiftType, setting);
       _requirementControllers[shiftTypeString] = TextEditingController(text: '0');
     }
     
@@ -226,7 +225,7 @@ class _AutoAssignmentDialogState extends State<AutoAssignmentDialog> {
   }
 
   Widget _buildRequirementField(ShiftTimeSetting setting) {
-    final shiftTypeString = _getStringFromShiftType(setting.shiftType);
+    final shiftTypeString = _getStringFromShiftType(setting.shiftType, setting);
     
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4.0),
@@ -305,9 +304,11 @@ class _AutoAssignmentDialogState extends State<AutoAssignmentDialog> {
         throw Exception('少なくとも1つのシフトタイプに人数を設定してください');
       }
 
+      final shiftTimeProvider = Provider.of<ShiftTimeProvider>(context, listen: false);
       final service = ShiftAssignmentService(
         staffProvider: staffProvider,
         shiftProvider: shiftProvider,
+        shiftTimeProvider: shiftTimeProvider,
       );
 
       final existingShifts = shiftProvider.getShiftsForMonth(widget.selectedMonth.year, widget.selectedMonth.month);

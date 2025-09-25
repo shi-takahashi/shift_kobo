@@ -1,18 +1,80 @@
 import 'package:shift_kobo/models/shift.dart';
 import 'package:shift_kobo/models/staff.dart';
 import 'package:shift_kobo/models/shift_constraint.dart';
-import 'package:shift_kobo/models/shift_type.dart';
+import 'package:shift_kobo/models/shift_type.dart' as old_shift_type;
+import 'package:shift_kobo/models/shift_time_setting.dart';
 import 'package:shift_kobo/providers/staff_provider.dart';
 import 'package:shift_kobo/providers/shift_provider.dart';
+import 'package:shift_kobo/providers/shift_time_provider.dart';
 
 class ShiftAssignmentService {
   final StaffProvider staffProvider;
   final ShiftProvider shiftProvider;
+  final ShiftTimeProvider shiftTimeProvider;
 
   ShiftAssignmentService({
     required this.staffProvider,
     required this.shiftProvider,
+    required this.shiftTimeProvider,
   });
+  
+  // カスタム名から従来のShiftType名へのマッピング
+  static Map<String, String> get _customToOldMapping => {
+    '早番': old_shift_type.ShiftType.morning,
+    '日勤': old_shift_type.ShiftType.day,
+    '遅番': old_shift_type.ShiftType.evening,
+    '夜勤': old_shift_type.ShiftType.night,
+    '終日': old_shift_type.ShiftType.fullDay,
+  };
+  
+  String _mapCustomToOldShiftType(String customName) {
+    // まず直接マッピング
+    final oldName = _customToOldMapping[customName];
+    if (oldName != null) return oldName;
+    
+    // 見つからない場合はそのまま返す（新しいカスタム名の場合）
+    return customName;
+  }
+  
+  // カスタム名からShiftTimeSettingを取得し、時間範囲を生成
+  (DateTime, DateTime)? _getShiftTimeRange(String shiftTypeName, DateTime date) {
+    // ShiftTimeSettingから検索
+    final setting = shiftTimeProvider.settings
+        .where((s) => s.displayName == shiftTypeName)
+        .firstOrNull;
+    
+    if (setting != null) {
+      // ShiftTimeSettingから時間を取得
+      final startParts = setting.startTime.split(':');
+      final endParts = setting.endTime.split(':');
+      
+      final startTime = DateTime(
+        date.year, date.month, date.day,
+        int.parse(startParts[0]), int.parse(startParts[1]),
+      );
+      
+      var endTime = DateTime(
+        date.year, date.month, date.day,
+        int.parse(endParts[0]), int.parse(endParts[1]),
+      );
+      
+      // 終了時間が開始時間より早い場合は翌日
+      if (endTime.isBefore(startTime)) {
+        endTime = endTime.add(const Duration(days: 1));
+      }
+      
+      return (startTime, endTime);
+    }
+    
+    // 従来のShiftType.defaultTimeRangesからフォールバック
+    final oldName = _mapCustomToOldShiftType(shiftTypeName);
+    final timeRange = old_shift_type.ShiftType.defaultTimeRanges[oldName];
+    if (timeRange != null) {
+      return (timeRange.toStartDateTime(date), timeRange.toEndDateTime(date));
+    }
+    
+    return null;
+  }
 
   Future<List<Shift>> autoAssignShifts(
     DateTime startDate,
@@ -54,23 +116,25 @@ class ShiftAssignmentService {
                 ? (currentCount + 1) / assignedStaff.maxShiftsPerMonth * 100 
                 : 100;
             print('${currentDate.toString().split(' ')[0]} $shiftType: ${assignedStaff.name}を割り当て (${currentCount + 1}/${assignedStaff.maxShiftsPerMonth}回, ${fillRate.toStringAsFixed(1)}%)');
-            ShiftTimeRange? timeRange = ShiftType.defaultTimeRanges[shiftType];
+            final timeRange = _getShiftTimeRange(shiftType, currentDate);
             if (timeRange != null) {
               shiftIdCounter++;
               String uniqueId = 'auto_${DateTime.now().millisecondsSinceEpoch}_$shiftIdCounter';
               Shift newShift = Shift(
                 id: uniqueId,
                 date: currentDate,
-                startTime: timeRange.toStartDateTime(currentDate),
-                endTime: timeRange.toEndDateTime(currentDate),
+                startTime: timeRange.$1,  // startTime
+                endTime: timeRange.$2,    // endTime
                 staffId: assignedStaff.id,
                 shiftType: shiftType,
               );
-              print('シフト作成: ID=$uniqueId, 日付=${currentDate.toString().split(' ')[0]}, スタッフ=${assignedStaff.name}');
+              print('シフト作成: ID=$uniqueId, 日付=${currentDate.toString().split(' ')[0]}, スタッフ=${assignedStaff.name}, 時間=${timeRange.$1.hour.toString().padLeft(2, '0')}:${timeRange.$1.minute.toString().padLeft(2, '0')}-${timeRange.$2.hour.toString().padLeft(2, '0')}:${timeRange.$2.minute.toString().padLeft(2, '0')}');
               
               assignedShifts.add(newShift);
               staffShiftCounts[assignedStaff.id] = 
                   (staffShiftCounts[assignedStaff.id] ?? 0) + 1;
+            } else {
+              print('${currentDate.toString().split(' ')[0]} $shiftType: 時間設定が見つかりません');
             }
           } else {
             print('${currentDate.toString().split(' ')[0]} $shiftType: 割り当て可能なスタッフがいません');
@@ -102,7 +166,10 @@ class ShiftAssignmentService {
       }
 
       // シフトタイプ制約をチェック
-      if (staff.unavailableShiftTypes.contains(shiftType)) {
+      // カスタム名と従来名の両方でチェック
+      final oldShiftTypeName = _mapCustomToOldShiftType(shiftType);
+      if (staff.unavailableShiftTypes.contains(shiftType) || 
+          staff.unavailableShiftTypes.contains(oldShiftTypeName)) {
         print('${staff.name}は$shiftType不可のため除外');
         return false;
       }
@@ -232,28 +299,30 @@ class ShiftAssignmentService {
   }
 
   int calculateOptimalStaffCount(String shiftType, DateTime date) {
+    final oldShiftType = _mapCustomToOldShiftType(shiftType);
+    
     if (date.weekday == DateTime.saturday || date.weekday == DateTime.sunday) {
-      switch (shiftType) {
-        case ShiftType.morning:
+      switch (oldShiftType) {
+        case old_shift_type.ShiftType.morning:
           return 3;
-        case ShiftType.day:
+        case old_shift_type.ShiftType.day:
           return 4;
-        case ShiftType.evening:
+        case old_shift_type.ShiftType.evening:
           return 3;
-        case ShiftType.night:
+        case old_shift_type.ShiftType.night:
           return 2;
         default:
           return 2;
       }
     } else {
-      switch (shiftType) {
-        case ShiftType.morning:
+      switch (oldShiftType) {
+        case old_shift_type.ShiftType.morning:
           return 2;
-        case ShiftType.day:
+        case old_shift_type.ShiftType.day:
           return 3;
-        case ShiftType.evening:
+        case old_shift_type.ShiftType.evening:
           return 2;
-        case ShiftType.night:
+        case old_shift_type.ShiftType.night:
           return 2;
         default:
           return 2;
@@ -320,11 +389,11 @@ class ShiftAssignmentService {
         shift.date.day == nextDay.day).firstOrNull;
     
     // 現在割り当てようとしているシフトの時間を取得
-    ShiftTimeRange? currentTimeRange = ShiftType.defaultTimeRanges[shiftType];
+    final currentTimeRange = _getShiftTimeRange(shiftType, date);
     if (currentTimeRange == null) return true;
     
-    DateTime currentStart = currentTimeRange.toStartDateTime(date);
-    DateTime currentEnd = currentTimeRange.toEndDateTime(date);
+    DateTime currentStart = currentTimeRange.$1;
+    DateTime currentEnd = currentTimeRange.$2;
     
     // 前日シフトとのインターバルチェック
     if (previousShift != null) {

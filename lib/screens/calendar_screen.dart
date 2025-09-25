@@ -3,8 +3,10 @@ import 'package:table_calendar/table_calendar.dart';
 import 'package:provider/provider.dart';
 import '../providers/shift_provider.dart';
 import '../providers/staff_provider.dart';
+import '../providers/shift_time_provider.dart';
 import '../models/shift.dart';
-import '../models/shift_type.dart';
+import '../models/shift_type.dart' as old_shift_type;
+import '../models/shift_time_setting.dart';
 import '../widgets/shift_edit_dialog.dart';
 import '../utils/japanese_calendar_utils.dart';
 import '../widgets/auto_assignment_dialog.dart';
@@ -35,6 +37,23 @@ class _CalendarScreenState extends State<CalendarScreen> {
     _selectedShifts.dispose();
     super.dispose();
   }
+  
+  /// シフトタイプ名から色を取得（新しいShiftTimeSettingに対応）
+  Color _getShiftTypeColor(String shiftTypeName) {
+    final shiftTimeProvider = context.read<ShiftTimeProvider>();
+    
+    // まず新しいShiftTimeSettingから検索
+    final setting = shiftTimeProvider.settings
+        .where((s) => s.displayName == shiftTypeName)
+        .firstOrNull;
+    
+    if (setting != null) {
+      return setting.shiftType.color;
+    }
+    
+    // 見つからない場合は従来のShiftType.getColor()を使用
+    return old_shift_type.ShiftType.getColor(shiftTypeName);
+  }
 
   List<Shift> _getShiftsForDay(DateTime day) {
     final shiftProvider = context.read<ShiftProvider>();
@@ -43,12 +62,12 @@ class _CalendarScreenState extends State<CalendarScreen> {
     // ソート: 1.シフトタイプ順 2.スタッフID順
     shifts.sort((a, b) {
       // シフトタイプの順序を定義
-      int aTypeIndex = ShiftType.all.indexOf(a.shiftType);
-      int bTypeIndex = ShiftType.all.indexOf(b.shiftType);
+      int aTypeIndex = old_shift_type.ShiftType.all.indexOf(a.shiftType);
+      int bTypeIndex = old_shift_type.ShiftType.all.indexOf(b.shiftType);
       
       // シフトタイプが見つからない場合は最後に配置
-      if (aTypeIndex == -1) aTypeIndex = ShiftType.all.length;
-      if (bTypeIndex == -1) bTypeIndex = ShiftType.all.length;
+      if (aTypeIndex == -1) aTypeIndex = old_shift_type.ShiftType.all.length;
+      if (bTypeIndex == -1) bTypeIndex = old_shift_type.ShiftType.all.length;
       
       // まずシフトタイプで比較
       int typeComparison = aTypeIndex.compareTo(bTypeIndex);
@@ -65,8 +84,8 @@ class _CalendarScreenState extends State<CalendarScreen> {
   List<Shift> _getSortedShiftsForMarker(List<Shift> shifts) {
     final sortedShifts = List<Shift>.from(shifts);
     sortedShifts.sort((a, b) {
-      final aIndex = ShiftType.getTimeOrderIndex(a.shiftType);
-      final bIndex = ShiftType.getTimeOrderIndex(b.shiftType);
+      final aIndex = old_shift_type.ShiftType.getTimeOrderIndex(a.shiftType);
+      final bIndex = old_shift_type.ShiftType.getTimeOrderIndex(b.shiftType);
       return aIndex.compareTo(bIndex);
     });
     return sortedShifts;
@@ -374,6 +393,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
                                 itemBuilder: (context, index) {
                                   return _ShiftTile(
                                     shift: value[index],
+                                    shiftColor: _getShiftTypeColor(value[index].shiftType),
                                     onEdit: (shift) => _showEditShiftDialog(context, shift),
                                     onDelete: (shift) => _showDeleteConfirmDialog(context, shift),
                                     onQuickAction: (shift) => _showQuickActionDialog(context, shift),
@@ -534,7 +554,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
           width: 16,
           height: 16,
           decoration: BoxDecoration(
-            color: ShiftType.getColor(shifts.first.shiftType),
+            color: _getShiftTypeColor(shifts.first.shiftType),
             shape: BoxShape.circle,
           ),
         ),
@@ -572,7 +592,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
                   height: 6,
                   margin: const EdgeInsets.symmetric(horizontal: 0.3),
                   decoration: BoxDecoration(
-                    color: ShiftType.getColor(shift.shiftType),
+                    color: _getShiftTypeColor(shift.shiftType),
                     shape: BoxShape.circle,
                   ),
                 );
@@ -597,12 +617,14 @@ class _CalendarScreenState extends State<CalendarScreen> {
 
 class _ShiftTile extends StatelessWidget {
   final Shift shift;
+  final Color shiftColor;
   final Function(Shift) onEdit;
   final Function(Shift)? onDelete;
   final Function(Shift)? onQuickAction;
 
   const _ShiftTile({
-    required this.shift, 
+    required this.shift,
+    required this.shiftColor,
     required this.onEdit,
     this.onDelete,
     this.onQuickAction,
@@ -619,7 +641,7 @@ class _ShiftTile extends StatelessWidget {
         decoration: BoxDecoration(
           border: Border(
             left: BorderSide(
-              color: ShiftType.getColor(shift.shiftType),
+              color: shiftColor,
               width: 4,
             ),
           ),
@@ -633,11 +655,11 @@ class _ShiftTile extends StatelessWidget {
           dense: true,
           leading: CircleAvatar(
             radius: 18,
-            backgroundColor: ShiftType.getColor(shift.shiftType).withOpacity(0.2),
+            backgroundColor: shiftColor.withOpacity(0.2),
             child: Text(
               staff?.name.substring(0, 1) ?? '?',
               style: TextStyle(
-                color: ShiftType.getColor(shift.shiftType),
+                color: shiftColor,
                 fontWeight: FontWeight.bold,
                 fontSize: 14,
               ),
@@ -652,13 +674,13 @@ class _ShiftTile extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
                 decoration: BoxDecoration(
-                  color: ShiftType.getColor(shift.shiftType).withOpacity(0.1),
+                  color: shiftColor.withOpacity(0.1),
                   borderRadius: BorderRadius.circular(10),
                 ),
                 child: Text(
                   shift.shiftType,
                   style: TextStyle(
-                    color: ShiftType.getColor(shift.shiftType),
+                    color: shiftColor,
                     fontWeight: FontWeight.w500,
                     fontSize: 11,
                   ),

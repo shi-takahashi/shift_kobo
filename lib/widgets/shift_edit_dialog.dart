@@ -173,35 +173,43 @@ class _ShiftEditDialogState extends State<ShiftEditDialog> {
                               );
                             }
                             
-                            // 既存シフトの場合、マッピングを実行
+                            // 既存シフトの場合、カスタム名で直接マッチング
                             if (widget.existingShift != null && _selectedShiftTimeSetting == null) {
                               final shift = widget.existingShift!;
-                              final mappedShiftType = _shiftTypeMapping[shift.shiftType];
-                              if (mappedShiftType != null) {
-                                ShiftTimeSetting? foundSetting;
-                                try {
-                                  foundSetting = activeSettings
-                                      .where((s) => s.shiftType == mappedShiftType)
-                                      .first;
-                                } catch (e) {
-                                  foundSetting = null;
+                              
+                              // まずカスタム名で直接検索
+                              ShiftTimeSetting? foundSetting;
+                              try {
+                                foundSetting = activeSettings
+                                    .where((s) => s.displayName == shift.shiftType)
+                                    .first;
+                              } catch (e) {
+                                // カスタム名で見つからない場合は、従来のマッピングを試す
+                                final mappedShiftType = _shiftTypeMapping[shift.shiftType];
+                                if (mappedShiftType != null) {
+                                  try {
+                                    foundSetting = activeSettings
+                                        .where((s) => s.shiftType == mappedShiftType)
+                                        .first;
+                                  } catch (e) {
+                                    foundSetting = null;
+                                  }
                                 }
-                                
-                                WidgetsBinding.instance.addPostFrameCallback((_) {
-                                  setState(() {
-                                    if (foundSetting != null) {
-                                      _selectedShiftTimeSetting = foundSetting;
-                                      // 既存シフト編集時は実際の保存時間を維持（設定時間で上書きしない）
-                                      // ただし、_selectedShiftTypeは正しく更新する
-                                      _selectedShiftType = _getStringFromShiftType(foundSetting.shiftType);
-                                    } else {
-                                      // マッピング対象が見つからない場合は最初の設定を使用
-                                      _selectedShiftTimeSetting = activeSettings.first;
-                                      _selectedShiftType = _getStringFromShiftType(activeSettings.first.shiftType);
-                                    }
-                                  });
-                                });
                               }
+                              
+                              WidgetsBinding.instance.addPostFrameCallback((_) {
+                                setState(() {
+                                  if (foundSetting != null) {
+                                    _selectedShiftTimeSetting = foundSetting;
+                                    // 既存シフト編集時は実際の保存時間を維持（設定時間で上書きしない）
+                                    _selectedShiftType = foundSetting.displayName;
+                                  } else {
+                                    // 見つからない場合は最初の設定を使用
+                                    _selectedShiftTimeSetting = activeSettings.first;
+                                    _selectedShiftType = activeSettings.first.displayName;
+                                  }
+                                });
+                              });
                             }
                             
                             // 新規シフト作成時は自動選択しない（ユーザーに選択させる）
@@ -258,7 +266,7 @@ class _ShiftEditDialogState extends State<ShiftEditDialog> {
                                 if (setting != null) {
                                   setState(() {
                                     _selectedShiftTimeSetting = setting;
-                                    _selectedShiftType = _getStringFromShiftType(setting.shiftType);
+                                    _selectedShiftType = setting.displayName;
                                     _updateTimeFromSetting(setting);
                                   });
                                 }
@@ -415,10 +423,10 @@ class _ShiftEditDialogState extends State<ShiftEditDialog> {
       
       if (widget.existingShift != null) {
         // 編集モード
-        // ShiftTimeSettingから対応する旧ShiftType文字列を取得
+        // ShiftTimeSettingのカスタム名を直接使用
         String shiftTypeForSave = _selectedShiftType;
         if (_selectedShiftTimeSetting != null) {
-          shiftTypeForSave = _getStringFromShiftType(_selectedShiftTimeSetting!.shiftType);
+          shiftTypeForSave = _selectedShiftTimeSetting!.displayName;
         }
         
         final updatedShift = Shift(
@@ -434,10 +442,10 @@ class _ShiftEditDialogState extends State<ShiftEditDialog> {
         shiftProvider.updateShift(updatedShift);
       } else {
         // 追加モード
-        // ShiftTimeSettingから対応する旧ShiftType文字列を取得
+        // ShiftTimeSettingのカスタム名を直接使用
         String shiftTypeForSave = _selectedShiftType;
         if (_selectedShiftTimeSetting != null) {
-          shiftTypeForSave = _getStringFromShiftType(_selectedShiftTimeSetting!.shiftType);
+          shiftTypeForSave = _selectedShiftTimeSetting!.displayName;
         }
         
         final newShift = Shift(
