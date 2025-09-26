@@ -120,7 +120,7 @@ MVP（Minimum Viable Product）として最小限の機能を実装し、リリ�
 4. `Save` をクリック
 
 ### 3. 公開URL確認
-- 設定後、`https://takahashi-sh.github.io/shift-kobo/privacy-policy.html` でアクセス可能
+- 設定後、`https://shi-takahashi.github.io/shift_kobo/privacy-policy.html` でアクセス可能
 - アプリ内の「詳細版を見る」ボタンから自動的にこのURLが開かれます
 
 ### 4. カスタムドメイン（任意）

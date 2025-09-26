@@ -9,7 +9,7 @@ class PrivacyPolicyScreen extends StatefulWidget {
 }
 
 class _PrivacyPolicyScreenState extends State<PrivacyPolicyScreen> {
-  static const String privacyPolicyUrl = 'https://takahashi-sh.github.io/shift-kobo/privacy-policy.html';
+  static const String privacyPolicyUrl = 'https://shi-takahashi.github.io/shift_kobo/privacy-policy.html';
 
   @override
   Widget build(BuildContext context) {
@@ -157,8 +157,7 @@ class _PrivacyPolicyScreenState extends State<PrivacyPolicyScreen> {
                   ),
                   const SizedBox(height: 8),
                   const Text(
-                    'Email: privacy@shift-kobo.app\n'
-                    'GitHub: https://github.com/takahashi-sh/shift-kobo',
+                    'Email: fdks487351@yahoo.co.jp',
                     style: TextStyle(
                       fontSize: 14,
                       fontFamily: 'monospace',
