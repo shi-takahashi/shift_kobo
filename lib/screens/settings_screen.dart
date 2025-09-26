@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import 'shift_time_settings_screen.dart';
 import 'monthly_shift_settings_screen.dart';
+import 'privacy_policy_screen.dart';
 import '../services/backup_service.dart';
 
 class SettingsScreen extends StatefulWidget {
@@ -12,6 +14,22 @@ class SettingsScreen extends StatefulWidget {
 
 class _SettingsScreenState extends State<SettingsScreen> {
   bool _isRestoring = false;
+  PackageInfo? _packageInfo;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadPackageInfo();
+  }
+
+  Future<void> _loadPackageInfo() async {
+    final packageInfo = await PackageInfo.fromPlatform();
+    if (mounted) {
+      setState(() {
+        _packageInfo = packageInfo;
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -89,22 +107,44 @@ class _SettingsScreenState extends State<SettingsScreen> {
         ListTile(
           leading: const Icon(Icons.info),
           title: const Text('アプリについて'),
-          subtitle: const Text('バージョン 1.0.0'),
+          subtitle: Text(_packageInfo != null 
+            ? 'バージョン ${_packageInfo!.version}+${_packageInfo!.buildNumber}'
+            : 'バージョン 情報取得中...'
+          ),
           onTap: () {
             showAboutDialog(
               context: context,
               applicationName: 'シフト工房',
-              applicationVersion: '1.0.0',
-              applicationLegalese: '© 2024 Shift Kobo',
+              applicationVersion: _packageInfo != null 
+                ? '${_packageInfo!.version}+${_packageInfo!.buildNumber}'
+                : '1.0.0',
+              applicationLegalese: '© 2025 Shift Kobo\n\nシフト表自動作成アプリ\nスタッフの勤務スケジュールを効率的に管理',
+              children: [
+                const Padding(
+                  padding: EdgeInsets.only(top: 16),
+                  child: Text(
+                    '主な機能:\n'
+                    '• シフト自動割り当て\n'
+                    '• スタッフ管理\n'
+                    '• カレンダー表示\n'
+                    '• データバックアップ・復元\n'
+                    '• 設定カスタマイズ',
+                    style: TextStyle(fontSize: 14),
+                  ),
+                ),
+              ],
             );
           },
         ),
         ListTile(
           leading: const Icon(Icons.privacy_tip),
           title: const Text('プライバシーポリシー'),
+          subtitle: const Text('個人情報保護方針'),
           onTap: () {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('準備中の機能です')),
+            Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (context) => const PrivacyPolicyScreen(),
+              ),
             );
           },
         ),

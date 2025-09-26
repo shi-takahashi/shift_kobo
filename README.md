@@ -104,6 +104,30 @@ MVP（Minimum Viable Product）として最小限の機能を実装し、リリ�
 
 ---
 
+## GitHub Pages 設定手順
+
+プライバシーポリシーのWeb版を公開するため、GitHub Pagesを設定してください：
+
+### 1. GitHubリポジトリ設定
+1. GitHubのリポジトリページにアクセス
+2. `Settings` タブをクリック
+3. 左サイドバーの `Pages` をクリック
+
+### 2. GitHub Pages有効化
+1. `Source` で `Deploy from a branch` を選択
+2. `Branch` で `main` を選択
+3. フォルダーは `/docs` を選択
+4. `Save` をクリック
+
+### 3. 公開URL確認
+- 設定後、`https://takahashi-sh.github.io/shift-kobo/privacy-policy.html` でアクセス可能
+- アプリ内の「詳細版を見る」ボタンから自動的にこのURLが開かれます
+
+### 4. カスタムドメイン（任意）
+- 独自ドメインを使用する場合は、`Custom domain` で設定可能
+
+---
+
 ## 今後の展開（MVPリリース後）
 - ユーザーの利用状況や要望に応じて改善
 - 将来的には「クラウド同期」「シフト希望入力フォーム」「通知機能」など拡張も検討
