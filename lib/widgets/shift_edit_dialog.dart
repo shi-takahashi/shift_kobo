@@ -404,6 +404,7 @@ class _ShiftEditDialogState extends State<ShiftEditDialog> {
   void _saveShift() {
     if (_formKey.currentState!.validate()) {
       final shiftProvider = context.read<ShiftProvider>();
+      final staffProvider = context.read<StaffProvider>();
       
       final startDateTime = DateTime(
         _selectedDate.year,
@@ -420,6 +421,21 @@ class _ShiftEditDialogState extends State<ShiftEditDialog> {
         _endTime.hour,
         _endTime.minute,
       );
+      
+      // 時間重複チェック
+      final conflictingShift = _checkTimeConflict(
+        staffId: _selectedStaffId!,
+        startTime: startDateTime,
+        endTime: endDateTime,
+        excludeShiftId: widget.existingShift?.id,
+        shiftProvider: shiftProvider,
+      );
+      
+      if (conflictingShift != null) {
+        final staff = staffProvider.staffList.firstWhere((s) => s.id == _selectedStaffId!);
+        _showConflictDialog(conflictingShift, staff.name);
+        return;
+      }
       
       if (widget.existingShift != null) {
         // 編集モード
@@ -463,5 +479,111 @@ class _ShiftEditDialogState extends State<ShiftEditDialog> {
       
       Navigator.pop(context, true);
     }
+  }
+
+  /// 時間重複チェック
+  Shift? _checkTimeConflict({
+    required String staffId,
+    required DateTime startTime,
+    required DateTime endTime,
+    String? excludeShiftId,
+    required ShiftProvider shiftProvider,
+  }) {
+    final staffShifts = shiftProvider.getShiftsForStaffAndDate(staffId, startTime);
+    
+    for (final shift in staffShifts) {
+      // 編集中のシフト自身は除外
+      if (excludeShiftId != null && shift.id == excludeShiftId) {
+        continue;
+      }
+      
+      // 時間重複をチェック
+      if (_isTimeOverlapping(
+        startTime, endTime,
+        shift.startTime, shift.endTime,
+      )) {
+        return shift;
+      }
+    }
+    return null;
+  }
+
+  /// 2つの時間範囲が重複しているかチェック
+  bool _isTimeOverlapping(
+    DateTime start1, DateTime end1,
+    DateTime start2, DateTime end2,
+  ) {
+    // 日またぎを考慮した比較
+    // 開始時刻が終了時刻より後の場合は翌日扱い
+    if (end1.isBefore(start1)) {
+      end1 = end1.add(const Duration(days: 1));
+    }
+    if (end2.isBefore(start2)) {
+      end2 = end2.add(const Duration(days: 1));
+    }
+    
+    // 重複判定: 一方の終了時刻が他方の開始時刻より後で、
+    // かつ一方の開始時刻が他方の終了時刻より前
+    return start1.isBefore(end2) && start2.isBefore(end1);
+  }
+
+  /// 時間重複を警告するダイアログ
+  void _showConflictDialog(Shift conflictingShift, String staffName) {
+    final conflictStart = TimeOfDay.fromDateTime(conflictingShift.startTime);
+    final conflictEnd = TimeOfDay.fromDateTime(conflictingShift.endTime);
+    
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Row(
+          children: [
+            Icon(Icons.warning, color: Colors.orange),
+            SizedBox(width: 8),
+            Text('時間重複エラー'),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('$staffName さんは、同じ日の以下の時間帯に既にシフトが入っています：'),
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.red.shade50,
+                border: Border.all(color: Colors.red.shade200),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    '既存シフト: ${conflictingShift.shiftType}',
+                    style: const TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    '時間: ${conflictStart.format(context)} - ${conflictEnd.format(context)}',
+                    style: TextStyle(
+                      color: Colors.red.shade700,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 12),
+            const Text('同じ人を同時刻に複数のシフトに配置することはできません。'),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('確認'),
+          ),
+        ],
+      ),
+    );
   }
 }

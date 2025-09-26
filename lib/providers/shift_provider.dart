@@ -122,6 +122,16 @@ class ShiftProvider extends ChangeNotifier {
     return shiftMap;
   }
 
+  /// 指定したスタッフの指定日のシフト一覧を取得
+  List<Shift> getShiftsForStaffAndDate(String staffId, DateTime date) {
+    return _shifts.where((shift) {
+      return shift.staffId == staffId &&
+             shift.date.year == date.year &&
+             shift.date.month == date.month &&
+             shift.date.day == date.day;
+    }).toList();
+  }
+
   Future<void> autoGenerateShifts({
     required DateTime startDate,
     required DateTime endDate,
