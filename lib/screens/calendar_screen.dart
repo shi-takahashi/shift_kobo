@@ -59,21 +59,17 @@ class _CalendarScreenState extends State<CalendarScreen> {
     final shiftProvider = context.read<ShiftProvider>();
     final shifts = shiftProvider.getShiftsForDate(day);
     
-    // ソート: 1.シフトタイプ順 2.スタッフID順
+    // ソート: 1.開始時間順 2.終了時間順 3.スタッフID順
     shifts.sort((a, b) {
-      // シフトタイプの順序を定義
-      int aTypeIndex = old_shift_type.ShiftType.all.indexOf(a.shiftType);
-      int bTypeIndex = old_shift_type.ShiftType.all.indexOf(b.shiftType);
+      // まず開始時間で比較
+      int startComparison = a.startTime.compareTo(b.startTime);
+      if (startComparison != 0) return startComparison;
       
-      // シフトタイプが見つからない場合は最後に配置
-      if (aTypeIndex == -1) aTypeIndex = old_shift_type.ShiftType.all.length;
-      if (bTypeIndex == -1) bTypeIndex = old_shift_type.ShiftType.all.length;
+      // 開始時間が同じ場合は終了時間で比較
+      int endComparison = a.endTime.compareTo(b.endTime);
+      if (endComparison != 0) return endComparison;
       
-      // まずシフトタイプで比較
-      int typeComparison = aTypeIndex.compareTo(bTypeIndex);
-      if (typeComparison != 0) return typeComparison;
-      
-      // シフトタイプが同じ場合はスタッフIDで比較
+      // 開始時間・終了時間が同じ場合はスタッフID順（安定ソート）
       return a.staffId.compareTo(b.staffId);
     });
     
@@ -84,9 +80,16 @@ class _CalendarScreenState extends State<CalendarScreen> {
   List<Shift> _getSortedShiftsForMarker(List<Shift> shifts) {
     final sortedShifts = List<Shift>.from(shifts);
     sortedShifts.sort((a, b) {
-      final aIndex = old_shift_type.ShiftType.getTimeOrderIndex(a.shiftType);
-      final bIndex = old_shift_type.ShiftType.getTimeOrderIndex(b.shiftType);
-      return aIndex.compareTo(bIndex);
+      // まず開始時間で比較
+      int startComparison = a.startTime.compareTo(b.startTime);
+      if (startComparison != 0) return startComparison;
+      
+      // 開始時間が同じ場合は終了時間で比較
+      int endComparison = a.endTime.compareTo(b.endTime);
+      if (endComparison != 0) return endComparison;
+      
+      // 開始時間・終了時間が同じ場合はスタッフID順
+      return a.staffId.compareTo(b.staffId);
     });
     return sortedShifts;
   }
