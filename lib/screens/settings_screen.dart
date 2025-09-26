@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'shift_time_settings_screen.dart';
+import 'monthly_shift_settings_screen.dart';
 
 class SettingsScreen extends StatelessWidget {
   const SettingsScreen({super.key});
@@ -33,10 +34,12 @@ class SettingsScreen extends StatelessWidget {
         ListTile(
           leading: const Icon(Icons.calendar_today),
           title: const Text('月間シフト設定'),
-          subtitle: const Text('1日あたりの必要人数を設定'),
+          subtitle: const Text('各シフト時間の必要人数を設定'),
           onTap: () {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('準備中の機能です')),
+            Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (context) => const MonthlyShiftSettingsScreen(),
+              ),
             );
           },
         ),
