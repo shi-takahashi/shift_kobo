@@ -41,7 +41,7 @@ android {
             // Signing with the debug keys for now, so `flutter run --release` works.
             signingConfig = signingConfigs.debug
             manifestPlaceholders = [
-                admobAppId: "ca-app-pub-3940256099942544~3347511713" // 現在はテスト用AppID（後で本番用に変更）
+                admobAppId: "ca-app-pub-4630894580841955~1720376086" // 本番用AppID
             ]
         }
     }

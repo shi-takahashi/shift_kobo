@@ -1,24 +1,25 @@
 import 'dart:io';
+
 import 'package:flutter/foundation.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
 
 class AdService {
   static const bool _isDebug = kDebugMode;
-  
+
   /// スクリーンショット撮影時など、広告を非表示にするためのフラグ
-  /// 
+  ///
   /// 使用方法:
   /// - スクリーンショット撮影時: false に設定してビルド
   /// - 本番リリース時: 必ず true に設定してビルド
   /// - ユーザーが自由に変更できないよう、設定画面には表示しない
-  /// 
+  ///
   /// true: 広告を表示、false: 広告を非表示
   static const bool showBannerAds = true;
-  
+
   // インタースティシャル広告のインスタンス保持
   static InterstitialAd? _interstitialAd;
   static bool _isLoadingInterstitial = false;
-  
+
   // テスト用広告ID（デバッグビルド時）
   static const String _testBannerAdUnitIdAndroid = 'ca-app-pub-3940256099942544/6300978111';
   static const String _testBannerAdUnitIdIOS = 'ca-app-pub-3940256099942544/2934735716';
@@ -26,9 +27,9 @@ class AdService {
   static const String _testInterstitialAdUnitIdIOS = 'ca-app-pub-3940256099942544/4411468910';
 
   // 本番用広告ID（リリースビルド時）- 現在はテスト用IDを使用
-  static const String _productionBannerAdUnitIdAndroid = 'ca-app-pub-3940256099942544/6300978111';
+  static const String _productionBannerAdUnitIdAndroid = 'ca-app-pub-4630894580841955/1697885857';
   static const String _productionBannerAdUnitIdIOS = 'ca-app-pub-3940256099942544/2934735716';
-  static const String _productionInterstitialAdUnitIdAndroid = 'ca-app-pub-3940256099942544/1033173712';
+  static const String _productionInterstitialAdUnitIdAndroid = 'ca-app-pub-4630894580841955/1657345646';
   static const String _productionInterstitialAdUnitIdIOS = 'ca-app-pub-3940256099942544/4411468910';
 
   /// 現在の環境に応じたバナー広告IDを取得
@@ -60,7 +61,7 @@ class AdService {
       );
       await MobileAds.instance.updateRequestConfiguration(requestConfiguration);
     }
-    
+
     // インタースティシャル広告を事前読み込み
     await _preloadInterstitialAd();
   }
@@ -183,7 +184,7 @@ class AdService {
 
     _interstitialAd!.show();
   }
-  
+
   /// 【旧メソッド：互換性のため残す】インタースティシャル広告を読み込み・表示
   @Deprecated('Use showInterstitialAd() instead. This method will be removed in future versions.')
   static Future<void> loadAndShowInterstitialAd({
