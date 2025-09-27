@@ -11,6 +11,7 @@ import '../widgets/shift_edit_dialog.dart';
 import '../utils/japanese_calendar_utils.dart';
 import '../widgets/auto_assignment_dialog.dart';
 import '../widgets/shift_quick_action_dialog.dart';
+import 'export_screen.dart';
 
 class CalendarScreen extends StatefulWidget {
   const CalendarScreen({super.key});
@@ -110,6 +111,53 @@ class _CalendarScreenState extends State<CalendarScreen> {
             backgroundColor: Colors.white,
             scrolledUnderElevation: 0, // スクロール時の色変化を防ぐ
             actions: [
+              Container(
+                decoration: BoxDecoration(
+                  color: Colors.green.shade600,
+                  borderRadius: BorderRadius.circular(8.0),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.green.shade200,
+                      blurRadius: 3,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: InkWell(
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const ExportScreen(),
+                      ),
+                    );
+                  },
+                  borderRadius: BorderRadius.circular(8.0),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(
+                          Icons.save_alt,
+                          size: 16,
+                          color: Colors.white,
+                        ),
+                        const SizedBox(width: 4),
+                        const Text(
+                          '保存・共有',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
               Container(
                 decoration: BoxDecoration(
                   color: Colors.blue.shade600,

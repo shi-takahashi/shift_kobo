@@ -50,7 +50,6 @@ dependencies:
   hive_flutter: ^1.1.0
   
   # ファイル出力・共有
-  pdf: ^3.11.1
   excel: ^4.0.6
   screenshot: ^3.0.0
   share_plus: ^10.0.3
