@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:package_info_plus/package_info_plus.dart';
-import 'shift_time_settings_screen.dart';
+
+import '../services/backup_service.dart';
 import 'monthly_shift_settings_screen.dart';
 import 'privacy_policy_screen.dart';
-import '../services/backup_service.dart';
+import 'shift_time_settings_screen.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -107,17 +108,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
         ListTile(
           leading: const Icon(Icons.info),
           title: const Text('アプリについて'),
-          subtitle: Text(_packageInfo != null 
-            ? 'バージョン ${_packageInfo!.version}+${_packageInfo!.buildNumber}'
-            : 'バージョン 情報取得中...'
-          ),
+          subtitle: Text(_packageInfo != null ? 'バージョン ${_packageInfo!.version}+${_packageInfo!.buildNumber}' : 'バージョン 情報取得中...'),
           onTap: () {
             showAboutDialog(
               context: context,
               applicationName: 'シフト工房',
-              applicationVersion: _packageInfo != null 
-                ? '${_packageInfo!.version}+${_packageInfo!.buildNumber}'
-                : '1.0.0',
+              applicationVersion: _packageInfo != null ? '${_packageInfo!.version}+${_packageInfo!.buildNumber}' : '1.0.0',
               applicationLegalese: '© 2025 Shift Kobo\n\nシフト表自動作成アプリ\nスタッフの勤務スケジュールを効率的に管理',
               children: [
                 const Padding(
@@ -169,10 +165,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
             Text('• シフト時間設定'),
             Text('• 月間シフト設定'),
             SizedBox(height: 16),
-            Text(
-              'バックアップファイルは他のアプリと共有できます。',
-              style: TextStyle(fontSize: 12, color: Colors.grey),
-            ),
           ],
         ),
         actions: [
@@ -243,7 +235,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     // Navigatorの参照を事前に保存
     final navigator = Navigator.of(context);
     final scaffoldMessenger = ScaffoldMessenger.of(context);
-    
+
     try {
       // ローディング表示
       showDialog(
@@ -265,7 +257,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
       // ローディングを閉じる（保存した参照を使用）
       navigator.pop();
-      
+
       if (result != null) {
         // 成功メッセージ
         scaffoldMessenger.showSnackBar(
@@ -283,7 +275,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       } catch (navError) {
         // ローディングダイアログが既に閉じられている場合は無視
       }
-      
+
       // エラーメッセージ
       scaffoldMessenger.showSnackBar(
         SnackBar(
@@ -296,17 +288,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   Future<void> _performRestore() async {
     if (!mounted) return;
-    
+
     setState(() {
       _isRestoring = true;
     });
 
     String? selectedFilePath;
-    
+
     try {
       // ファイル選択
       selectedFilePath = await BackupService.pickBackupFile();
-      
+
       if (selectedFilePath == null || !mounted) {
         setState(() {
           _isRestoring = false;
@@ -354,7 +346,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
       // ローディングを閉じる
       Navigator.of(context).pop();
-      
+
       // 成功メッセージと再起動案内
       await showDialog(
         context: context,
@@ -372,10 +364,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ],
         ),
       );
-      
     } catch (restoreError) {
       print('Restore error: $restoreError');
-      
+
       if (mounted) {
         // ローディングを閉じる
         try {
@@ -383,7 +374,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         } catch (navError) {
           print('Navigator error during restore failure: $navError');
         }
-        
+
         // エラーメッセージ
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
