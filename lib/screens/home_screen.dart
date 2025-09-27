@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
-// import 'package:google_mobile_ads/google_mobile_ads.dart'; // 一時的にコメントアウト
 import 'calendar_screen.dart';
 import 'staff_list_screen.dart';
 import 'settings_screen.dart';
 import '../widgets/auto_assignment_dialog.dart';
+import '../widgets/banner_ad_widget.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -14,10 +14,6 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   int _selectedIndex = 0;
-  
-  // 一時的にコメントアウト
-  // late BannerAd _bannerAd;
-  // bool _isBannerAdReady = false;
 
   final List<Widget> _screens = [
     const CalendarScreen(),
@@ -31,37 +27,6 @@ class _HomeScreenState extends State<HomeScreen> {
     '設定',
   ];
 
-  @override
-  void initState() {
-    super.initState();
-    // _loadBannerAd(); // 一時的にコメントアウト
-  }
-
-  // void _loadBannerAd() {
-  //   _bannerAd = BannerAd(
-  //     adUnitId: 'ca-app-pub-3940256099942544/6300978111',
-  //     request: const AdRequest(),
-  //     size: AdSize.banner,
-  //     listener: BannerAdListener(
-  //       onAdLoaded: (_) {
-  //         setState(() {
-  //           _isBannerAdReady = true;
-  //         });
-  //       },
-  //       onAdFailedToLoad: (ad, err) {
-  //         _isBannerAdReady = false;
-  //         ad.dispose();
-  //       },
-  //     ),
-  //   );
-  //   _bannerAd.load();
-  // }
-
-  @override
-  void dispose() {
-    // _bannerAd.dispose(); // 一時的にコメントアウト
-    super.dispose();
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -84,21 +49,8 @@ class _HomeScreenState extends State<HomeScreen> {
           Expanded(
             child: _screens[_selectedIndex],
           ),
-          // バナー広告領域を確保（現在は薄いグレーで表示）
-          Container(
-            width: double.infinity,
-            height: 50, // 標準的なバナー広告の高さ
-            color: Colors.grey.shade100,
-            child: const Center(
-              child: Text(
-                'バナー広告領域',
-                style: TextStyle(
-                  color: Colors.grey,
-                  fontSize: 12,
-                ),
-              ),
-            ),
-          ),
+          // バナー広告
+          const BannerAdWidget(),
         ],
       ),
       bottomNavigationBar: NavigationBar(
