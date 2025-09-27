@@ -32,7 +32,7 @@ class _PrivacyPolicyScreenState extends State<PrivacyPolicyScreen> {
             ),
             const SizedBox(height: 8),
             Text(
-              '最終更新日: 2025年9月26日',
+              '最終更新日: 2025年9月27日',
               style: TextStyle(
                 color: Colors.grey.shade600,
                 fontSize: 14,
@@ -69,22 +69,39 @@ class _PrivacyPolicyScreenState extends State<PrivacyPolicyScreen> {
               '4. データの保存と管理',
               '• 全てのデータはデバイス内にローカル保存されます\n'
               '• バックアップ機能使用時は、ユーザーが指定した場所にのみエクスポートされます\n'
+              '• シフト表共有機能では、PNG画像やExcelファイルをユーザーが選択したアプリ（LINE、メール等）に送信します\n'
+              '• 共有されるデータは本アプリで作成されたシフト情報のみです\n'
               '• アプリ削除時には全てのデータが削除されます\n'
               '• データの暗号化については端末の標準的な保護機能に依存します',
             ),
             
             _buildSection(
               '5. 第三者への情報提供',
-              '本アプリは、法令に基づく場合を除き、ユーザーの同意なしに個人情報を第三者に提供することはありません。'
-              '広告表示機能が有効な場合、広告配信のため匿名化された使用統計が収集される場合があります。',
+              '本アプリは、法令に基づく場合を除き、ユーザーの同意なしに個人情報を第三者に提供することはありません。\n\n'
+              '【広告サービス】\n'
+              '本アプリではGoogle AdMobによる広告配信を行っています：\n'
+              '• 広告表示のため、Google AdMobが匿名化された使用統計や広告識別子を収集する場合があります\n'
+              '• 収集される情報には個人を特定できる情報は含まれません\n'
+              '• 詳細についてはGoogleのプライバシーポリシーをご確認ください',
             ),
             
             _buildSection(
-              '6. ユーザーの権利',
+              '6. アプリの権限',
+              '本アプリは以下の端末機能を使用します：\n'
+              '• ストレージ：バックアップファイルの保存・読み込み\n'
+              '• インターネット：広告表示のための通信\n'
+              '• カメラ・ギャラリー：スクリーンショット機能（端末内処理のみ）\n'
+              '• 他のアプリとの連携：シフト表共有時のLINE・メール等との連携\n\n'
+              'これらの権限は必要な機能でのみ使用され、不要な情報収集は行いません。',
+            ),
+            
+            _buildSection(
+              '7. ユーザーの権利',
               'ユーザーは以下の権利を有します：\n'
               '• 保存されたデータの確認と修正\n'
               '• データの削除（アプリアンインストール）\n'
               '• バックアップによるデータのエクスポート\n'
+              '• シフト表データの共有（PNG・Excel形式）\n'
               '• 本ポリシーに関する問い合わせ',
             ),
             
@@ -144,7 +161,7 @@ class _PrivacyPolicyScreenState extends State<PrivacyPolicyScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   const Text(
-                    '7. お問い合わせ',
+                    '8. お問い合わせ',
                     style: TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.bold,

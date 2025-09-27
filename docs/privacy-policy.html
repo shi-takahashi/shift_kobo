@@ -196,7 +196,7 @@
         </header>
 
         <div class="update-date">
-            <strong>最終更新日:</strong> 2025年9月26日
+            <strong>最終更新日:</strong> 2025年9月27日
         </div>
 
         <div class="app-info">
@@ -316,16 +316,27 @@
                 <li><strong>Hive データベース</strong>: 構造化データ（スタッフ情報、シフトデータ等）</li>
                 <li><strong>SharedPreferences</strong>: アプリ設定・ユーザー設定</li>
                 <li><strong>ローカルファイル</strong>: バックアップファイル（ユーザーが作成した場合）</li>
+                <li><strong>シフト表共有</strong>: PNG画像・Excelファイルの一時生成（共有後に削除）</li>
+            </ul>
+            
+            <h3>4.2 データ共有機能</h3>
+            <p>シフト表共有機能について：</p>
+            <ul>
+                <li><strong>PNG形式</strong>: カレンダー画像として生成・ユーザー選択アプリに送信</li>
+                <li><strong>Excel形式</strong>: スタッフ×日付の表形式で生成・ユーザー選択アプリに送信</li>
+                <li><strong>共有先</strong>: ユーザーが選択したアプリ（LINE、メール等）にのみ送信</li>
+                <li><strong>データ内容</strong>: 本アプリで作成されたシフト情報のみ</li>
+                <li><strong>セキュリティ</strong>: 個人を特定できる連絡先情報は除外可能</li>
             </ul>
 
-            <h3>4.2 セキュリティ対策</h3>
+            <h3>4.3 セキュリティ対策</h3>
             <ul>
                 <li><strong>デバイスレベル保護</strong>: OS標準の暗号化・アクセス制御に依存</li>
                 <li><strong>アプリレベル保護</strong>: 不正アクセス防止、データ整合性チェック</li>
                 <li><strong>ネットワーク分離</strong>: 個人情報の外部送信なし</li>
             </ul>
 
-            <h3>4.3 データの保持期間</h3>
+            <h3>4.4 データの保持期間</h3>
             <ul>
                 <li><strong>通常データ</strong>: ユーザーが削除するまで、またはアプリをアンインストールするまで</li>
                 <li><strong>バックアップファイル</strong>: ユーザーが手動で削除するまで</li>
@@ -352,65 +363,132 @@
             </ul>
 
             <h3>5.3 広告・分析サービス</h3>
-            <p>将来的に広告機能を実装する場合：</p>
+            <p>本アプリではGoogle AdMobによる広告配信を実装しています：</p>
+            
+            <h4>5.3.1 Google AdMob</h4>
             <ul>
-                <li>広告表示のため匿名化された使用統計を利用する可能性があります</li>
-                <li>個人を特定できる情報は提供されません</li>
-                <li>オプトアウト機能を提供します</li>
+                <li><strong>提供者</strong>: Google LLC（米国）</li>
+                <li><strong>収集情報</strong>: 広告識別子、デバイス情報、広告表示・クリック統計</li>
+                <li><strong>目的</strong>: パーソナライズド広告の配信</li>
+                <li><strong>法的根拠</strong>: 正当な利益（サービス提供・維持のため）</li>
+                <li><strong>プライバシーポリシー</strong>: <a href="https://policies.google.com/privacy" target="_blank">Google プライバシーポリシー</a></li>
+            </ul>
+            
+            <h4>5.3.2 広告の種類</h4>
+            <ul>
+                <li><strong>バナー広告</strong>: アプリ下部に常時表示</li>
+                <li><strong>インタースティシャル広告</strong>: シフト自動生成完了時に表示</li>
+                <li><strong>個人情報</strong>: 広告表示に個人を特定できる情報は使用されません</li>
+            </ul>
+            
+            <h4>5.3.3 ユーザーの選択</h4>
+            <ul>
+                <li><strong>広告設定</strong>: <a href="https://adssettings.google.com/" target="_blank">Google 広告設定</a>で管理可能</li>
+                <li><strong>オプトアウト</strong>: デバイス設定で広告追跡を制限可能</li>
+                <li><strong>アプリ内制御</strong>: 広告はアプリ機能維持のため無効化不可</li>
             </ul>
         </div>
 
         <div class="section">
-            <h2>6. ユーザーの権利</h2>
+            <h2>6. アプリの権限・機能</h2>
             
-            <h3>6.1 データアクセス権</h3>
+            <h3>6.1 必要な権限</h3>
+            <p>本アプリは以下の端末機能・権限を使用します：</p>
+            <ul>
+                <li><strong>ストレージアクセス</strong>
+                    <ul>
+                        <li>目的: バックアップファイルの保存・読み込み</li>
+                        <li>使用場面: データ復元・バックアップ機能</li>
+                        <li>データ範囲: ユーザーが選択したファイルのみ</li>
+                    </ul>
+                </li>
+                <li><strong>インターネット通信</strong>
+                    <ul>
+                        <li>目的: 広告表示・アプリ更新情報取得</li>
+                        <li>使用場面: Google AdMob広告配信</li>
+                        <li>データ送信: 匿名化された広告統計のみ</li>
+                    </ul>
+                </li>
+                <li><strong>他アプリとの連携</strong>
+                    <ul>
+                        <li>目的: シフト表の共有（LINE、メール等）</li>
+                        <li>使用場面: PNG・Excel形式での共有機能</li>
+                        <li>データ内容: ユーザーが作成したシフト情報のみ</li>
+                    </ul>
+                </li>
+                <li><strong>画面キャプチャ機能</strong>
+                    <ul>
+                        <li>目的: シフト表のPNG画像生成</li>
+                        <li>使用場面: 共有・保存機能</li>
+                        <li>処理場所: 端末内のみ（外部送信なし）</li>
+                    </ul>
+                </li>
+            </ul>
+            
+            <h3>6.2 権限の管理</h3>
+            <ul>
+                <li><strong>最小権限原則</strong>: 必要な機能でのみ権限を使用</li>
+                <li><strong>ユーザー制御</strong>: 端末設定から権限の有効/無効を切り替え可能</li>
+                <li><strong>代替機能</strong>: 権限拒否時は該当機能のみ制限（アプリは正常動作）</li>
+                <li><strong>透明性</strong>: 権限要求時に具体的な利用目的を説明</li>
+            </ul>
+        </div>
+
+        <div class="section">
+            <h2>7. ユーザーの権利</h2>
+            
+            <h3>7.1 データアクセス権</h3>
             <ul>
                 <li>保存されているすべてのデータの確認</li>
                 <li>データの内容・形式の理解</li>
                 <li>バックアップ機能による完全なデータエクスポート</li>
             </ul>
 
-            <h3>6.2 データ修正権</h3>
+            <h3>7.2 データ修正権</h3>
             <ul>
                 <li>不正確なデータの修正</li>
                 <li>古い情報の更新</li>
                 <li>データの追加・削除</li>
             </ul>
 
-            <h3>6.3 データ削除権</h3>
+            <h3>7.3 データ削除権</h3>
             <ul>
                 <li>個別データの削除</li>
                 <li>全データの一括削除</li>
                 <li>アプリアンインストールによる完全削除</li>
             </ul>
 
-            <h3>6.4 データポータビリティ権</h3>
+            <h3>7.4 データポータビリティ権</h3>
             <ul>
                 <li>JSON形式でのデータエクスポート</li>
+                <li>PNG・Excel形式でのシフト表共有</li>
                 <li>他のシステムへの移行支援</li>
                 <li>構造化された形式での提供</li>
             </ul>
         </div>
 
         <div class="section">
-            <h2>7. 技術的詳細</h2>
+            <h2>8. 技術的詳細</h2>
             
-            <h3>7.1 使用技術</h3>
+            <h3>8.1 使用技術</h3>
             <ul>
                 <li><strong>Flutter</strong>: アプリケーションフレームワーク</li>
                 <li><strong>Hive</strong>: ローカルデータベース</li>
                 <li><strong>SharedPreferences</strong>: 設定管理</li>
                 <li><strong>Provider</strong>: 状態管理</li>
+                <li><strong>Google Mobile Ads</strong>: 広告SDK（AdMob統合）</li>
+                <li><strong>Excel・Screenshot・Share Plus</strong>: データ共有機能</li>
             </ul>
 
-            <h3>7.2 データ形式</h3>
+            <h3>8.2 データ形式</h3>
             <ul>
                 <li><strong>内部形式</strong>: バイナリ（Hive）</li>
                 <li><strong>エクスポート形式</strong>: JSON（人間が読める形式）</li>
+                <li><strong>共有形式</strong>: PNG画像・Excel（.xlsx）</li>
                 <li><strong>設定形式</strong>: キー・バリュー型</li>
             </ul>
 
-            <h3>7.3 暗号化</h3>
+            <h3>8.3 暗号化</h3>
             <ul>
                 <li><strong>端末レベル</strong>: OS標準の暗号化（iOS: FileProtection, Android: FDE/FBE）</li>
                 <li><strong>アプリレベル</strong>: 現在は平文保存（将来的な暗号化を検討）</li>
@@ -418,16 +496,16 @@
         </div>
 
         <div class="section">
-            <h2>8. 国際的な対応</h2>
+            <h2>9. 国際的な対応</h2>
             
-            <h3>8.1 適用される法規制</h3>
+            <h3>9.1 適用される法規制</h3>
             <ul>
                 <li><strong>日本</strong>: 個人情報保護法</li>
                 <li><strong>EU</strong>: GDPR（General Data Protection Regulation）</li>
                 <li><strong>カリフォルニア州</strong>: CCPA（California Consumer Privacy Act）</li>
             </ul>
 
-            <h3>8.2 データ処理の法的根拠</h3>
+            <h3>9.2 データ処理の法的根拠</h3>
             <ul>
                 <li><strong>契約履行</strong>: アプリサービスの提供</li>
                 <li><strong>正当な利益</strong>: サービス改善・セキュリティ向上</li>
@@ -436,7 +514,7 @@
         </div>
 
         <div class="section">
-            <h2>9. 年齢制限・保護者の同意</h2>
+            <h2>10. 年齢制限・保護者の同意</h2>
             <p>本アプリは以下の年齢制限を設けています：</p>
             <ul>
                 <li><strong>13歳未満</strong>: 利用不可</li>
@@ -450,9 +528,9 @@
         </div>
 
         <div class="section">
-            <h2>10. ポリシーの変更</h2>
+            <h2>11. ポリシーの変更</h2>
             
-            <h3>10.1 変更の通知</h3>
+            <h3>11.1 変更の通知</h3>
             <p>本プライバシーポリシーを変更する場合：</p>
             <ul>
                 <li>重要な変更: アプリ内通知 + 30日前の事前告知</li>
@@ -460,9 +538,9 @@
                 <li>緊急の変更: 即座の通知 + 詳細な説明</li>
             </ul>
 
-            <h3>10.2 変更履歴</h3>
+            <h3>11.2 変更履歴</h3>
             <ul>
-                <li><strong>2025年9月26日</strong>: 初版作成・公開</li>
+                <li><strong>2025年9月27日</strong>: 初版作成・公開</li>
             </ul>
         </div>
 
