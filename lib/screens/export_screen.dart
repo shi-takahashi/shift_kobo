@@ -17,7 +17,9 @@ import '../providers/shift_time_provider.dart';
 import '../models/shift_time_setting.dart';
 
 class ExportScreen extends StatefulWidget {
-  const ExportScreen({super.key});
+  final DateTime? initialMonth;
+  
+  const ExportScreen({super.key, this.initialMonth});
 
   @override
   State<ExportScreen> createState() => _ExportScreenState();
@@ -25,12 +27,14 @@ class ExportScreen extends StatefulWidget {
 
 class _ExportScreenState extends State<ExportScreen> {
   final ScreenshotController _screenshotController = ScreenshotController();
-  DateTime _selectedMonth = DateTime.now();
+  late DateTime _selectedMonth;
   bool _isProcessing = false;
   
   @override
   void initState() {
     super.initState();
+    // 初期月を設定（渡されなければ現在月）
+    _selectedMonth = widget.initialMonth ?? DateTime.now();
     // 画面を横向きに固定（即座に適用）
     _setLandscapeOrientation();
   }
@@ -170,83 +174,107 @@ class _ExportScreenState extends State<ExportScreen> {
         return StatefulBuilder(
           builder: (context, setDialogState) {
             return AlertDialog(
-              title: const Text('月を選択'),
+              title: const Text('月を選択', style: TextStyle(fontSize: 18)), // タイトル文字を小さく
+              titlePadding: const EdgeInsets.fromLTRB(24, 16, 24, 8), // タイトル余白を縮小
+              contentPadding: const EdgeInsets.fromLTRB(24, 8, 24, 20), // コンテンツ余白調整
               content: SizedBox(
-                width: 300,
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
+                width: MediaQuery.of(context).size.width * 0.65, // 横幅を65%に
+                height: MediaQuery.of(context).size.height * 0.55, // 高さを55%に
+                child: Row(
                   children: [
-                    // 年選択
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        IconButton(
-                          icon: const Icon(Icons.chevron_left),
-                          onPressed: () {
-                            setDialogState(() {
-                              selectedYear--;
-                            });
-                          },
-                        ),
-                        Text(
-                          '$selectedYear年',
-                          style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                        ),
-                        IconButton(
-                          icon: const Icon(Icons.chevron_right),
-                          onPressed: () {
-                            setDialogState(() {
-                              selectedYear++;
-                            });
-                          },
-                        ),
-                      ],
+                    // 年選択（左側）
+                    Expanded(
+                      flex: 1,
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          const Text('年', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500)),
+                          const SizedBox(height: 8),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              IconButton(
+                                icon: const Icon(Icons.chevron_left, size: 20),
+                                onPressed: () {
+                                  setDialogState(() {
+                                    selectedYear--;
+                                  });
+                                },
+                              ),
+                              Text(
+                                '$selectedYear',
+                                style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                              ),
+                              IconButton(
+                                icon: const Icon(Icons.chevron_right, size: 20),
+                                onPressed: () {
+                                  setDialogState(() {
+                                    selectedYear++;
+                                  });
+                                },
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
                     ),
-                    const SizedBox(height: 20),
-                    // 月選択グリッド
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
-                      children: List.generate(12, (index) {
-                        final month = index + 1;
-                        final isSelected = selectedYear == _selectedMonth.year && 
-                                         month == _selectedMonth.month;
-                        
-                        return GestureDetector(
-                          onTap: () {
-                            setState(() {
-                              _selectedMonth = DateTime(selectedYear, month, 1);
-                            });
-                            Navigator.pop(context);
-                          },
-                          child: Container(
-                            width: 85,
-                            height: 50,
-                            decoration: BoxDecoration(
-                              color: isSelected 
-                                ? Theme.of(context).colorScheme.primary
-                                : Colors.grey.shade200,
-                              borderRadius: BorderRadius.circular(8),
-                              border: Border.all(
-                                color: isSelected 
-                                  ? Theme.of(context).colorScheme.primary
-                                  : Colors.transparent,
-                                width: 2,
-                              ),
-                            ),
-                            child: Center(
-                              child: Text(
-                                '$month月',
-                                style: TextStyle(
-                                  color: isSelected ? Colors.white : Colors.black87,
-                                  fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                                  fontSize: 16,
-                                ),
-                              ),
+                    const VerticalDivider(width: 32),
+                    // 月選択グリッド（右側）
+                    Expanded(
+                      flex: 2,
+                      child: Column(
+                        children: [
+                          const Text('月', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500)),
+                          const SizedBox(height: 8),
+                          Expanded(
+                            child: GridView.count(
+                              crossAxisCount: 4, // 4列に戻す
+                              mainAxisSpacing: 4, // 縦間隔を小さく
+                              crossAxisSpacing: 6, // 横間隔
+                              childAspectRatio: 2.2, // やや横長でコンパクトに
+                              shrinkWrap: true,
+                              children: List.generate(12, (index) {
+                                final month = index + 1;
+                                final isSelected = selectedYear == _selectedMonth.year && 
+                                                 month == _selectedMonth.month;
+                                
+                                return GestureDetector(
+                                  onTap: () {
+                                    setState(() {
+                                      _selectedMonth = DateTime(selectedYear, month, 1);
+                                    });
+                                    Navigator.pop(context);
+                                  },
+                                  child: Container(
+                                    decoration: BoxDecoration(
+                                      color: isSelected 
+                                        ? Theme.of(context).colorScheme.primary
+                                        : Colors.grey.shade200,
+                                      borderRadius: BorderRadius.circular(6),
+                                      border: Border.all(
+                                        color: isSelected 
+                                          ? Theme.of(context).colorScheme.primary
+                                          : Colors.transparent,
+                                        width: 2,
+                                      ),
+                                    ),
+                                    child: Center(
+                                      child: Text(
+                                        '$month月',
+                                        style: TextStyle(
+                                          color: isSelected ? Colors.white : Colors.black87,
+                                          fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                                          fontSize: 14,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                );
+                              }),
                             ),
                           ),
-                        );
-                      }),
+                        ],
+                      ),
                     ),
                   ],
                 ),
@@ -348,8 +376,8 @@ class _ExportScreenState extends State<ExportScreen> {
       sheet.appendRow(headers);
       
       // スタッフ行
-      final activeStaff = staffProvider.activeStaffList;
-      for (final staff in activeStaff) {
+      final staffWithShifts = _getStaffWithShifts(shifts, staffProvider);
+      for (final staff in staffWithShifts) {
         final row = <excel.CellValue?>[
           excel.TextCellValue(staff.name)
         ];
@@ -465,6 +493,22 @@ class _ExportScreenState extends State<ExportScreen> {
   }
 
   Future<void> _showSaveDialog() async {
+    // データがない場合のチェック
+    final shiftProvider = Provider.of<ShiftProvider>(context, listen: false);
+    final staffProvider = Provider.of<StaffProvider>(context, listen: false);
+    final shifts = shiftProvider.getMonthlyShiftMap(_selectedMonth.year, _selectedMonth.month);
+    final staffWithShifts = _getStaffWithShifts(shifts, staffProvider);
+    
+    if (staffWithShifts.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('${DateFormat('yyyy年MM月').format(_selectedMonth)}のシフトデータがありません'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      return;
+    }
+    
     final selectedFormat = await showDialog<String>(
       context: context,
       builder: (BuildContext context) {
@@ -570,6 +614,22 @@ class _ExportScreenState extends State<ExportScreen> {
   }
 
   Future<void> _showShareDialog() async {
+    // データがない場合のチェック
+    final shiftProvider = Provider.of<ShiftProvider>(context, listen: false);
+    final staffProvider = Provider.of<StaffProvider>(context, listen: false);
+    final shifts = shiftProvider.getMonthlyShiftMap(_selectedMonth.year, _selectedMonth.month);
+    final staffWithShifts = _getStaffWithShifts(shifts, staffProvider);
+    
+    if (staffWithShifts.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('${DateFormat('yyyy年MM月').format(_selectedMonth)}のシフトデータがありません'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      return;
+    }
+    
     final selectedFormat = await showDialog<String>(
       context: context,
       builder: (BuildContext context) {
@@ -709,8 +769,8 @@ class _ExportScreenState extends State<ExportScreen> {
       sheet.appendRow(headers);
       
       // スタッフ行
-      final activeStaff = staffProvider.activeStaffList;
-      for (final staff in activeStaff) {
+      final staffWithShifts = _getStaffWithShifts(shifts, staffProvider);
+      for (final staff in staffWithShifts) {
         final row = <excel.CellValue?>[
           excel.TextCellValue(staff.name)
         ];
@@ -786,17 +846,74 @@ class _ExportScreenState extends State<ExportScreen> {
       _selectedMonth.month,
     );
     
+    // その月にシフトがあるスタッフを抽出
+    final staffWithShifts = _getStaffWithShifts(shifts, staffProvider);
+    
+    // シフトがない場合のメッセージ表示
+    if (staffWithShifts.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.calendar_today_outlined,
+              size: 64,
+              color: Colors.grey.shade400,
+            ),
+            const SizedBox(height: 16),
+            Text(
+              '${DateFormat('yyyy年MM月').format(_selectedMonth)}のシフトデータがありません',
+              style: TextStyle(
+                fontSize: 16,
+                color: Colors.grey.shade600,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'シフト管理画面でシフトを登録してください',
+              style: TextStyle(
+                fontSize: 14,
+                color: Colors.grey.shade500,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+    
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
       child: SingleChildScrollView(
-        child: _buildCalendarTable(shifts, staffProvider),
+        child: _buildCalendarTable(shifts, staffWithShifts),
       ),
     );
   }
 
-  Widget _buildCalendarTable(Map<DateTime, List<Shift>> shifts, StaffProvider staffProvider) {
+  // その月にシフトがあるスタッフを抽出（スタッフID順）
+  List<Staff> _getStaffWithShifts(Map<DateTime, List<Shift>> shifts, StaffProvider staffProvider) {
+    final staffIds = <String>{};
+    
+    // その月の全シフトからスタッフIDを収集
+    for (final dayShifts in shifts.values) {
+      for (final shift in dayShifts) {
+        staffIds.add(shift.staffId);
+      }
+    }
+    
+    // スタッフIDに該当するスタッフを取得（登録順＝ID順で並び替え）
+    final staffWithShifts = <Staff>[];
+    for (final staff in staffProvider.staffList) {
+      if (staffIds.contains(staff.id)) {
+        staffWithShifts.add(staff);
+      }
+    }
+    
+    return staffWithShifts;
+  }
+
+  Widget _buildCalendarTable(Map<DateTime, List<Shift>> shifts, List<Staff> staffWithShifts) {
     final daysInMonth = DateTime(_selectedMonth.year, _selectedMonth.month + 1, 0).day;
-    final activeStaff = staffProvider.activeStaffList;
     
     return DataTable(
       columnSpacing: 8,
@@ -808,7 +925,7 @@ class _ExportScreenState extends State<ExportScreen> {
         width: 1,
       ),
       columns: _buildDateColumns(daysInMonth),
-      rows: _buildStaffRows(daysInMonth, shifts, activeStaff),
+      rows: _buildStaffRows(daysInMonth, shifts, staffWithShifts),
     );
   }
 
@@ -853,12 +970,12 @@ class _ExportScreenState extends State<ExportScreen> {
     return columns;
   }
 
-  List<DataRow> _buildStaffRows(int daysInMonth, Map<DateTime, List<Shift>> shifts, List<Staff> activeStaff) {
+  List<DataRow> _buildStaffRows(int daysInMonth, Map<DateTime, List<Shift>> shifts, List<Staff> staffWithShifts) {
     final shiftTimeProvider = Provider.of<ShiftTimeProvider>(context, listen: false);
     final activeSettings = shiftTimeProvider.settings.where((s) => s.isActive).toList();
     final rows = <DataRow>[];
     
-    for (final staff in activeStaff) {
+    for (final staff in staffWithShifts) {
       final cells = <DataCell>[
         DataCell(
           Text(
@@ -932,6 +1049,9 @@ class _ExportScreenState extends State<ExportScreen> {
       _selectedMonth.month,
     );
     
+    // その月にシフトがあるスタッフを抽出
+    final staffWithShifts = _getStaffWithShifts(shifts, staffProvider);
+    
     // スクリーンショット用に全体が表示されるように作成
     return Container(
       padding: const EdgeInsets.all(16),
@@ -953,7 +1073,7 @@ class _ExportScreenState extends State<ExportScreen> {
           // カレンダーテーブル（固定幅で全体表示）
           Container(
             constraints: const BoxConstraints(minWidth: 800, maxWidth: 1200),
-            child: _buildCalendarTable(shifts, staffProvider),
+            child: _buildCalendarTable(shifts, staffWithShifts),
           ),
         ],
       ),

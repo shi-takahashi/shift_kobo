@@ -129,7 +129,9 @@ class _CalendarScreenState extends State<CalendarScreen> {
                     await Navigator.push(
                       context,
                       MaterialPageRoute(
-                        builder: (context) => const ExportScreen(),
+                        builder: (context) => ExportScreen(
+                          initialMonth: _focusedDay,
+                        ),
                       ),
                     );
                     // Export画面から戻った時に画面向きを確実に復元
