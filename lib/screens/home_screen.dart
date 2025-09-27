@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'calendar_screen.dart';
 import 'staff_list_screen.dart';
 import 'settings_screen.dart';
@@ -14,6 +15,7 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   int _selectedIndex = 0;
+  bool _hasShownFirstTimeHelp = false;
 
   final List<Widget> _screens = [
     const CalendarScreen(),
@@ -27,6 +29,33 @@ class _HomeScreenState extends State<HomeScreen> {
     '設定',
   ];
 
+  @override
+  void initState() {
+    super.initState();
+    _checkFirstTimeHelp();
+  }
+
+  /// 初回起動チェック及び自動ヘルプ表示
+  Future<void> _checkFirstTimeHelp() async {
+    final prefs = await SharedPreferences.getInstance();
+    final hasSeenHelp = prefs.getBool('has_seen_first_time_help') ?? false;
+    
+    if (!hasSeenHelp && mounted) {
+      // 画面描画完了後にヘルプを表示
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && !_hasShownFirstTimeHelp) {
+          _hasShownFirstTimeHelp = true;
+          _showHelpDialog(isFirstTime: true);
+        }
+      });
+    }
+  }
+
+  /// 初回起動フラグを保存
+  Future<void> _markFirstTimeHelpSeen() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('has_seen_first_time_help', true);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -39,7 +68,7 @@ class _HomeScreenState extends State<HomeScreen> {
           IconButton(
             icon: const Icon(Icons.help_outline, size: 22),
             onPressed: () {
-              _showHelpDialog();
+              _showHelpDialog(isFirstTime: false);
             },
           ),
         ],
@@ -97,30 +126,67 @@ class _HomeScreenState extends State<HomeScreen> {
     });
   }
 
-  void _showHelpDialog() {
+  void _showHelpDialog({required bool isFirstTime}) {
     showDialog(
       context: context,
+      barrierDismissible: !isFirstTime, // 初回時は背景タップで閉じない
       builder: (context) => AlertDialog(
-        title: const Text('使い方'),
-        content: const SingleChildScrollView(
+        title: Row(
+          children: [
+            Icon(
+              isFirstTime ? Icons.waving_hand : Icons.help_outline,
+              color: isFirstTime ? Colors.orange : null,
+              size: 24,
+            ),
+            const SizedBox(width: 8),
+            Text(isFirstTime ? 'ようこそ！' : '使い方'),
+          ],
+        ),
+        content: SingleChildScrollView(
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('1. スタッフ管理でスタッフを登録'),
-              SizedBox(height: 8),
-              Text('2. カレンダーでシフトを自動作成'),
-              SizedBox(height: 8),
-              Text('3. 必要に応じて手動で調整'),
-              SizedBox(height: 8),
-              Text('4. 完成したシフト表を共有'),
+              if (isFirstTime) ...[
+                const Text(
+                  'シフト工房へようこそ！\n基本的な使い方をご説明します。',
+                  style: TextStyle(fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 16),
+              ],
+              const Text('1. スタッフ管理でスタッフを登録'),
+              const SizedBox(height: 8),
+              const Text('2. カレンダーでシフトを自動作成'),
+              const SizedBox(height: 8),
+              const Text('3. 必要に応じて手動で調整'),
+              const SizedBox(height: 8),
+              const Text('4. 完成したシフト表を共有'),
+              if (isFirstTime) ...[
+                const SizedBox(height: 16),
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.blue.shade50,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: const Text(
+                    '💡 ヒント：右上の？ボタンでいつでもこのヘルプを表示できます。',
+                    style: TextStyle(fontSize: 12, color: Colors.blue),
+                  ),
+                ),
+              ],
             ],
           ),
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('閉じる'),
+            onPressed: () {
+              Navigator.pop(context);
+              if (isFirstTime) {
+                _markFirstTimeHelpSeen();
+              }
+            },
+            child: Text(isFirstTime ? '始める' : '閉じる'),
           ),
         ],
       ),

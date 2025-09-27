@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:package_info_plus/package_info_plus.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../services/backup_service.dart';
 import 'monthly_shift_settings_screen.dart';
@@ -104,6 +105,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
               fontWeight: FontWeight.bold,
             ),
           ),
+        ),
+        ListTile(
+          leading: const Icon(Icons.refresh),
+          title: const Text('初回ヘルプリセット'),
+          subtitle: const Text('開発用：初回ヘルプを再表示'),
+          onTap: () => _resetFirstTimeHelp(),
         ),
         ListTile(
           leading: const Icon(Icons.info),
@@ -389,6 +396,22 @@ class _SettingsScreenState extends State<SettingsScreen> {
           _isRestoring = false;
         });
       }
+    }
+  }
+
+  /// 初回ヘルプフラグをリセット（開発用）
+  Future<void> _resetFirstTimeHelp() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove('has_seen_first_time_help');
+    
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('初回ヘルプフラグをリセットしました。アプリを再起動すると初回ヘルプが表示されます。'),
+          backgroundColor: Colors.green,
+          duration: Duration(seconds: 3),
+        ),
+      );
     }
   }
 }
