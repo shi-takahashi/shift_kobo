@@ -1,9 +1,13 @@
+import 'package:flutter/foundation.dart';
 import 'package:hive/hive.dart';
 import '../models/staff.dart';
 import '../models/shift.dart';
 
 class TestDataHelper {
   static Future<void> initializeTestData() async {
+    // リリースビルドではテストデータを作成しない
+    if (!kDebugMode) return;
+    
     final staffBox = Hive.box<Staff>('staff');
     final shiftBox = Hive.box<Shift>('shifts');
     
