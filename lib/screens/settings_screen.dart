@@ -107,12 +107,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ),
         ),
         ListTile(
-          leading: const Icon(Icons.refresh),
-          title: const Text('初回ヘルプリセット'),
-          subtitle: const Text('開発用：初回ヘルプを再表示'),
-          onTap: () => _resetFirstTimeHelp(),
-        ),
-        ListTile(
           leading: const Icon(Icons.info),
           title: const Text('アプリについて'),
           subtitle: Text(_packageInfo != null ? 'バージョン ${_packageInfo!.version}+${_packageInfo!.buildNumber}' : 'バージョン 情報取得中...'),
@@ -399,19 +393,4 @@ class _SettingsScreenState extends State<SettingsScreen> {
     }
   }
 
-  /// 初回ヘルプフラグをリセット（開発用）
-  Future<void> _resetFirstTimeHelp() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.remove('has_seen_first_time_help');
-    
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('初回ヘルプフラグをリセットしました。アプリを再起動すると初回ヘルプが表示されます。'),
-          backgroundColor: Colors.green,
-          duration: Duration(seconds: 3),
-        ),
-      );
-    }
-  }
 }
