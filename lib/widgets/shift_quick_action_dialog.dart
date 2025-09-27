@@ -7,10 +7,12 @@ import '../providers/shift_provider.dart';
 
 class ShiftQuickActionDialog extends StatefulWidget {
   final Shift shift;
+  final Function(Shift, DateTime)? onDateMove;
 
   const ShiftQuickActionDialog({
     super.key,
     required this.shift,
+    this.onDateMove,
   });
 
   @override
@@ -118,7 +120,9 @@ class _ShiftQuickActionDialogState extends State<ShiftQuickActionDialog> {
       lastDate: today.add(const Duration(days: 90)),
     ).then((selectedDate) {
       if (selectedDate != null && selectedDate != widget.shift.date) {
-        _moveToDate(context, selectedDate);
+        if (widget.onDateMove != null) {
+          widget.onDateMove!(widget.shift, selectedDate);
+        }
       }
     });
   }
@@ -127,9 +131,10 @@ class _ShiftQuickActionDialogState extends State<ShiftQuickActionDialog> {
     final shiftProvider = context.read<ShiftProvider>();
     
     // スタッフ変更の制約チェック - 重複チェック
-    final conflictShift = shiftProvider.getShiftsForDate(widget.shift.date)
+    final conflictShifts = shiftProvider.getShiftsForDate(widget.shift.date)
         .where((s) => s.staffId == newStaff.id && s.id != widget.shift.id)
-        .firstOrNull;
+        .toList();
+    final conflictShift = conflictShifts.isNotEmpty ? conflictShifts.first : null;
     
     if (conflictShift != null) {
       Navigator.of(context).pop();
@@ -156,51 +161,11 @@ class _ShiftQuickActionDialogState extends State<ShiftQuickActionDialog> {
     final updatedShift = widget.shift..staffId = newStaff.id;
     await shiftProvider.updateShift(updatedShift);
     
-    Navigator.of(context).pop();
+    if (context.mounted) {
+      Navigator.of(context).pop();
+    }
   }
 
-  void _moveToDate(BuildContext context, DateTime newDate) async {
-    final shiftProvider = context.read<ShiftProvider>();
-    
-    // 移動先の日付に同じスタッフのシフトがないかチェック
-    final conflictShift = shiftProvider.getShiftsForDate(newDate)
-        .where((s) => s.staffId == widget.shift.staffId)
-        .firstOrNull;
-    
-    if (conflictShift != null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('移動先の日付に既にシフトが入っています'),
-          backgroundColor: Colors.red,
-        ),
-      );
-      return;
-    }
-    
-    // 新しい日付で時間を再計算
-    final newStartTime = DateTime(
-      newDate.year,
-      newDate.month,
-      newDate.day,
-      widget.shift.startTime.hour,
-      widget.shift.startTime.minute,
-    );
-    
-    final newEndTime = DateTime(
-      newDate.year,
-      newDate.month,
-      newDate.day,
-      widget.shift.endTime.hour,
-      widget.shift.endTime.minute,
-    );
-    
-    final updatedShift = widget.shift
-      ..date = newDate
-      ..startTime = newStartTime
-      ..endTime = newEndTime;
-    
-    await shiftProvider.updateShift(updatedShift);
-  }
 
   void _showConflictDialog(BuildContext context, String message) {
     showDialog(

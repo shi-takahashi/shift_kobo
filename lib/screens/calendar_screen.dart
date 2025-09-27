@@ -621,13 +621,74 @@ class _CalendarScreenState extends State<CalendarScreen> {
   void _showQuickActionDialog(BuildContext context, Shift shift) {
     showDialog(
       context: context,
-      builder: (context) => ShiftQuickActionDialog(shift: shift),
+      builder: (context) => ShiftQuickActionDialog(
+        shift: shift,
+        onDateMove: (shift, newDate) => _moveShiftToDate(shift, newDate),
+      ),
     ).then((_) {
       if (_selectedDay != null) {
         setState(() {});
         _selectedShifts.value = _getShiftsForDay(_selectedDay!);
       }
     });
+  }
+
+  Future<void> _moveShiftToDate(Shift shift, DateTime newDate) async {
+    final shiftProvider = context.read<ShiftProvider>();
+    
+    // 移動先の日付に同じスタッフのシフトがないかチェック
+    final conflictShifts = shiftProvider.getShiftsForDate(newDate)
+        .where((s) => s.staffId == shift.staffId)
+        .toList();
+    final conflictShift = conflictShifts.isNotEmpty ? conflictShifts.first : null;
+    
+    if (conflictShift != null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('移動先の日付に既にシフトが入っています'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+    
+    // 新しい日付で時間を再計算
+    final newStartTime = DateTime(
+      newDate.year,
+      newDate.month,
+      newDate.day,
+      shift.startTime.hour,
+      shift.startTime.minute,
+    );
+    
+    final newEndTime = DateTime(
+      newDate.year,
+      newDate.month,
+      newDate.day,
+      shift.endTime.hour,
+      shift.endTime.minute,
+    );
+    
+    final updatedShift = shift
+      ..date = newDate
+      ..startTime = newStartTime
+      ..endTime = newEndTime;
+    
+    await shiftProvider.updateShift(updatedShift);
+    
+    // 成功メッセージ表示
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('シフトを${newDate.month}/${newDate.day}に移動しました'),
+        backgroundColor: Colors.green,
+      ),
+    );
+    
+    // 画面を更新
+    if (_selectedDay != null) {
+      setState(() {});
+      _selectedShifts.value = _getShiftsForDay(_selectedDay!);
+    }
   }
 
   Widget _buildShiftMarkers(List<Shift> shifts) {
