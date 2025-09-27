@@ -56,15 +56,25 @@ class _ExportScreenState extends State<ExportScreen> {
             ),
             const SizedBox(height: 20),
             Expanded(
-              child: Screenshot(
-                controller: _screenshotController,
-                child: Container(
-                  color: Colors.white,
-                  child: _buildCalendarPreview(
-                    shiftProvider,
-                    staffProvider,
+              child: Stack(
+                children: [
+                  // 画面表示用（スクロール可能）
+                  _buildCalendarPreview(shiftProvider, staffProvider),
+                  // スクリーンショット用（非表示、全体表示）
+                  Positioned(
+                    left: -2000, // 画面外に配置
+                    child: Screenshot(
+                      controller: _screenshotController,
+                      child: Container(
+                        color: Colors.white,
+                        child: _buildFullCalendarForCapture(
+                          shiftProvider,
+                          staffProvider,
+                        ),
+                      ),
+                    ),
                   ),
-                ),
+                ],
               ),
             ),
             const SizedBox(height: 20),
@@ -377,14 +387,14 @@ class _ExportScreenState extends State<ExportScreen> {
               ListTile(
                 leading: const Icon(Icons.image, color: Colors.blue),
                 title: const Text('PNG画像'),
-                subtitle: const Text('そのまま印刷や表示に適しています'),
+                subtitle: const Text('LINEやメールでの共有・確認用'),
                 onTap: () => Navigator.pop(context, 'png'),
               ),
               const Divider(),
               ListTile(
                 leading: const Icon(Icons.table_chart, color: Colors.green),
                 title: const Text('Excelファイル'),
-                subtitle: const Text('Googleドライブに保存→PC等で編集→印刷'),
+                subtitle: const Text('Googleドライブに保存→編集・レイアウト調整→印刷'),
                 onTap: () => Navigator.pop(context, 'excel'),
               ),
             ],
@@ -699,5 +709,39 @@ class _ExportScreenState extends State<ExportScreen> {
     }
     
     return rows;
+  }
+
+  Widget _buildFullCalendarForCapture(ShiftProvider shiftProvider, StaffProvider staffProvider) {
+    final shifts = shiftProvider.getMonthlyShiftMap(
+      _selectedMonth.year,
+      _selectedMonth.month,
+    );
+    
+    // スクリーンショット用に全体が表示されるように作成
+    return Container(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // タイトル
+          Center(
+            child: Text(
+              'シフト表 - ${DateFormat('yyyy年MM月').format(_selectedMonth)}',
+              style: const TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
+          // カレンダーテーブル（固定幅で全体表示）
+          Container(
+            constraints: const BoxConstraints(minWidth: 800, maxWidth: 1200),
+            child: _buildCalendarTable(shifts, staffProvider),
+          ),
+        ],
+      ),
+    );
   }
 }
