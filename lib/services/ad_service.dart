@@ -15,20 +15,37 @@ class AdService {
   /// true: 広告を表示、false: 広告を非表示
   static const bool showBannerAds = true;
   
+  // インタースティシャル広告のインスタンス保持
+  static InterstitialAd? _interstitialAd;
+  static bool _isLoadingInterstitial = false;
+  
   // テスト用広告ID（デバッグビルド時）
   static const String _testBannerAdUnitIdAndroid = 'ca-app-pub-3940256099942544/6300978111';
   static const String _testBannerAdUnitIdIOS = 'ca-app-pub-3940256099942544/2934735716';
+  static const String _testInterstitialAdUnitIdAndroid = 'ca-app-pub-3940256099942544/1033173712';
+  static const String _testInterstitialAdUnitIdIOS = 'ca-app-pub-3940256099942544/4411468910';
 
   // 本番用広告ID（リリースビルド時）- 現在はテスト用IDを使用
   static const String _productionBannerAdUnitIdAndroid = 'ca-app-pub-3940256099942544/6300978111';
   static const String _productionBannerAdUnitIdIOS = 'ca-app-pub-3940256099942544/2934735716';
+  static const String _productionInterstitialAdUnitIdAndroid = 'ca-app-pub-3940256099942544/1033173712';
+  static const String _productionInterstitialAdUnitIdIOS = 'ca-app-pub-3940256099942544/4411468910';
 
-  /// 現在の環境に応じた広告IDを取得
+  /// 現在の環境に応じたバナー広告IDを取得
   static String get bannerAdUnitId {
     if (Platform.isAndroid) {
       return _isDebug ? _testBannerAdUnitIdAndroid : _productionBannerAdUnitIdAndroid;
     } else {
       return _isDebug ? _testBannerAdUnitIdIOS : _productionBannerAdUnitIdIOS;
+    }
+  }
+
+  /// 現在の環境に応じたインタースティシャル広告IDを取得
+  static String get interstitialAdUnitId {
+    if (Platform.isAndroid) {
+      return _isDebug ? _testInterstitialAdUnitIdAndroid : _productionInterstitialAdUnitIdAndroid;
+    } else {
+      return _isDebug ? _testInterstitialAdUnitIdIOS : _productionInterstitialAdUnitIdIOS;
     }
   }
 
@@ -43,6 +60,9 @@ class AdService {
       );
       await MobileAds.instance.updateRequestConfiguration(requestConfiguration);
     }
+    
+    // インタースティシャル広告を事前読み込み
+    await _preloadInterstitialAd();
   }
 
   /// バナー広告を作成
@@ -72,5 +92,109 @@ class AdService {
         },
       ),
     )..load();
+  }
+
+  /// インタースティシャル広告を事前読み込み
+  static Future<void> _preloadInterstitialAd() async {
+    // 広告表示フラグがfalseの場合は読み込まない
+    if (!showBannerAds) {
+      print('インタースティシャル広告: 表示フラグがfalseのため事前読み込みをスキップ');
+      return;
+    }
+
+    // 既に読み込み中の場合はスキップ
+    if (_isLoadingInterstitial) {
+      print('インタースティシャル広告: 既に読み込み中のためスキップ');
+      return;
+    }
+
+    // 既に読み込み済みの場合はスキップ
+    if (_interstitialAd != null) {
+      print('インタースティシャル広告: 既に読み込み済み');
+      return;
+    }
+
+    _isLoadingInterstitial = true;
+    print('インタースティシャル広告事前読み込み開始: $interstitialAdUnitId');
+
+    await InterstitialAd.load(
+      adUnitId: interstitialAdUnitId,
+      request: const AdRequest(),
+      adLoadCallback: InterstitialAdLoadCallback(
+        onAdLoaded: (InterstitialAd ad) {
+          print('インタースティシャル広告事前読み込み完了');
+          _interstitialAd = ad;
+          _isLoadingInterstitial = false;
+        },
+        onAdFailedToLoad: (LoadAdError error) {
+          print('インタースティシャル広告事前読み込み失敗: ${error.message}');
+          _isLoadingInterstitial = false;
+        },
+      ),
+    );
+  }
+
+  /// 事前読み込み済みのインタースティシャル広告を表示
+  static void showInterstitialAd({
+    Function()? onAdShown,
+    Function()? onAdClosed,
+    Function()? onAdFailedToShow,
+  }) {
+    // 広告表示フラグがfalseの場合は何もしない
+    if (!showBannerAds) {
+      print('インタースティシャル広告: 表示フラグがfalseのためスキップ');
+      onAdClosed?.call();
+      return;
+    }
+
+    // 事前読み込み済み広告がない場合
+    if (_interstitialAd == null) {
+      print('インタースティシャル広告: 事前読み込み済み広告がありません');
+      onAdFailedToShow?.call();
+      // 次回のために再読み込みを開始
+      _preloadInterstitialAd();
+      return;
+    }
+
+    print('インタースティシャル広告表示開始');
+
+    _interstitialAd!.fullScreenContentCallback = FullScreenContentCallback(
+      onAdShowedFullScreenContent: (InterstitialAd ad) {
+        print('インタースティシャル広告表示開始');
+        onAdShown?.call();
+      },
+      onAdDismissedFullScreenContent: (InterstitialAd ad) {
+        print('インタースティシャル広告が閉じられました');
+        ad.dispose();
+        _interstitialAd = null;
+        onAdClosed?.call();
+        // 次回のために新しい広告を事前読み込み
+        _preloadInterstitialAd();
+      },
+      onAdFailedToShowFullScreenContent: (InterstitialAd ad, AdError error) {
+        print('インタースティシャル広告表示失敗: ${error.message}');
+        ad.dispose();
+        _interstitialAd = null;
+        onAdFailedToShow?.call();
+        // 次回のために新しい広告を事前読み込み
+        _preloadInterstitialAd();
+      },
+    );
+
+    _interstitialAd!.show();
+  }
+  
+  /// 【旧メソッド：互換性のため残す】インタースティシャル広告を読み込み・表示
+  @Deprecated('Use showInterstitialAd() instead. This method will be removed in future versions.')
+  static Future<void> loadAndShowInterstitialAd({
+    Function()? onAdShown,
+    Function()? onAdClosed,
+    Function()? onAdFailedToLoad,
+  }) async {
+    showInterstitialAd(
+      onAdShown: onAdShown,
+      onAdClosed: onAdClosed,
+      onAdFailedToShow: onAdFailedToLoad,
+    );
   }
 }

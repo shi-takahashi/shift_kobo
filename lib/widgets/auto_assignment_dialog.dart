@@ -7,6 +7,7 @@ import '../providers/shift_provider.dart';
 import '../providers/staff_provider.dart';
 import '../providers/shift_time_provider.dart';
 import '../services/shift_assignment_service.dart';
+import '../services/ad_service.dart';
 import '../models/shift.dart';
 
 class AutoAssignmentDialog extends StatefulWidget {
@@ -374,7 +375,30 @@ class _AutoAssignmentDialogState extends State<AutoAssignmentDialog> {
       print('保存完了');
 
       if (mounted) {
-        Navigator.of(context).pop(true);
+        // Navigator参照を事前に保存
+        final navigatorContext = Navigator.of(context);
+        final scaffoldMessengerContext = ScaffoldMessenger.of(context);
+        final shiftsCount = _previewShifts!.length;
+        
+        // シフト作成完了後に即座にインタースティシャル広告を表示
+        navigatorContext.pop(true);
+        
+        // 事前読み込み済み広告を即座に表示
+        AdService.showInterstitialAd(
+          onAdShown: () {
+            print('シフト作成完了後のインタースティシャル広告表示開始');
+          },
+          onAdClosed: () {
+            print('シフト作成完了後のインタースティシャル広告が閉じられました');
+            // 広告終了後に完了メッセージを表示
+            _showCompletionMessage(scaffoldMessengerContext, shiftsCount);
+          },
+          onAdFailedToShow: () {
+            print('シフト作成完了後のインタースティシャル広告の表示に失敗しました');
+            // 広告表示失敗時も完了メッセージを表示
+            _showCompletionMessage(scaffoldMessengerContext, shiftsCount);
+          },
+        );
       }
     } catch (e) {
       setState(() {
@@ -467,6 +491,50 @@ class _AutoAssignmentDialogState extends State<AutoAssignmentDialog> {
           );
         }).toList(),
       ],
+    );
+  }
+
+  /// シフト作成完了メッセージを表示
+  void _showCompletionMessage(ScaffoldMessengerState scaffoldMessenger, int shiftsCount) {
+    scaffoldMessenger.showSnackBar(
+      SnackBar(
+        content: Row(
+          children: [
+            const Icon(
+              Icons.check_circle,
+              color: Colors.white,
+              size: 24,
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'シフトを自動生成しました！',
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 16,
+                    ),
+                  ),
+                  Text(
+                    '${widget.selectedMonth.month}月分のシフト ${shiftsCount}件を作成しました',
+                    style: const TextStyle(fontSize: 14),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        backgroundColor: Colors.green,
+        duration: const Duration(seconds: 4),
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(8),
+        ),
+        margin: const EdgeInsets.all(16),
+      ),
     );
   }
 }
