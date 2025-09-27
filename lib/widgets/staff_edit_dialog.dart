@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../providers/staff_provider.dart';
+import '../providers/shift_time_provider.dart';
 import '../models/staff.dart';
 import '../models/shift_type.dart';
 
@@ -279,7 +280,11 @@ class _StaffEditDialogState extends State<StaffEditDialog> {
   }
 
   Widget _buildUnavailableShiftTypesSection() {
-    final shiftTypes = ShiftType.all;
+    final shiftTimeProvider = Provider.of<ShiftTimeProvider>(context);
+    final activeShiftTypes = shiftTimeProvider.settings
+        .where((setting) => setting.isActive)
+        .map((setting) => setting.displayName)
+        .toList();
     
     return Card(
       child: Padding(
@@ -297,76 +302,34 @@ class _StaffEditDialogState extends State<StaffEditDialog> {
               style: Theme.of(context).textTheme.bodySmall,
             ),
             const SizedBox(height: 16),
-            Column(
-              children: [
-                // 1行目: 早番、日勤、遅番
-                Row(
-                  children: ['早番', '日勤', '遅番'].map((type) {
-                    final isSelected = _unavailableShiftTypes.contains(type);
-                    return Expanded(
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 2.0),
-                        child: FilterChip(
-                          label: Center(child: Text(type, style: const TextStyle(fontSize: 12))),
-                          selected: isSelected,
-                          onSelected: (selected) {
-                            setState(() {
-                              if (selected) {
-                                _unavailableShiftTypes.add(type);
-                              } else {
-                                _unavailableShiftTypes.remove(type);
-                              }
-                            });
-                          },
-                        ),
-                      ),
-                    );
-                  }).toList(),
-                ),
-                const SizedBox(height: 8),
-                // 2行目: 夜勤、終日
-                Row(
-                  children: [
-                    Expanded(
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 2.0),
-                        child: FilterChip(
-                          label: Center(child: Text('夜勤', style: const TextStyle(fontSize: 12))),
-                          selected: _unavailableShiftTypes.contains('夜勤'),
-                          onSelected: (selected) {
-                            setState(() {
-                              if (selected) {
-                                _unavailableShiftTypes.add('夜勤');
-                              } else {
-                                _unavailableShiftTypes.remove('夜勤');
-                              }
-                            });
-                          },
-                        ),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: activeShiftTypes.map((type) {
+                final isSelected = _unavailableShiftTypes.contains(type);
+                return SizedBox(
+                  width: 100, // 固定幅
+                  child: FilterChip(
+                    label: Center(
+                      child: Text(
+                        type,
+                        style: const TextStyle(fontSize: 12),
+                        overflow: TextOverflow.ellipsis,
                       ),
                     ),
-                    Expanded(
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 2.0),
-                        child: FilterChip(
-                          label: Center(child: Text('終日', style: const TextStyle(fontSize: 12))),
-                          selected: _unavailableShiftTypes.contains('終日'),
-                          onSelected: (selected) {
-                            setState(() {
-                              if (selected) {
-                                _unavailableShiftTypes.add('終日');
-                              } else {
-                                _unavailableShiftTypes.remove('終日');
-                              }
-                            });
-                          },
-                        ),
-                      ),
-                    ),
-                    const Expanded(child: SizedBox()), // 3番目は空
-                  ],
-                ),
-              ],
+                    selected: isSelected,
+                    onSelected: (selected) {
+                      setState(() {
+                        if (selected) {
+                          _unavailableShiftTypes.add(type);
+                        } else {
+                          _unavailableShiftTypes.remove(type);
+                        }
+                      });
+                    },
+                  ),
+                );
+              }).toList(),
             ),
           ],
         ),

@@ -261,8 +261,8 @@ class _StaffListScreenState extends State<StaffListScreen> {
           SnackBar(
             content: Text(
               staff.isActive
-                  ? '${staff.name}を無効化しました'
-                  : '${staff.name}を有効化しました',
+                  ? '${staff.name}を有効化しました'
+                  : '${staff.name}を無効化しました',
             ),
           ),
         );
