@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:table_calendar/table_calendar.dart';
 import 'package:provider/provider.dart';
 import '../providers/shift_provider.dart';
@@ -124,13 +125,22 @@ class _CalendarScreenState extends State<CalendarScreen> {
                   ],
                 ),
                 child: InkWell(
-                  onTap: () {
-                    Navigator.push(
+                  onTap: () async {
+                    await Navigator.push(
                       context,
                       MaterialPageRoute(
                         builder: (context) => const ExportScreen(),
                       ),
                     );
+                    // Export画面から戻った時に画面向きを確実に復元
+                    if (mounted) {
+                      SystemChrome.setPreferredOrientations([
+                        DeviceOrientation.portraitUp,
+                        DeviceOrientation.portraitDown,
+                        DeviceOrientation.landscapeLeft,
+                        DeviceOrientation.landscapeRight,
+                      ]);
+                    }
                   },
                   borderRadius: BorderRadius.circular(8.0),
                   child: Padding(
@@ -145,7 +155,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
                         ),
                         const SizedBox(width: 4),
                         const Text(
-                          '保存・共有',
+                          'シフト表',
                           style: TextStyle(
                             color: Colors.white,
                             fontSize: 13,
@@ -303,82 +313,106 @@ class _CalendarScreenState extends State<CalendarScreen> {
                     ],
                   ),
                 ),
-                TableCalendar<Shift>(
-                firstDay: DateTime.utc(2020, 1, 1),
-                lastDay: DateTime.utc(2030, 12, 31),
-                focusedDay: _focusedDay,
-                calendarFormat: _calendarFormat,
-                locale: 'ja_JP',
-                selectedDayPredicate: (day) {
-                  return isSameDay(_selectedDay, day);
-                },
-                eventLoader: (day) {
-                  final dateKey = DateTime(day.year, day.month, day.day);
-                  return monthlyShifts[dateKey] ?? [];
-                },
-                startingDayOfWeek: StartingDayOfWeek.monday,
-                daysOfWeekVisible: true,
-                availableCalendarFormats: const {
-                  CalendarFormat.month: '月',
-                  CalendarFormat.week: '週',
-                },
-                calendarStyle: const CalendarStyle(
-                  outsideDaysVisible: false,
-                  selectedDecoration: BoxDecoration(
-                    color: Colors.blue,
-                    shape: BoxShape.circle,
-                  ),
-                  todayDecoration: BoxDecoration(
-                    color: Colors.orange,
-                    shape: BoxShape.circle,
-                  ),
-                  markerDecoration: BoxDecoration(
-                    color: Colors.green,
-                    shape: BoxShape.circle,
-                  ),
-                  // カレンダーの縦幅を縮小
-                  cellMargin: EdgeInsets.all(4.0),
-                  defaultTextStyle: TextStyle(fontSize: 14),
-                  weekendTextStyle: TextStyle(color: Colors.red, fontSize: 14),
-                  holidayTextStyle: TextStyle(color: Colors.red, fontSize: 14),
-                ),
-                headerVisible: false, // デフォルトヘッダーを非表示
-                onDaySelected: _onDaySelected,
-                onFormatChanged: (format) {
-                  if (_calendarFormat != format) {
-                    setState(() {
-                      _calendarFormat = format;
-                    });
-                  }
-                },
-                onPageChanged: (focusedDay) {
-                  setState(() {
-                    _focusedDay = focusedDay;
-                    _selectedDay = null;
-                  });
-                  _selectedShifts.value = [];
-                },
-                calendarBuilders: CalendarBuilders(
-                  markerBuilder: (context, date, shifts) {
-                    if (shifts.isEmpty) return null;
-                    return _buildShiftMarkers(shifts);
-                  },
-                  dowBuilder: (context, day) {
-                    final text = JapaneseCalendarUtils.getJapaneseDayOfWeek(day);
-                    return Center(
-                      child: Text(
-                        text,
-                        style: TextStyle(
-                          color: day.weekday == DateTime.saturday || day.weekday == DateTime.sunday
-                              ? Colors.red
-                              : Colors.black87,
-                          fontWeight: FontWeight.bold,
+                Expanded(
+                  child: LayoutBuilder(
+                    builder: (context, constraints) {
+                      // カレンダーに必要な最小高さを計算
+                      final availableHeight = constraints.maxHeight;
+                      final headerHeight = 40.0; // ヘッダー高さ
+                      final rowCount = _calendarFormat == CalendarFormat.month ? 6 : 1;
+                      final totalRowHeight = rowCount * 40.0; // 各行の高さを縮小
+                      final requiredHeight = headerHeight + totalRowHeight + 20; // マージン
+                      
+                      final calendarHeight = requiredHeight < availableHeight 
+                          ? requiredHeight 
+                          : availableHeight - 10;
+                      
+                      final calendar = TableCalendar<Shift>(
+                        firstDay: DateTime.utc(2020, 1, 1),
+                        lastDay: DateTime.utc(2030, 12, 31),
+                        focusedDay: _focusedDay,
+                        calendarFormat: _calendarFormat,
+                        locale: 'ja_JP',
+                        selectedDayPredicate: (day) {
+                          return isSameDay(_selectedDay, day);
+                        },
+                        eventLoader: (day) {
+                          final dateKey = DateTime(day.year, day.month, day.day);
+                          return monthlyShifts[dateKey] ?? [];
+                        },
+                        startingDayOfWeek: StartingDayOfWeek.monday,
+                        daysOfWeekVisible: true,
+                        availableCalendarFormats: const {
+                          CalendarFormat.month: '月',
+                          CalendarFormat.week: '週',
+                        },
+                        rowHeight: _calendarFormat == CalendarFormat.month ? 40.0 : 48.0,
+                        calendarStyle: const CalendarStyle(
+                          outsideDaysVisible: false,
+                          selectedDecoration: BoxDecoration(
+                            color: Colors.blue,
+                            shape: BoxShape.circle,
+                          ),
+                          todayDecoration: BoxDecoration(
+                            color: Colors.orange,
+                            shape: BoxShape.circle,
+                          ),
+                          markerDecoration: BoxDecoration(
+                            color: Colors.green,
+                            shape: BoxShape.circle,
+                          ),
+                          // カレンダーの縦幅を縮小
+                          cellMargin: EdgeInsets.all(2.0),
+                          defaultTextStyle: TextStyle(fontSize: 12),
+                          weekendTextStyle: TextStyle(color: Colors.red, fontSize: 12),
+                          holidayTextStyle: TextStyle(color: Colors.red, fontSize: 12),
                         ),
-                      ),
-                    );
-                  },
+                        headerVisible: false, // デフォルトヘッダーを非表示
+                        onDaySelected: _onDaySelected,
+                        onFormatChanged: (format) {
+                          if (_calendarFormat != format) {
+                            setState(() {
+                              _calendarFormat = format;
+                            });
+                          }
+                        },
+                        onPageChanged: (focusedDay) {
+                          setState(() {
+                            _focusedDay = focusedDay;
+                            _selectedDay = null;
+                          });
+                          _selectedShifts.value = [];
+                        },
+                        calendarBuilders: CalendarBuilders(
+                          markerBuilder: (context, date, shifts) {
+                            if (shifts.isEmpty) return null;
+                            return _buildShiftMarkers(shifts);
+                          },
+                          dowBuilder: (context, day) {
+                            final text = JapaneseCalendarUtils.getJapaneseDayOfWeek(day);
+                            return Center(
+                              child: Text(
+                                text,
+                                style: TextStyle(
+                                  color: day.weekday == DateTime.saturday || day.weekday == DateTime.sunday
+                                      ? Colors.red
+                                      : Colors.black87,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            );
+                          },
+                        ),
+                      );
+                      
+                      // 適切なサイズ制御でオーバーフローを防止
+                      return SizedBox(
+                        height: calendarHeight,
+                        child: calendar,
+                      );
+                    },
+                  ),
                 ),
-              ),
             const SizedBox(height: 4.0),
             Expanded(
               child: ValueListenableBuilder<List<Shift>>(

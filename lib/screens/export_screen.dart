@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:screenshot/screenshot.dart';
 import 'package:excel/excel.dart' as excel;
@@ -11,6 +12,7 @@ import 'dart:typed_data';
 import '../providers/shift_provider.dart';
 import '../providers/staff_provider.dart';
 import '../models/shift.dart';
+import '../models/staff.dart';
 import '../providers/shift_time_provider.dart';
 import '../models/shift_time_setting.dart';
 
@@ -27,94 +29,133 @@ class _ExportScreenState extends State<ExportScreen> {
   bool _isProcessing = false;
   
   @override
+  void initState() {
+    super.initState();
+    // 画面を横向きに固定（即座に適用）
+    _setLandscapeOrientation();
+  }
+
+  void _setLandscapeOrientation() {
+    SystemChrome.setPreferredOrientations([
+      DeviceOrientation.landscapeLeft,
+      DeviceOrientation.landscapeRight,
+    ]);
+  }
+  
+  @override
+  void dispose() {
+    // 画面向きを確実に縦向きに戻す
+    SystemChrome.setPreferredOrientations([
+      DeviceOrientation.portraitUp,
+      DeviceOrientation.portraitDown,
+    ]).then((_) {
+      // レイアウト安定化のため少し長めに待つ
+      Future.delayed(const Duration(milliseconds: 500), () {
+        SystemChrome.setPreferredOrientations([
+          DeviceOrientation.portraitUp,
+          DeviceOrientation.portraitDown,
+          DeviceOrientation.landscapeLeft,
+          DeviceOrientation.landscapeRight,
+        ]);
+      });
+    });
+    super.dispose();
+  }
+  
+  @override
   Widget build(BuildContext context) {
+    // build時にも横向きを確実に維持
+    _setLandscapeOrientation();
+    
     final shiftProvider = Provider.of<ShiftProvider>(context);
     final staffProvider = Provider.of<StaffProvider>(context);
     
     return Scaffold(
       appBar: AppBar(
-        title: const Text('保存・共有'),
-        backgroundColor: Theme.of(context).colorScheme.inversePrimary,
-      ),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+        title: Row(
           children: [
-            Row(
+            const Text('シフト表'),
+            const SizedBox(width: 8),
+            TextButton.icon(
+              icon: const Icon(Icons.calendar_today, size: 16),
+              label: Text(
+                DateFormat('yyyy年MM月').format(_selectedMonth),
+                style: const TextStyle(fontSize: 14),
+              ),
+              onPressed: _selectMonth,
+            ),
+          ],
+        ),
+        backgroundColor: Theme.of(context).colorScheme.inversePrimary,
+        actions: [
+          if (_isProcessing)
+            const Padding(
+              padding: EdgeInsets.all(16.0),
+              child: SizedBox(
+                width: 20,
+                height: 20,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              ),
+            ),
+        ],
+      ),
+      body: Column(
+        children: [
+          // 操作ボタン
+          if (!_isProcessing)
+            Container(
+              padding: const EdgeInsets.all(8.0),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  FilledButton.icon(
+                    onPressed: _showSaveDialog,
+                    icon: const Icon(Icons.save, size: 18),
+                    label: const Text('保存'),
+                    style: FilledButton.styleFrom(
+                      backgroundColor: Colors.blue,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  FilledButton.icon(
+                    onPressed: _showShareDialog,
+                    icon: const Icon(Icons.share, size: 18),
+                    label: const Text('共有'),
+                    style: FilledButton.styleFrom(
+                      backgroundColor: Colors.green,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          // シフト表表示領域
+          Expanded(
+            child: Stack(
               children: [
-                const Text(
-                  '対象月: ',
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                ),
-                TextButton.icon(
-                  icon: const Icon(Icons.calendar_today),
-                  label: Text(DateFormat('yyyy年MM月').format(_selectedMonth)),
-                  onPressed: _selectMonth,
+                // 画面表示用（スクロール可能）
+                _buildCalendarPreview(shiftProvider, staffProvider),
+                // スクリーンショット用（非表示、全体表示）
+                Positioned(
+                  left: -2000, // 画面外に配置
+                  child: Screenshot(
+                    controller: _screenshotController,
+                    child: Container(
+                      color: Colors.white,
+                      child: _buildFullCalendarForCapture(
+                        shiftProvider,
+                        staffProvider,
+                      ),
+                    ),
+                  ),
                 ),
               ],
             ),
-            const SizedBox(height: 20),
-            Expanded(
-              child: Stack(
-                children: [
-                  // 画面表示用（スクロール可能）
-                  _buildCalendarPreview(shiftProvider, staffProvider),
-                  // スクリーンショット用（非表示、全体表示）
-                  Positioned(
-                    left: -2000, // 画面外に配置
-                    child: Screenshot(
-                      controller: _screenshotController,
-                      child: Container(
-                        color: Colors.white,
-                        child: _buildFullCalendarForCapture(
-                          shiftProvider,
-                          staffProvider,
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 20),
-            if (_isProcessing)
-              const Center(child: CircularProgressIndicator())
-            else
-              Column(
-                children: [
-                  Row(
-                    children: [
-                      Expanded(
-                        child: FilledButton.icon(
-                          onPressed: _captureScreenshot,
-                          icon: const Icon(Icons.image),
-                          label: const Text('スクリーンショット保存'),
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: FilledButton.icon(
-                          onPressed: _exportToExcel,
-                          icon: const Icon(Icons.table_chart),
-                          label: const Text('Excel保存'),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-                  SizedBox(
-                    width: double.infinity,
-                    child: FilledButton.icon(
-                      onPressed: _shareShift,
-                      icon: const Icon(Icons.share),
-                      label: const Text('共有'),
-                    ),
-                  ),
-                ],
-              ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
@@ -294,44 +335,51 @@ class _ExportScreenState extends State<ExportScreen> {
       ]);
       sheet.appendRow([]); // 空行
       
+      // 日付ヘッダー行
       final headers = <excel.CellValue?>[
-        excel.TextCellValue('日付')
+        excel.TextCellValue('スタッフ')
       ];
-      for (final setting in activeSettings) {
-        headers.add(excel.TextCellValue(setting.displayName));
-      }
-      sheet.appendRow(headers);
-      
-      // データ行
       final daysInMonth = DateTime(_selectedMonth.year, _selectedMonth.month + 1, 0).day;
       for (int day = 1; day <= daysInMonth; day++) {
         final date = DateTime(_selectedMonth.year, _selectedMonth.month, day);
-        final dayShifts = shifts[date] ?? [];
-        
+        final weekday = _getWeekdayString(date.weekday);
+        headers.add(excel.TextCellValue('${day}日($weekday)'));
+      }
+      sheet.appendRow(headers);
+      
+      // スタッフ行
+      final activeStaff = staffProvider.activeStaffList;
+      for (final staff in activeStaff) {
         final row = <excel.CellValue?>[
-          excel.TextCellValue('${date.day}日 (${_getWeekdayString(date.weekday)})')
+          excel.TextCellValue(staff.name)
         ];
         
-        for (final setting in activeSettings) {
-          final typeShifts = dayShifts.where((s) => s.shiftType == setting.displayName).toList();
-          final staffInfo = typeShifts
-              .map((s) {
-                final staff = staffProvider.getStaffById(s.staffId);
-                final staffName = staff?.name ?? 'Unknown';
-                
-                // 標準時間と異なるかチェック
-                final actualStartTime = DateFormat('HH:mm').format(s.startTime);
-                final actualEndTime = DateFormat('HH:mm').format(s.endTime);
-                final isDifferentTime = actualStartTime != setting.startTime || actualEndTime != setting.endTime;
-                
-                if (isDifferentTime) {
-                  return '$staffName ($actualStartTime-$actualEndTime)';
-                } else {
-                  return staffName;
-                }
-              })
-              .join(', ');
-          row.add(excel.TextCellValue(staffInfo));
+        for (int day = 1; day <= daysInMonth; day++) {
+          final date = DateTime(_selectedMonth.year, _selectedMonth.month, day);
+          final dayShifts = shifts[date] ?? [];
+          final staffShift = dayShifts.where((s) => s.staffId == staff.id).firstOrNull;
+          
+          String cellValue = '';
+          if (staffShift != null) {
+            final setting = activeSettings.where((s) => s.displayName == staffShift.shiftType).firstOrNull;
+            if (setting != null) {
+              final shiftChar = setting.displayName.isNotEmpty ? setting.displayName[0] : '?';
+              
+              // 標準時間と異なるかチェック
+              final actualStartTime = DateFormat('HH:mm').format(staffShift.startTime);
+              final actualEndTime = DateFormat('HH:mm').format(staffShift.endTime);
+              final isDifferentTime = actualStartTime != setting.startTime || actualEndTime != setting.endTime;
+              
+              if (isDifferentTime) {
+                cellValue = '$shiftChar ($actualStartTime-$actualEndTime)';
+              } else {
+                cellValue = shiftChar;
+              }
+            } else {
+              cellValue = '?';
+            }
+          }
+          row.add(excel.TextCellValue(cellValue));
         }
         
         sheet.appendRow(row);
@@ -374,28 +422,119 @@ class _ExportScreenState extends State<ExportScreen> {
     }
   }
 
-  Future<void> _shareShift() async {
-    // 共有形式選択ダイアログを表示
+
+  Future<void> _shareAsPng() async {
+    setState(() => _isProcessing = true);
+    
+    try {
+      // スクリーンショットを取得
+      final Uint8List? image = await _screenshotController.capture();
+      if (image == null) {
+        throw Exception('スクリーンショットの取得に失敗しました');
+      }
+
+      // 一時ファイルに保存
+      final tempDir = await getTemporaryDirectory();
+      final file = File('${tempDir.path}/shift_${DateFormat('yyyyMM').format(_selectedMonth)}.png');
+      await file.writeAsBytes(image);
+
+      // 共有
+      final result = await Share.shareXFiles(
+        [XFile(file.path)],
+        text: '${DateFormat('yyyy年MM月').format(_selectedMonth)}のシフト表（PNG画像）',
+      );
+
+      // 実際に共有された場合のみ成功メッセージ
+      if (mounted && result.status == ShareResultStatus.success) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('PNG画像を共有しました'),
+            duration: Duration(seconds: 3),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('エラー: $e')),
+        );
+      }
+    } finally {
+      setState(() => _isProcessing = false);
+    }
+  }
+
+  Future<void> _showSaveDialog() async {
     final selectedFormat = await showDialog<String>(
       context: context,
       builder: (BuildContext context) {
         return AlertDialog(
-          title: const Text('共有形式を選択'),
+          title: const Text('このスマホに保存'),
           content: Column(
             mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              ListTile(
-                leading: const Icon(Icons.image, color: Colors.blue),
-                title: const Text('PNG画像'),
-                subtitle: const Text('LINEやメールでの共有・確認用'),
-                onTap: () => Navigator.pop(context, 'png'),
+              const Text(
+                'このスマホ内に保存します',
+                style: TextStyle(fontSize: 13, color: Colors.grey),
               ),
-              const Divider(),
-              ListTile(
-                leading: const Icon(Icons.table_chart, color: Colors.green),
-                title: const Text('Excelファイル'),
-                subtitle: const Text('Googleドライブに保存→編集・レイアウト調整→印刷'),
-                onTap: () => Navigator.pop(context, 'excel'),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  Expanded(
+                    child: InkWell(
+                      onTap: () => Navigator.pop(context, 'png'),
+                      borderRadius: BorderRadius.circular(6),
+                      child: Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          border: Border.all(color: Colors.blue.shade200),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: const Column(
+                          children: [
+                            Icon(Icons.image, color: Colors.blue, size: 24),
+                            SizedBox(height: 4),
+                            Text('PNG画像', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                            SizedBox(height: 2),
+                            Text(
+                              '画像として保存',
+                              style: TextStyle(fontSize: 10),
+                              textAlign: TextAlign.center,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: InkWell(
+                      onTap: () => Navigator.pop(context, 'excel'),
+                      borderRadius: BorderRadius.circular(6),
+                      child: Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          border: Border.all(color: Colors.green.shade200),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: const Column(
+                          children: [
+                            Icon(Icons.table_chart, color: Colors.green, size: 24),
+                            SizedBox(height: 4),
+                            Text('Excelファイル', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                            SizedBox(height: 2),
+                            Text(
+                              'Excel形式で保存',
+                              style: TextStyle(fontSize: 10),
+                              textAlign: TextAlign.center,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ],
           ),
@@ -409,7 +548,112 @@ class _ExportScreenState extends State<ExportScreen> {
       },
     );
 
-    if (selectedFormat == null) return; // キャンセルされた場合
+    if (selectedFormat == null) return;
+
+    setState(() => _isProcessing = true);
+    
+    try {
+      if (selectedFormat == 'png') {
+        await _captureScreenshot();
+      } else if (selectedFormat == 'excel') {
+        await _exportToExcel();
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('エラー: $e')),
+        );
+      }
+    } finally {
+      setState(() => _isProcessing = false);
+    }
+  }
+
+  Future<void> _showShareDialog() async {
+    final selectedFormat = await showDialog<String>(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('他のアプリと共有'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                '他のアプリと共有します',
+                style: TextStyle(fontSize: 13, color: Colors.grey),
+              ),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  Expanded(
+                    child: InkWell(
+                      onTap: () => Navigator.pop(context, 'png'),
+                      borderRadius: BorderRadius.circular(6),
+                      child: Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          border: Border.all(color: Colors.blue.shade200),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: const Column(
+                          children: [
+                            Icon(Icons.image, color: Colors.blue, size: 24),
+                            SizedBox(height: 4),
+                            Text('PNG画像', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                            SizedBox(height: 2),
+                            Text(
+                              'LINE・メール等',
+                              style: TextStyle(fontSize: 10),
+                              textAlign: TextAlign.center,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: InkWell(
+                      onTap: () => Navigator.pop(context, 'excel'),
+                      borderRadius: BorderRadius.circular(6),
+                      child: Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          border: Border.all(color: Colors.green.shade200),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: const Column(
+                          children: [
+                            Icon(Icons.table_chart, color: Colors.green, size: 24),
+                            SizedBox(height: 4),
+                            Text('Excelファイル', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                            SizedBox(height: 2),
+                            Text(
+                              'ドライブ→編集→印刷',
+                              style: TextStyle(fontSize: 10),
+                              textAlign: TextAlign.center,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('キャンセル'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (selectedFormat == null) return;
 
     setState(() => _isProcessing = true);
     
@@ -430,119 +674,109 @@ class _ExportScreenState extends State<ExportScreen> {
     }
   }
 
-  Future<void> _shareAsPng() async {
-    // スクリーンショットを取得
-    final Uint8List? image = await _screenshotController.capture();
-    if (image == null) {
-      throw Exception('スクリーンショットの取得に失敗しました');
-    }
-
-    // 一時ファイルに保存
-    final tempDir = await getTemporaryDirectory();
-    final file = File('${tempDir.path}/shift_${DateFormat('yyyyMM').format(_selectedMonth)}.png');
-    await file.writeAsBytes(image);
-
-    // 共有
-    final result = await Share.shareXFiles(
-      [XFile(file.path)],
-      text: '${DateFormat('yyyy年MM月').format(_selectedMonth)}のシフト表（PNG画像）',
-    );
-
-    // 実際に共有された場合のみ成功メッセージ
-    if (mounted && result.status == ShareResultStatus.success) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('PNG画像を共有しました'),
-          duration: Duration(seconds: 3),
-        ),
-      );
-    }
-  }
-
   Future<void> _shareAsExcel() async {
-    // Excelファイルを生成
-    final excelFile = excel.Excel.createExcel();
-    final sheet = excelFile['Sheet1'];
-    final shiftProvider = Provider.of<ShiftProvider>(context, listen: false);
-    final staffProvider = Provider.of<StaffProvider>(context, listen: false);
-    final shiftTimeProvider = Provider.of<ShiftTimeProvider>(context, listen: false);
-    final activeSettings = shiftTimeProvider.settings.where((s) => s.isActive).toList();
-    final shifts = shiftProvider.getMonthlyShiftMap(
-      _selectedMonth.year,
-      _selectedMonth.month,
-    );
+    setState(() => _isProcessing = true);
     
-    // ヘッダー行
-    sheet.appendRow([
-      excel.TextCellValue('シフト表 - ${DateFormat('yyyy年MM月').format(_selectedMonth)}')
-    ]);
-    sheet.appendRow([]); // 空行
-    
-    final headers = <excel.CellValue?>[
-      excel.TextCellValue('日付')
-    ];
-    for (final setting in activeSettings) {
-      headers.add(excel.TextCellValue(setting.displayName));
-    }
-    sheet.appendRow(headers);
-    
-    // データ行
-    final daysInMonth = DateTime(_selectedMonth.year, _selectedMonth.month + 1, 0).day;
-    for (int day = 1; day <= daysInMonth; day++) {
-      final date = DateTime(_selectedMonth.year, _selectedMonth.month, day);
-      final dayShifts = shifts[date] ?? [];
+    try {
+      // Excelファイルを生成
+      final excelFile = excel.Excel.createExcel();
+      final sheet = excelFile['Sheet1'];
+      final shiftProvider = Provider.of<ShiftProvider>(context, listen: false);
+      final staffProvider = Provider.of<StaffProvider>(context, listen: false);
+      final shiftTimeProvider = Provider.of<ShiftTimeProvider>(context, listen: false);
+      final activeSettings = shiftTimeProvider.settings.where((s) => s.isActive).toList();
+      final shifts = shiftProvider.getMonthlyShiftMap(
+        _selectedMonth.year,
+        _selectedMonth.month,
+      );
       
-      final row = <excel.CellValue?>[
-        excel.TextCellValue('${date.day}日 (${_getWeekdayString(date.weekday)})')
+      // ヘッダー行
+      sheet.appendRow([
+        excel.TextCellValue('シフト表 - ${DateFormat('yyyy年MM月').format(_selectedMonth)}')
+      ]);
+      sheet.appendRow([]); // 空行
+      
+      // 日付ヘッダー行
+      final headers = <excel.CellValue?>[
+        excel.TextCellValue('スタッフ')
       ];
+      final daysInMonth = DateTime(_selectedMonth.year, _selectedMonth.month + 1, 0).day;
+      for (int day = 1; day <= daysInMonth; day++) {
+        final date = DateTime(_selectedMonth.year, _selectedMonth.month, day);
+        final weekday = _getWeekdayString(date.weekday);
+        headers.add(excel.TextCellValue('${day}日($weekday)'));
+      }
+      sheet.appendRow(headers);
       
-      for (final setting in activeSettings) {
-        final typeShifts = dayShifts.where((s) => s.shiftType == setting.displayName).toList();
-        final staffInfo = typeShifts
-            .map((s) {
-              final staff = staffProvider.getStaffById(s.staffId);
-              final staffName = staff?.name ?? 'Unknown';
+      // スタッフ行
+      final activeStaff = staffProvider.activeStaffList;
+      for (final staff in activeStaff) {
+        final row = <excel.CellValue?>[
+          excel.TextCellValue(staff.name)
+        ];
+        
+        for (int day = 1; day <= daysInMonth; day++) {
+          final date = DateTime(_selectedMonth.year, _selectedMonth.month, day);
+          final dayShifts = shifts[date] ?? [];
+          final staffShift = dayShifts.where((s) => s.staffId == staff.id).firstOrNull;
+          
+          String cellValue = '';
+          if (staffShift != null) {
+            final setting = activeSettings.where((s) => s.displayName == staffShift.shiftType).firstOrNull;
+            if (setting != null) {
+              final shiftChar = setting.displayName.isNotEmpty ? setting.displayName[0] : '?';
               
               // 標準時間と異なるかチェック
-              final actualStartTime = DateFormat('HH:mm').format(s.startTime);
-              final actualEndTime = DateFormat('HH:mm').format(s.endTime);
+              final actualStartTime = DateFormat('HH:mm').format(staffShift.startTime);
+              final actualEndTime = DateFormat('HH:mm').format(staffShift.endTime);
               final isDifferentTime = actualStartTime != setting.startTime || actualEndTime != setting.endTime;
               
               if (isDifferentTime) {
-                return '$staffName ($actualStartTime-$actualEndTime)';
+                cellValue = '$shiftChar ($actualStartTime-$actualEndTime)';
               } else {
-                return staffName;
+                cellValue = shiftChar;
               }
-            })
-            .join(', ');
-        row.add(excel.TextCellValue(staffInfo));
+            } else {
+              cellValue = '?';
+            }
+          }
+          row.add(excel.TextCellValue(cellValue));
+        }
+        
+        sheet.appendRow(row);
       }
-      
-      sheet.appendRow(row);
-    }
 
-    final excelBytes = excelFile.save();
-    if (excelBytes != null) {
-      // 一時ファイルに保存
-      final tempDir = await getTemporaryDirectory();
-      final file = File('${tempDir.path}/shift_${DateFormat('yyyyMM').format(_selectedMonth)}.xlsx');
-      await file.writeAsBytes(excelBytes);
+      final excelBytes = excelFile.save();
+      if (excelBytes != null) {
+        // 一時ファイルに保存
+        final tempDir = await getTemporaryDirectory();
+        final file = File('${tempDir.path}/shift_${DateFormat('yyyyMM').format(_selectedMonth)}.xlsx');
+        await file.writeAsBytes(excelBytes);
 
-      // 共有
-      final result = await Share.shareXFiles(
-        [XFile(file.path)],
-        text: '${DateFormat('yyyy年MM月').format(_selectedMonth)}のシフト表（Excelファイル）',
-      );
+        // 共有
+        final result = await Share.shareXFiles(
+          [XFile(file.path)],
+          text: '${DateFormat('yyyy年MM月').format(_selectedMonth)}のシフト表（Excelファイル）',
+        );
 
-      // 実際に共有された場合のみ成功メッセージ
-      if (mounted && result.status == ShareResultStatus.success) {
+        // 実際に共有された場合のみ成功メッセージ
+        if (mounted && result.status == ShareResultStatus.success) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Excelファイルを共有しました'),
+              duration: Duration(seconds: 3),
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Excelファイルを共有しました'),
-            duration: Duration(seconds: 3),
-          ),
+          SnackBar(content: Text('エラー: $e')),
         );
       }
+    } finally {
+      setState(() => _isProcessing = false);
     }
   }
 
@@ -562,53 +796,55 @@ class _ExportScreenState extends State<ExportScreen> {
 
   Widget _buildCalendarTable(Map<DateTime, List<Shift>> shifts, StaffProvider staffProvider) {
     final daysInMonth = DateTime(_selectedMonth.year, _selectedMonth.month + 1, 0).day;
+    final activeStaff = staffProvider.activeStaffList;
     
     return DataTable(
-      columnSpacing: 20,
+      columnSpacing: 8,
       headingRowHeight: 40,
-      dataRowMinHeight: 60,
-      dataRowMaxHeight: 100,
-      columns: _buildDataColumns(),
-      rows: _buildDataRows(daysInMonth, shifts, staffProvider),
+      dataRowMinHeight: 36,
+      dataRowMaxHeight: 36,
+      border: TableBorder.all(
+        color: Colors.grey.shade300,
+        width: 1,
+      ),
+      columns: _buildDateColumns(daysInMonth),
+      rows: _buildStaffRows(daysInMonth, shifts, activeStaff),
     );
   }
 
-  List<DataColumn> _buildDataColumns() {
-    final shiftTimeProvider = Provider.of<ShiftTimeProvider>(context, listen: false);
-    final activeSettings = shiftTimeProvider.settings.where((s) => s.isActive).toList();
-    
+  List<DataColumn> _buildDateColumns(int daysInMonth) {
     final columns = <DataColumn>[
-      const DataColumn(label: Text('日付', style: TextStyle(fontWeight: FontWeight.bold))),
+      const DataColumn(
+        label: Text('スタッフ', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+      ),
     ];
     
-    for (final setting in activeSettings) {
-      final color = setting.shiftType.color;
+    for (int day = 1; day <= daysInMonth; day++) {
+      final date = DateTime(_selectedMonth.year, _selectedMonth.month, day);
+      final weekday = _getWeekdayString(date.weekday);
+      final isWeekend = date.weekday == 6 || date.weekday == 7;
+      
       columns.add(
         DataColumn(
-          label: Container(
-            color: color.withOpacity(0.2),
-            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Text(
-                  setting.displayName,
-                  style: TextStyle(
-                    fontWeight: FontWeight.bold,
-                    color: color,
-                    fontSize: 12,
-                  ),
+          label: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                '$day',
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 12,
+                  color: isWeekend ? Colors.red : Colors.black,
                 ),
-                Text(
-                  '${setting.startTime}-${setting.endTime}',
-                  style: TextStyle(
-                    fontSize: 9,
-                    color: color.withOpacity(0.8),
-                  ),
+              ),
+              Text(
+                weekday,
+                style: TextStyle(
+                  fontSize: 9,
+                  color: isWeekend ? Colors.red : Colors.grey,
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
         ),
       );
@@ -617,92 +853,71 @@ class _ExportScreenState extends State<ExportScreen> {
     return columns;
   }
 
-  List<DataRow> _buildDataRows(int daysInMonth, Map<DateTime, List<Shift>> shifts, StaffProvider staffProvider) {
+  List<DataRow> _buildStaffRows(int daysInMonth, Map<DateTime, List<Shift>> shifts, List<Staff> activeStaff) {
+    final shiftTimeProvider = Provider.of<ShiftTimeProvider>(context, listen: false);
+    final activeSettings = shiftTimeProvider.settings.where((s) => s.isActive).toList();
     final rows = <DataRow>[];
     
-    for (int day = 1; day <= daysInMonth; day++) {
-      final date = DateTime(_selectedMonth.year, _selectedMonth.month, day);
-      final dayShifts = shifts[date] ?? [];
-      final weekday = _getWeekdayString(date.weekday);
-      final isWeekend = date.weekday == 6 || date.weekday == 7;
-      
+    for (final staff in activeStaff) {
       final cells = <DataCell>[
         DataCell(
-          Container(
-            padding: const EdgeInsets.symmetric(vertical: 4),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Text(
-                  '$day',
-                  style: TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 16,
-                    color: isWeekend ? Colors.red : null,
-                  ),
-                ),
-                Text(
-                  weekday,
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: isWeekend ? Colors.red : Colors.grey,
-                  ),
-                ),
-              ],
-            ),
+          Text(
+            staff.name,
+            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
           ),
         ),
       ];
       
-      final shiftTimeProvider = Provider.of<ShiftTimeProvider>(context, listen: false);
-      final activeSettings = shiftTimeProvider.settings.where((s) => s.isActive).toList();
-      
-      for (final setting in activeSettings) {
-        final typeShifts = dayShifts.where((s) => s.shiftType == setting.displayName).toList();
-        cells.add(
-          DataCell(
-            Container(
-              padding: const EdgeInsets.symmetric(vertical: 4),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: typeShifts.map((shift) {
-                  final staff = staffProvider.getStaffById(shift.staffId);
-                  
-                  // 標準時間と異なるかチェック
-                  final actualStartTime = DateFormat('HH:mm').format(shift.startTime);
-                  final actualEndTime = DateFormat('HH:mm').format(shift.endTime);
-                  final isDifferentTime = actualStartTime != setting.startTime || actualEndTime != setting.endTime;
-                  
-                  return Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 2),
-                    child: isDifferentTime
-                        ? Row(
-                            children: [
-                              Text(
-                                staff?.name ?? 'Unknown',
-                                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
-                              ),
-                              const SizedBox(width: 4),
-                              Text(
-                                '($actualStartTime-$actualEndTime)',
-                                style: TextStyle(
-                                  fontSize: 10,
-                                  color: Colors.grey[600],
-                                ),
-                              ),
-                            ],
-                          )
-                        : Text(
-                            staff?.name ?? 'Unknown',
-                            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
-                          ),
-                  );
-                }).toList(),
-              ),
-            ),
-          ),
-        );
+      for (int day = 1; day <= daysInMonth; day++) {
+        final date = DateTime(_selectedMonth.year, _selectedMonth.month, day);
+        final dayShifts = shifts[date] ?? [];
+        final staffShift = dayShifts.where((s) => s.staffId == staff.id).firstOrNull;
+        
+        Widget cellContent;
+        if (staffShift != null) {
+          // シフトタイプの設定を検索
+          final setting = activeSettings.where((s) => s.displayName == staffShift.shiftType).firstOrNull;
+          if (setting != null) {
+            final shiftChar = setting.displayName.isNotEmpty ? setting.displayName[0] : '?';
+            final color = setting.shiftType.color;
+            
+            // 標準時間と異なるかチェック
+            final actualStartTime = DateFormat('HH:mm').format(staffShift.startTime);
+            final actualEndTime = DateFormat('HH:mm').format(staffShift.endTime);
+            final isDifferentTime = actualStartTime != setting.startTime || actualEndTime != setting.endTime;
+            
+            cellContent = Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  shiftChar,
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                    color: color,
+                  ),
+                ),
+                if (isDifferentTime) ...[
+                  const SizedBox(width: 2),
+                  Text(
+                    '!',
+                    style: TextStyle(
+                      fontSize: 8,
+                      color: Colors.orange[700],
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ],
+              ],
+            );
+          } else {
+            cellContent = const Text('?', style: TextStyle(fontSize: 11));
+          }
+        } else {
+          cellContent = const SizedBox.shrink(); // 空セル
+        }
+        
+        cells.add(DataCell(cellContent));
       }
       
       rows.add(DataRow(cells: cells));
