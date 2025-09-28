@@ -781,7 +781,11 @@ class _ShiftTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final staffProvider = context.read<StaffProvider>();
+    final shiftTimeProvider = context.read<ShiftTimeProvider>();
     final staff = staffProvider.getStaffById(shift.staffId);
+    
+    // シフトタイプは文字列で保存されているので、そのまま表示
+    final shiftDisplayName = shift.shiftType;
 
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 2.0),
@@ -826,7 +830,7 @@ class _ShiftTile extends StatelessWidget {
                   borderRadius: BorderRadius.circular(10),
                 ),
                 child: Text(
-                  shift.shiftType,
+                  shiftDisplayName,
                   style: TextStyle(
                     color: shiftColor,
                     fontWeight: FontWeight.w500,

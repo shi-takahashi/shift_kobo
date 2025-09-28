@@ -351,7 +351,6 @@ class _ExportScreenState extends State<ExportScreen> {
       final shiftProvider = Provider.of<ShiftProvider>(context, listen: false);
       final staffProvider = Provider.of<StaffProvider>(context, listen: false);
       final shiftTimeProvider = Provider.of<ShiftTimeProvider>(context, listen: false);
-      final activeSettings = shiftTimeProvider.settings.where((s) => s.isActive).toList();
       final shifts = shiftProvider.getMonthlyShiftMap(
         _selectedMonth.year,
         _selectedMonth.month,
@@ -389,7 +388,11 @@ class _ExportScreenState extends State<ExportScreen> {
           
           String cellValue = '';
           if (staffShift != null) {
-            final setting = activeSettings.where((s) => s.displayName == staffShift.shiftType).firstOrNull;
+            // シフトタイプは文字列で保存されている（displayName）
+            // 表示名から対応する設定を検索
+            final setting = shiftTimeProvider.settings
+                .where((s) => s.displayName == staffShift.shiftType)
+                .firstOrNull;
             if (setting != null) {
               final shiftChar = setting.displayName.isNotEmpty ? setting.displayName[0] : '?';
               
@@ -744,7 +747,6 @@ class _ExportScreenState extends State<ExportScreen> {
       final shiftProvider = Provider.of<ShiftProvider>(context, listen: false);
       final staffProvider = Provider.of<StaffProvider>(context, listen: false);
       final shiftTimeProvider = Provider.of<ShiftTimeProvider>(context, listen: false);
-      final activeSettings = shiftTimeProvider.settings.where((s) => s.isActive).toList();
       final shifts = shiftProvider.getMonthlyShiftMap(
         _selectedMonth.year,
         _selectedMonth.month,
@@ -782,7 +784,11 @@ class _ExportScreenState extends State<ExportScreen> {
           
           String cellValue = '';
           if (staffShift != null) {
-            final setting = activeSettings.where((s) => s.displayName == staffShift.shiftType).firstOrNull;
+            // シフトタイプは文字列で保存されている（displayName）
+            // 表示名から対応する設定を検索
+            final setting = shiftTimeProvider.settings
+                .where((s) => s.displayName == staffShift.shiftType)
+                .firstOrNull;
             if (setting != null) {
               final shiftChar = setting.displayName.isNotEmpty ? setting.displayName[0] : '?';
               
@@ -972,7 +978,6 @@ class _ExportScreenState extends State<ExportScreen> {
 
   List<DataRow> _buildStaffRows(int daysInMonth, Map<DateTime, List<Shift>> shifts, List<Staff> staffWithShifts) {
     final shiftTimeProvider = Provider.of<ShiftTimeProvider>(context, listen: false);
-    final activeSettings = shiftTimeProvider.settings.where((s) => s.isActive).toList();
     final rows = <DataRow>[];
     
     for (final staff in staffWithShifts) {
@@ -992,8 +997,11 @@ class _ExportScreenState extends State<ExportScreen> {
         
         Widget cellContent;
         if (staffShift != null) {
-          // シフトタイプの設定を検索
-          final setting = activeSettings.where((s) => s.displayName == staffShift.shiftType).firstOrNull;
+          // シフトタイプは文字列で保存されている（displayName）
+          // 表示名から対応する設定を検索
+          final setting = shiftTimeProvider.settings
+              .where((s) => s.displayName == staffShift.shiftType)
+              .firstOrNull;
           if (setting != null) {
             final shiftChar = setting.displayName.isNotEmpty ? setting.displayName[0] : '?';
             final color = setting.shiftType.color;

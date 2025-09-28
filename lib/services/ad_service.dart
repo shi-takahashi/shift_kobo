@@ -19,6 +19,11 @@ class AdService {
   // インタースティシャル広告のインスタンス保持
   static InterstitialAd? _interstitialAd;
   static bool _isLoadingInterstitial = false;
+  
+  // バナー広告のキャッシュ
+  static final List<BannerAd> _bannerAdCache = [];
+  static const int _maxCacheSize = 3;
+  static bool _isPreloadingBanners = false;
 
   // テスト用広告ID（デバッグビルド時）
   static const String _testBannerAdUnitIdAndroid = 'ca-app-pub-3940256099942544/6300978111';
@@ -64,24 +69,37 @@ class AdService {
 
     // インタースティシャル広告を事前読み込み
     await _preloadInterstitialAd();
+    
+    // バナー広告も事前にいくつか読み込んでおく
+    if (showBannerAds) {
+      _preloadBannerAds();
+    }
   }
 
   /// バナー広告を作成
   static BannerAd createBannerAd({
     required Function() onAdLoaded,
     required Function() onAdFailedToLoad,
+    AdSize adSize = AdSize.banner,
   }) {
+    final adUnitId = bannerAdUnitId;
+    print('バナー広告作成開始: $adUnitId (${_isDebug ? "テスト広告" : "本番広告"}, サイズ: $adSize)');
+    
     return BannerAd(
-      adUnitId: bannerAdUnitId,
-      size: AdSize.banner,
+      adUnitId: adUnitId,
+      size: adSize,
       request: const AdRequest(),
       listener: BannerAdListener(
         onAdLoaded: (_) {
-          print('バナー広告読み込み完了: $bannerAdUnitId');
+          print('バナー広告読み込み完了: $adUnitId');
           onAdLoaded();
         },
         onAdFailedToLoad: (ad, error) {
-          print('バナー広告読み込み失敗: ${error.message}');
+          print('バナー広告読み込み失敗:');
+          print('  - エラーコード: ${error.code}');
+          print('  - エラーメッセージ: ${error.message}');
+          print('  - ドメイン: ${error.domain}');
+          print('  - 広告ID: $adUnitId');
           ad.dispose();
           onAdFailedToLoad();
         },
@@ -90,6 +108,9 @@ class AdService {
         },
         onAdClosed: (_) {
           print('バナー広告が閉じられました');
+        },
+        onAdImpression: (_) {
+          print('バナー広告が表示されました（インプレッション）');
         },
       ),
     )..load();
@@ -197,5 +218,69 @@ class AdService {
       onAdClosed: onAdClosed,
       onAdFailedToShow: onAdFailedToLoad,
     );
+  }
+  
+  /// バナー広告を事前に複数読み込み
+  static void _preloadBannerAds() async {
+    if (_isPreloadingBanners || !showBannerAds) return;
+    
+    _isPreloadingBanners = true;
+    print('バナー広告の事前読み込み開始');
+    
+    // 異なるサイズの広告を事前に読み込む
+    final adSizes = [AdSize.banner, AdSize.largeBanner];
+    
+    for (final size in adSizes) {
+      if (_bannerAdCache.length >= _maxCacheSize) break;
+      
+      // 少し間隔を空けて読み込み
+      await Future.delayed(const Duration(milliseconds: 500));
+      
+      final ad = BannerAd(
+        adUnitId: bannerAdUnitId,
+        size: size,
+        request: const AdRequest(),
+        listener: BannerAdListener(
+          onAdLoaded: (_) {
+            print('バナー広告事前読み込み成功: $size');
+            if (_bannerAdCache.length < _maxCacheSize) {
+              _bannerAdCache.add(_ as BannerAd);
+            } else {
+              _.dispose();
+            }
+          },
+          onAdFailedToLoad: (ad, error) {
+            print('バナー広告事前読み込み失敗: $size');
+            ad.dispose();
+          },
+        ),
+      )..load();
+    }
+    
+    _isPreloadingBanners = false;
+  }
+  
+  /// キャッシュからバナー広告を取得
+  static BannerAd? getCachedBannerAd() {
+    if (_bannerAdCache.isEmpty) return null;
+    
+    final ad = _bannerAdCache.removeAt(0);
+    print('キャッシュからバナー広告を取得 (残り${_bannerAdCache.length}個)');
+    
+    // キャッシュが減ったら補充
+    if (_bannerAdCache.length < 2 && !_isPreloadingBanners) {
+      Future.delayed(const Duration(seconds: 1), _preloadBannerAds);
+    }
+    
+    return ad;
+  }
+  
+  /// キャッシュをクリア（メモリ解放用）
+  static void clearCache() {
+    for (final ad in _bannerAdCache) {
+      ad.dispose();
+    }
+    _bannerAdCache.clear();
+    print('バナー広告キャッシュをクリアしました');
   }
 }
