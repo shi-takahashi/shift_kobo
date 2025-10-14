@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
+import 'package:intl/intl.dart';
 import '../providers/staff_provider.dart';
 import '../providers/shift_time_provider.dart';
 import '../models/staff.dart';
@@ -27,11 +28,12 @@ class _StaffEditDialogState extends State<StaffEditDialog> {
   
   late List<int> _selectedDaysOff;
   late List<String> _unavailableShiftTypes;
-  
+  late List<DateTime> _specificDaysOff;
+
   @override
   void initState() {
     super.initState();
-    
+
     if (widget.existingStaff != null) {
       // 編集モード
       _nameController = TextEditingController(text: widget.existingStaff!.name);
@@ -40,6 +42,9 @@ class _StaffEditDialogState extends State<StaffEditDialog> {
       _maxShiftsController = TextEditingController(text: widget.existingStaff!.maxShiftsPerMonth.toString());
       _selectedDaysOff = List.from(widget.existingStaff!.preferredDaysOff);
       _unavailableShiftTypes = List.from(widget.existingStaff!.unavailableShiftTypes);
+      _specificDaysOff = widget.existingStaff!.specificDaysOff
+          .map((dateStr) => DateTime.parse(dateStr))
+          .toList();
     } else {
       // 追加モード
       _nameController = TextEditingController();
@@ -48,6 +53,7 @@ class _StaffEditDialogState extends State<StaffEditDialog> {
       _maxShiftsController = TextEditingController(text: '20');
       _selectedDaysOff = [];
       _unavailableShiftTypes = [];
+      _specificDaysOff = [];
     }
   }
   
@@ -94,6 +100,8 @@ class _StaffEditDialogState extends State<StaffEditDialog> {
                         _buildShiftConstraintsSection(),
                         const SizedBox(height: 24),
                         _buildDaysOffSection(),
+                        const SizedBox(height: 24),
+                        _buildSpecificDaysOffSection(),
                         const SizedBox(height: 24),
                         _buildUnavailableShiftTypesSection(),
                       ],
@@ -279,6 +287,105 @@ class _StaffEditDialogState extends State<StaffEditDialog> {
     );
   }
 
+  Widget _buildSpecificDaysOffSection() {
+    // 日付順にソート
+    _specificDaysOff.sort((a, b) => a.compareTo(b));
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        '休み希望日（特定日）',
+                        style: Theme.of(context).textTheme.titleMedium,
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        '特定の日付で休みを希望する日を追加',
+                        style: Theme.of(context).textTheme.bodySmall,
+                      ),
+                    ],
+                  ),
+                ),
+                IconButton.filled(
+                  onPressed: () async {
+                    final selectedDate = await showDatePicker(
+                      context: context,
+                      initialDate: DateTime.now(),
+                      firstDate: DateTime.now(),
+                      lastDate: DateTime.now().add(const Duration(days: 365)),
+                      locale: const Locale('ja'),
+                    );
+
+                    if (selectedDate != null) {
+                      setState(() {
+                        // 日付のみを保存（時刻は00:00:00）
+                        final dateOnly = DateTime(
+                          selectedDate.year,
+                          selectedDate.month,
+                          selectedDate.day,
+                        );
+                        if (!_specificDaysOff.any((d) =>
+                            d.year == dateOnly.year &&
+                            d.month == dateOnly.month &&
+                            d.day == dateOnly.day)) {
+                          _specificDaysOff.add(dateOnly);
+                        }
+                      });
+                    }
+                  },
+                  icon: const Icon(Icons.add, size: 20),
+                  tooltip: '休み希望日を追加',
+                ),
+              ],
+            ),
+            if (_specificDaysOff.isNotEmpty) ...[
+              const SizedBox(height: 16),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: _specificDaysOff.map((date) {
+                  return Chip(
+                    label: Text(
+                      DateFormat('yyyy/MM/dd(E)', 'ja').format(date),
+                      style: const TextStyle(fontSize: 12),
+                    ),
+                    deleteIcon: const Icon(Icons.close, size: 16),
+                    onDeleted: () {
+                      setState(() {
+                        _specificDaysOff.remove(date);
+                      });
+                    },
+                  );
+                }).toList(),
+              ),
+            ] else ...[
+              const SizedBox(height: 8),
+              Center(
+                child: Text(
+                  '登録されていません',
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: Colors.grey.shade600,
+                  ),
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildUnavailableShiftTypesSection() {
     final shiftTimeProvider = Provider.of<ShiftTimeProvider>(context);
     final activeShiftTypes = shiftTimeProvider.settings
@@ -374,6 +481,9 @@ class _StaffEditDialogState extends State<StaffEditDialog> {
           maxShiftsPerMonth: int.parse(_maxShiftsController.text),
           preferredDaysOff: List.from(_selectedDaysOff),
           unavailableShiftTypes: List.from(_unavailableShiftTypes),
+          specificDaysOff: _specificDaysOff.map((date) =>
+            DateTime(date.year, date.month, date.day).toIso8601String()
+          ).toList(),
           isActive: widget.existingStaff!.isActive,
           createdAt: widget.existingStaff!.createdAt,
         );
@@ -398,6 +508,9 @@ class _StaffEditDialogState extends State<StaffEditDialog> {
           maxShiftsPerMonth: int.parse(_maxShiftsController.text),
           preferredDaysOff: List.from(_selectedDaysOff),
           unavailableShiftTypes: List.from(_unavailableShiftTypes),
+          specificDaysOff: _specificDaysOff.map((date) =>
+            DateTime(date.year, date.month, date.day).toIso8601String()
+          ).toList(),
           isActive: true,
           createdAt: DateTime.now(),
         );

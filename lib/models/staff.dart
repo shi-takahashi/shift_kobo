@@ -38,6 +38,9 @@ class Staff extends HiveObject {
   @HiveField(10)
   List<String> unavailableShiftTypes = [];
 
+  @HiveField(11)
+  List<String> specificDaysOff = []; // ISO8601形式の日付文字列リスト
+
   Staff({
     required this.id,
     required this.name,
@@ -50,10 +53,12 @@ class Staff extends HiveObject {
     this.updatedAt,
     List<ShiftConstraint>? constraints,
     List<String>? unavailableShiftTypes,
+    List<String>? specificDaysOff,
   })  : preferredDaysOff = preferredDaysOff ?? [],
         createdAt = createdAt ?? DateTime.now() {
     this.constraints = constraints ?? [];
     this.unavailableShiftTypes = unavailableShiftTypes ?? [];
+    this.specificDaysOff = specificDaysOff ?? [];
   }
 
   Map<String, dynamic> toJson() {
@@ -67,6 +72,7 @@ class Staff extends HiveObject {
       'isActive': isActive,
       'createdAt': createdAt.toIso8601String(),
       'updatedAt': updatedAt?.toIso8601String(),
+      'specificDaysOff': specificDaysOff,
     };
   }
 
@@ -81,6 +87,7 @@ class Staff extends HiveObject {
       isActive: json['isActive'] ?? true,
       createdAt: DateTime.parse(json['createdAt']),
       updatedAt: json['updatedAt'] != null ? DateTime.parse(json['updatedAt']) : null,
+      specificDaysOff: List<String>.from(json['specificDaysOff'] ?? []),
     );
   }
 }

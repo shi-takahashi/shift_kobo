@@ -230,7 +230,19 @@ class ShiftAssignmentService {
       print('${staff.name}は${date.weekday}曜日は休み希望');
       return false;
     }
-    
+
+    // 特定日の休み希望をチェック
+    final dateOnly = DateTime(date.year, date.month, date.day);
+    for (final dayOffStr in staff.specificDaysOff) {
+      final dayOff = DateTime.parse(dayOffStr);
+      if (dayOff.year == dateOnly.year &&
+          dayOff.month == dateOnly.month &&
+          dayOff.day == dateOnly.day) {
+        print('${staff.name}は${date.year}/${date.month}/${date.day}は休み希望');
+        return false;
+      }
+    }
+
     // 日付ベースの制約をチェック
     for (ShiftConstraint constraint in staff.constraints) {
       if (constraint.date.year == date.year &&
