@@ -342,7 +342,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
                           final dateKey = DateTime(day.year, day.month, day.day);
                           return monthlyShifts[dateKey] ?? [];
                         },
-                        startingDayOfWeek: StartingDayOfWeek.monday,
+                        startingDayOfWeek: StartingDayOfWeek.sunday,
                         daysOfWeekVisible: true,
                         availableCalendarFormats: const {
                           CalendarFormat.month: '月',
@@ -396,10 +396,27 @@ class _CalendarScreenState extends State<CalendarScreen> {
                               child: Text(
                                 text,
                                 style: TextStyle(
-                                  color: day.weekday == DateTime.saturday || day.weekday == DateTime.sunday
+                                  color: day.weekday == DateTime.saturday
+                                      ? Colors.blue
+                                      : day.weekday == DateTime.sunday
                                       ? Colors.red
                                       : Colors.black87,
                                   fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            );
+                          },
+                          defaultBuilder: (context, day, focusedDay) {
+                            return Center(
+                              child: Text(
+                                '${day.day}',
+                                style: TextStyle(
+                                  color: day.weekday == DateTime.saturday
+                                      ? Colors.blue
+                                      : day.weekday == DateTime.sunday
+                                      ? Colors.red
+                                      : Colors.black87,
+                                  fontSize: 12,
                                 ),
                               ),
                             );

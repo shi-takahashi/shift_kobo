@@ -945,8 +945,20 @@ class _ExportScreenState extends State<ExportScreen> {
     for (int day = 1; day <= daysInMonth; day++) {
       final date = DateTime(_selectedMonth.year, _selectedMonth.month, day);
       final weekday = _getWeekdayString(date.weekday);
-      final isWeekend = date.weekday == 6 || date.weekday == 7;
-      
+      final isSaturday = date.weekday == 6;
+      final isSunday = date.weekday == 7;
+
+      Color dayColor = Colors.black;
+      Color weekdayColor = Colors.grey;
+
+      if (isSaturday) {
+        dayColor = Colors.blue;
+        weekdayColor = Colors.blue;
+      } else if (isSunday) {
+        dayColor = Colors.red;
+        weekdayColor = Colors.red;
+      }
+
       columns.add(
         DataColumn(
           label: Column(
@@ -957,14 +969,14 @@ class _ExportScreenState extends State<ExportScreen> {
                 style: TextStyle(
                   fontWeight: FontWeight.bold,
                   fontSize: 12,
-                  color: isWeekend ? Colors.red : Colors.black,
+                  color: dayColor,
                 ),
               ),
               Text(
                 weekday,
                 style: TextStyle(
                   fontSize: 9,
-                  color: isWeekend ? Colors.red : Colors.grey,
+                  color: weekdayColor,
                 ),
               ),
             ],
