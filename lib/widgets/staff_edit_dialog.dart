@@ -29,6 +29,7 @@ class _StaffEditDialogState extends State<StaffEditDialog> {
   late List<int> _selectedDaysOff;
   late List<String> _unavailableShiftTypes;
   late List<DateTime> _specificDaysOff;
+  bool _showPastDaysOff = false; // 過去の休み希望日を表示するか
 
   @override
   void initState() {
@@ -291,6 +292,18 @@ class _StaffEditDialogState extends State<StaffEditDialog> {
     // 日付順にソート
     _specificDaysOff.sort((a, b) => a.compareTo(b));
 
+    // 今月の最初の日を取得
+    final now = DateTime.now();
+    final firstDayOfCurrentMonth = DateTime(now.year, now.month, 1);
+
+    // 表示する日付をフィルタリング
+    final displayDaysOff = _showPastDaysOff
+        ? _specificDaysOff
+        : _specificDaysOff.where((date) => date.isAfter(firstDayOfCurrentMonth.subtract(const Duration(days: 1)))).toList();
+
+    // 過去の休み希望日の件数
+    final pastCount = _specificDaysOff.where((date) => date.isBefore(firstDayOfCurrentMonth)).length;
+
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(16),
@@ -348,17 +361,44 @@ class _StaffEditDialogState extends State<StaffEditDialog> {
                 ),
               ],
             ),
-            if (_specificDaysOff.isNotEmpty) ...[
+            if (pastCount > 0) ...[
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  Checkbox(
+                    value: _showPastDaysOff,
+                    onChanged: (value) {
+                      setState(() {
+                        _showPastDaysOff = value ?? false;
+                      });
+                    },
+                  ),
+                  Expanded(
+                    child: Text(
+                      '過去の休み希望日も表示（${pastCount}件）',
+                      style: const TextStyle(fontSize: 13),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+            if (displayDaysOff.isNotEmpty) ...[
               const SizedBox(height: 16),
               Wrap(
                 spacing: 8,
                 runSpacing: 8,
-                children: _specificDaysOff.map((date) {
+                children: displayDaysOff.map((date) {
+                  final isPast = date.isBefore(firstDayOfCurrentMonth);
                   return Chip(
                     label: Text(
                       DateFormat('yyyy/MM/dd(E)', 'ja').format(date),
-                      style: const TextStyle(fontSize: 12),
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: isPast ? Colors.grey : null,
+                        decoration: isPast ? TextDecoration.lineThrough : null,
+                      ),
                     ),
+                    backgroundColor: isPast ? Colors.grey.shade200 : null,
                     deleteIcon: const Icon(Icons.close, size: 16),
                     onDeleted: () {
                       setState(() {
@@ -368,11 +408,22 @@ class _StaffEditDialogState extends State<StaffEditDialog> {
                   );
                 }).toList(),
               ),
-            ] else ...[
+            ] else if (_specificDaysOff.isEmpty) ...[
               const SizedBox(height: 8),
               Center(
                 child: Text(
                   '登録されていません',
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: Colors.grey.shade600,
+                  ),
+                ),
+              ),
+            ] else ...[
+              const SizedBox(height: 8),
+              Center(
+                child: Text(
+                  '今月以降の休み希望日はありません',
                   style: TextStyle(
                     fontSize: 13,
                     color: Colors.grey.shade600,
