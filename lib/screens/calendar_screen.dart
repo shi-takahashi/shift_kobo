@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:table_calendar/table_calendar.dart';
 import 'package:provider/provider.dart';
+import 'package:holiday_jp/holiday_jp.dart' as holiday_jp;
 import '../providers/shift_provider.dart';
 import '../providers/staff_provider.dart';
 import '../providers/shift_time_provider.dart';
@@ -407,14 +408,15 @@ class _CalendarScreenState extends State<CalendarScreen> {
                             );
                           },
                           defaultBuilder: (context, day, focusedDay) {
+                            final isHoliday = holiday_jp.isHoliday(day);
                             return Center(
                               child: Text(
                                 '${day.day}',
                                 style: TextStyle(
-                                  color: day.weekday == DateTime.saturday
-                                      ? Colors.blue
-                                      : day.weekday == DateTime.sunday
+                                  color: isHoliday || day.weekday == DateTime.sunday
                                       ? Colors.red
+                                      : day.weekday == DateTime.saturday
+                                      ? Colors.blue
                                       : Colors.black87,
                                   fontSize: 12,
                                 ),

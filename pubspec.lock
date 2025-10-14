@@ -341,6 +341,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "2.0.1"
+  holiday_jp:
+    dependency: "direct main"
+    description:
+      name: holiday_jp
+      sha256: "84eba0872edac93971f707979d3bff78e648322d47a2ab19d830ab646cd5c6ac"
+      url: "https://pub.dev"
+    source: hosted
+    version: "0.0.8"
   http:
     dependency: transitive
     description:

@@ -7,6 +7,7 @@ import 'package:share_plus/share_plus.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:intl/intl.dart';
+import 'package:holiday_jp/holiday_jp.dart' as holiday_jp;
 import 'dart:io';
 import 'dart:typed_data';
 import '../providers/shift_provider.dart';
@@ -947,16 +948,17 @@ class _ExportScreenState extends State<ExportScreen> {
       final weekday = _getWeekdayString(date.weekday);
       final isSaturday = date.weekday == 6;
       final isSunday = date.weekday == 7;
+      final isHoliday = holiday_jp.isHoliday(date);
 
       Color dayColor = Colors.black;
       Color weekdayColor = Colors.grey;
 
-      if (isSaturday) {
-        dayColor = Colors.blue;
-        weekdayColor = Colors.blue;
-      } else if (isSunday) {
+      if (isHoliday || isSunday) {
         dayColor = Colors.red;
         weekdayColor = Colors.red;
+      } else if (isSaturday) {
+        dayColor = Colors.blue;
+        weekdayColor = Colors.blue;
       }
 
       columns.add(
