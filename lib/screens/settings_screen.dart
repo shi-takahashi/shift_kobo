@@ -109,12 +109,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
         ListTile(
           leading: const Icon(Icons.info),
           title: const Text('アプリについて'),
-          subtitle: Text(_packageInfo != null ? 'バージョン ${_packageInfo!.version}+${_packageInfo!.buildNumber}' : 'バージョン 情報取得中...'),
+          subtitle: Text(_packageInfo != null ? 'バージョン ${_packageInfo!.version}' : 'バージョン 情報取得中...'),
           onTap: () {
             showAboutDialog(
               context: context,
               applicationName: 'シフト工房',
-              applicationVersion: _packageInfo != null ? '${_packageInfo!.version}+${_packageInfo!.buildNumber}' : '1.0.0',
+              applicationVersion: _packageInfo != null ? _packageInfo!.version : '1.0.0',
               applicationLegalese: '© 2025 Shift Kobo\n\nシフト表自動作成アプリ\nスタッフの勤務スケジュールを効率的に管理',
               children: [
                 const Padding(
