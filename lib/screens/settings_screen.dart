@@ -1,6 +1,9 @@
+import 'dart:io' show Platform;
+
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:package_info_plus/package_info_plus.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../services/backup_service.dart';
 import 'monthly_shift_settings_screen.dart';
@@ -145,7 +148,116 @@ class _SettingsScreenState extends State<SettingsScreen> {
             );
           },
         ),
+        ListTile(
+          leading: const Icon(Icons.email),
+          title: const Text('お問い合わせ'),
+          subtitle: const Text('不具合報告や改善要望はこちら'),
+          onTap: _sendContactEmail,
+        ),
       ],
+    );
+  }
+
+  Future<void> _sendContactEmail() async {
+    const emailAddress = 'fdks487351@yahoo.co.jp';
+    final version = _packageInfo?.version ?? '不明';
+    final buildNumber = _packageInfo?.buildNumber ?? '不明';
+    final osInfo = Platform.isAndroid
+        ? 'Android'
+        : Platform.isIOS
+            ? 'iOS'
+            : 'その他';
+
+    final subject = Uri.encodeComponent('【シフト工房】お問い合わせ');
+    final body = Uri.encodeComponent('━━━━━━━━━━━━━━\n'
+        '◆お問い合わせ内容\n'
+        '（ここに記入してください）\n'
+        '\n'
+        '\n'
+        '\n'
+        '━━━━━━━━━━━━━━\n'
+        '【アプリ情報】\n'
+        'バージョン：$version\n'
+        'ビルド番号：$buildNumber\n'
+        'OS：$osInfo\n'
+        '━━━━━━━━━━━━━━');
+
+    final emailUrl = Uri.parse('mailto:$emailAddress?subject=$subject&body=$body');
+
+    try {
+      if (await canLaunchUrl(emailUrl)) {
+        await launchUrl(emailUrl);
+      } else {
+        // メーラー起動できない場合、メールアドレスを表示
+        if (mounted) {
+          _showEmailAddressDialog(emailAddress);
+        }
+      }
+    } catch (e) {
+      // エラー時もメールアドレスを表示
+      if (mounted) {
+        _showEmailAddressDialog(emailAddress);
+      }
+    }
+  }
+
+  void _showEmailAddressDialog(String emailAddress) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('お問い合わせ先'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'メールアプリを起動できませんでした。\n以下のメールアドレスにお問い合わせください。',
+              style: TextStyle(fontSize: 14),
+            ),
+            const SizedBox(height: 16),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.grey.shade100,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.grey.shade300),
+              ),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: SelectableText(
+                      emailAddress,
+                      style: const TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.copy, size: 20),
+                    tooltip: 'コピー',
+                    onPressed: () {
+                      Clipboard.setData(ClipboardData(text: emailAddress));
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('メールアドレスをコピーしました'),
+                          duration: Duration(seconds: 2),
+                        ),
+                      );
+                    },
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('閉じる'),
+          ),
+        ],
+      ),
     );
   }
 
@@ -392,5 +504,4 @@ class _SettingsScreenState extends State<SettingsScreen> {
       }
     }
   }
-
 }
