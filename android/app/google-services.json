@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "342148343099",
+    "project_id": "shift-kobo-online",
+    "storage_bucket": "shift-kobo-online.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:342148343099:android:6a56d7a980a4807966831e",
+        "android_client_info": {
+          "package_name": "io.github.shitakahashi.shiftkobo"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCPvJTBOuhhlM50qmji_ZFgDe2k0bhK2yE"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

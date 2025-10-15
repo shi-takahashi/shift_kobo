@@ -1,3 +1,15 @@
+buildscript {
+    repositories {
+        google()
+        mavenCentral()
+    }
+    dependencies {
+        // ✅ Firebase用プラグインをここに書く
+        classpath 'com.android.tools.build:gradle:8.5.2'
+        classpath 'com.google.gms:google-services:4.4.4'
+    }
+}
+
 allprojects {
     repositories {
         google()

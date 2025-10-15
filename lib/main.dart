@@ -1,39 +1,51 @@
+import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:provider/provider.dart';
 
-import 'models/staff.dart';
+import 'firebase_options.dart';
 import 'models/shift.dart';
 import 'models/shift_constraint.dart';
 import 'models/shift_time_setting.dart';
-import 'providers/staff_provider.dart';
+import 'models/staff.dart';
 import 'providers/shift_provider.dart';
 import 'providers/shift_time_provider.dart';
+import 'providers/staff_provider.dart';
 import 'screens/home_screen.dart';
-import 'utils/test_data_helper.dart';
 import 'services/ad_service.dart';
+import 'utils/test_data_helper.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  
+
   await Hive.initFlutter();
   Hive.registerAdapter(StaffAdapter());
   Hive.registerAdapter(ShiftAdapter());
   Hive.registerAdapter(ShiftConstraintAdapter());
   Hive.registerAdapter(ShiftTypeAdapter());
   Hive.registerAdapter(ShiftTimeSettingAdapter());
-  
+
   await Hive.openBox<Staff>('staff');
   await Hive.openBox<Shift>('shifts');
   await Hive.openBox<ShiftConstraint>('constraints');
-  
+
   // テスト用データの初期化（初回のみ）
   await TestDataHelper.initializeTestData();
-  
+
   // AdMobの初期化
   await AdService.initialize();
-  
+
+  // Firebaseの初期化
+  try {
+    await Firebase.initializeApp(
+      options: DefaultFirebaseOptions.currentPlatform,
+    );
+    debugPrint('✅ Firebase初期化成功');
+  } catch (e) {
+    debugPrint('❌ Firebase初期化エラー: $e');
+  }
+
   runApp(const MyApp());
 }
 

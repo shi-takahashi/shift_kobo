@@ -66,6 +66,11 @@ dependencies:
 
   # 日本の祝日判定
   holiday_jp: ^0.0.8
+  firebase_core: ^4.2.0
+  cloud_firestore: ^6.0.3
+  firebase_auth: ^6.1.1
+  firebase_storage: ^13.0.3
+  firebase_messaging: ^16.0.3
 
 dev_dependencies:
   flutter_test:
