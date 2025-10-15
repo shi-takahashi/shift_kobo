@@ -63,12 +63,17 @@ class StaffProvider extends ChangeNotifier {
 
   List<Staff> searchStaff(String query) {
     if (query.isEmpty) return _staffList;
-    
+
     final lowerQuery = query.toLowerCase();
     return _staffList.where((staff) {
       return staff.name.toLowerCase().contains(lowerQuery) ||
              (staff.email?.toLowerCase().contains(lowerQuery) ?? false) ||
              (staff.phoneNumber?.contains(query) ?? false);
     }).toList();
+  }
+
+  /// データの再読み込み（バックアップ復元後などに使用）
+  void reload() {
+    _loadStaff();
   }
 }
