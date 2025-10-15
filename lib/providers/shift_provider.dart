@@ -170,15 +170,20 @@ class ShiftProvider extends ChangeNotifier {
         .where((c) => !c.isAvailable)
         .map((c) => c.staffId)
         .toSet();
-    
+
     final existingShifts = getShiftsForDate(date);
     final assignedStaffIds = existingShifts.map((s) => s.staffId).toSet();
-    
+
     return allStaff.where((staff) {
       return staff.isActive &&
              !unavailableStaffIds.contains(staff.id) &&
              !assignedStaffIds.contains(staff.id) &&
              !staff.preferredDaysOff.contains(date.weekday);
     }).toList();
+  }
+
+  /// データの再読み込み（バックアップ復元後などに使用）
+  void reload() {
+    _loadData();
   }
 }

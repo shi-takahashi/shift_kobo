@@ -3,8 +3,12 @@ import 'dart:io' show Platform;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:package_info_plus/package_info_plus.dart';
+import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../providers/shift_provider.dart';
+import '../providers/shift_time_provider.dart';
+import '../providers/staff_provider.dart';
 import '../services/backup_service.dart';
 import 'monthly_shift_settings_screen.dart';
 import 'privacy_policy_screen.dart';
@@ -460,21 +464,23 @@ class _SettingsScreenState extends State<SettingsScreen> {
       // ローディングを閉じる
       Navigator.of(context).pop();
 
-      // 成功メッセージと再起動案内
-      await showDialog(
-        context: context,
-        barrierDismissible: false,
-        builder: (dialogContext) => AlertDialog(
-          title: const Text('復元完了'),
-          content: const Text(
-            'データの復元が完了しました。\n変更を反映するためにアプリを再起動してください。',
-          ),
-          actions: [
-            FilledButton(
-              onPressed: () => Navigator.of(dialogContext).pop(),
-              child: const Text('OK'),
-            ),
-          ],
+      // Providerをリロードしてデータを再読み込み
+      final staffProvider = Provider.of<StaffProvider>(context, listen: false);
+      final shiftProvider = Provider.of<ShiftProvider>(context, listen: false);
+      final shiftTimeProvider = Provider.of<ShiftTimeProvider>(context, listen: false);
+
+      staffProvider.reload();
+      shiftProvider.reload();
+      await shiftTimeProvider.reload();
+
+      if (!mounted) return;
+
+      // 成功メッセージ
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('データの復元が完了しました'),
+          backgroundColor: Colors.green,
+          duration: Duration(seconds: 3),
         ),
       );
     } catch (restoreError) {

@@ -154,4 +154,9 @@ class ShiftTimeProvider extends ChangeNotifier {
     final setting = getSettingByType(shiftType);
     return setting?.timeRange ?? '';
   }
+
+  /// データの再読み込み（バックアップ復元後などに使用）
+  Future<void> reload() async {
+    await _loadSettings();
+  }
 }
