@@ -300,6 +300,7 @@ class BackupService {
       'isActive': staff.isActive,
       'preferredDaysOff': staff.preferredDaysOff,
       'unavailableShiftTypes': staff.unavailableShiftTypes,
+      'specificDaysOff': staff.specificDaysOff,
     };
   }
 
@@ -313,6 +314,7 @@ class BackupService {
       isActive: json['isActive'] as bool? ?? true,
       preferredDaysOff: List<int>.from(json['preferredDaysOff'] ?? []),
       unavailableShiftTypes: List<String>.from(json['unavailableShiftTypes'] ?? []),
+      specificDaysOff: List<String>.from(json['specificDaysOff'] ?? []),
     );
   }
 
