@@ -12,6 +12,7 @@ import '../providers/shift_time_provider.dart';
 import '../providers/staff_provider.dart';
 import '../services/auth_service.dart';
 import '../services/backup_service.dart';
+import '../widgets/auth_gate.dart';
 import 'monthly_shift_settings_screen.dart';
 import 'privacy_policy_screen.dart';
 import 'shift_time_settings_screen.dart';
@@ -223,6 +224,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
         if (!mounted) return;
 
+        // 全画面をクリアしてログイン画面に戻る
+        Navigator.of(context).pushAndRemoveUntil(
+          MaterialPageRoute(builder: (_) => const AuthGate()),
+          (route) => false,
+        );
+
         // ログアウト成功メッセージ
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('ログアウトしました')),
@@ -231,7 +238,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
         if (!mounted) return;
 
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('ログアウトに失敗しました: $e')),
+          SnackBar(
+            content: Text('ログアウトに失敗しました: $e'),
+            backgroundColor: Colors.red,
+          ),
         );
       }
     }
