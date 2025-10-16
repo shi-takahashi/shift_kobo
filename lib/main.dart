@@ -1,3 +1,4 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
@@ -12,9 +13,9 @@ import 'models/staff.dart';
 import 'providers/shift_provider.dart';
 import 'providers/shift_time_provider.dart';
 import 'providers/staff_provider.dart';
-import 'screens/home_screen.dart';
 import 'services/ad_service.dart';
 import 'utils/test_data_helper.dart';
+import 'widgets/auth_gate.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -41,6 +42,13 @@ void main() async {
     await Firebase.initializeApp(
       options: DefaultFirebaseOptions.currentPlatform,
     );
+
+    // Firestoreのキャッシュ設定（オフライン対応）
+    FirebaseFirestore.instance.settings = const Settings(
+      persistenceEnabled: true,
+      cacheSizeBytes: Settings.CACHE_SIZE_UNLIMITED,
+    );
+
     debugPrint('✅ Firebase初期化成功');
   } catch (e) {
     debugPrint('❌ Firebase初期化エラー: $e');
@@ -75,7 +83,7 @@ class MyApp extends StatelessWidget {
           Locale('ja', 'JP'),
         ],
         locale: const Locale('ja', 'JP'),
-        home: const HomeScreen(),
+        home: const AuthGate(), // 認証状態に応じて画面を切り替え
       ),
     );
   }
