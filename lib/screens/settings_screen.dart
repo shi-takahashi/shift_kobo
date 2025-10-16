@@ -1,5 +1,6 @@
 import 'dart:io' show Platform;
 
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:package_info_plus/package_info_plus.dart';
@@ -9,6 +10,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../providers/shift_provider.dart';
 import '../providers/shift_time_provider.dart';
 import '../providers/staff_provider.dart';
+import '../services/auth_service.dart';
 import '../services/backup_service.dart';
 import 'monthly_shift_settings_screen.dart';
 import 'privacy_policy_screen.dart';
@@ -102,6 +104,38 @@ class _SettingsScreenState extends State<SettingsScreen> {
           enabled: !_isRestoring,
           onTap: _isRestoring ? null : () => _showRestoreDialog(context),
         ),
+        // アカウントセクション
+        const Divider(),
+        const Padding(
+          padding: EdgeInsets.all(16.0),
+          child: Text(
+            'アカウント',
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ),
+
+        // ログインユーザー情報
+        if (FirebaseAuth.instance.currentUser != null)
+          ListTile(
+            leading: const Icon(Icons.account_circle),
+            title: const Text('ログイン中'),
+            subtitle: Text(FirebaseAuth.instance.currentUser!.email ?? ''),
+          ),
+
+        // ログアウトボタン
+        if (FirebaseAuth.instance.currentUser != null)
+          ListTile(
+            leading: const Icon(Icons.logout, color: Colors.red),
+            title: const Text(
+              'ログアウト',
+              style: TextStyle(color: Colors.red),
+            ),
+            onTap: _handleLogout,
+          ),
+
         const Divider(),
         const Padding(
           padding: EdgeInsets.all(16.0),
@@ -160,6 +194,47 @@ class _SettingsScreenState extends State<SettingsScreen> {
         ),
       ],
     );
+  }
+
+  /// ログアウト処理
+  Future<void> _handleLogout() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('ログアウト'),
+        content: const Text('ログアウトしますか？'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('キャンセル'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('ログアウト'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      try {
+        final authService = AuthService();
+        await authService.signOut();
+
+        if (!mounted) return;
+
+        // ログアウト成功メッセージ
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('ログアウトしました')),
+        );
+      } catch (e) {
+        if (!mounted) return;
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('ログアウトに失敗しました: $e')),
+        );
+      }
+    }
   }
 
   Future<void> _sendContactEmail() async {

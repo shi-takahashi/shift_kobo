@@ -2,6 +2,8 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import '../screens/auth/login_screen.dart';
 import '../screens/home_screen.dart';
+import '../screens/team/team_creation_screen.dart';
+import '../services/auth_service.dart';
 
 /// 認証状態を監視し、適切な画面を表示
 class AuthGate extends StatelessWidget {
@@ -23,8 +25,28 @@ class AuthGate extends StatelessWidget {
 
         // ログイン済み
         if (snapshot.hasData && snapshot.data != null) {
-          // TODO: チーム所属チェックを追加（後で実装）
-          return const HomeScreen();
+          // チーム所属チェック
+          return FutureBuilder(
+            future: AuthService().getUser(snapshot.data!.uid),
+            builder: (context, userSnapshot) {
+              if (userSnapshot.connectionState == ConnectionState.waiting) {
+                return const Scaffold(
+                  body: Center(
+                    child: CircularProgressIndicator(),
+                  ),
+                );
+              }
+
+              final appUser = userSnapshot.data;
+              if (appUser?.teamId == null) {
+                // チーム未所属の場合はチーム作成画面へ
+                return TeamCreationScreen(userId: snapshot.data!.uid);
+              }
+
+              // チーム所属済みの場合はホーム画面へ
+              return const HomeScreen();
+            },
+          );
         }
 
         // 未ログイン

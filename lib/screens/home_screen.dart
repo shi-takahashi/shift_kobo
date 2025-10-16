@@ -7,7 +7,12 @@ import '../widgets/auto_assignment_dialog.dart';
 import '../widgets/banner_ad_widget.dart';
 
 class HomeScreen extends StatefulWidget {
-  const HomeScreen({super.key});
+  final bool showWelcomeDialog;
+
+  const HomeScreen({
+    super.key,
+    this.showWelcomeDialog = false,
+  });
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
@@ -37,9 +42,21 @@ class _HomeScreenState extends State<HomeScreen> {
 
   /// 初回起動チェック及び自動ヘルプ表示
   Future<void> _checkFirstTimeHelp() async {
+    // チーム作成直後の場合は、必ずウェルカムダイアログを表示
+    if (widget.showWelcomeDialog) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && !_hasShownFirstTimeHelp) {
+          _hasShownFirstTimeHelp = true;
+          _showHelpDialog(isFirstTime: true);
+        }
+      });
+      return;
+    }
+
+    // 通常の初回起動チェック（チーム作成を経由していない場合）
     final prefs = await SharedPreferences.getInstance();
     final hasSeenHelp = prefs.getBool('has_seen_first_time_help') ?? false;
-    
+
     if (!hasSeenHelp && mounted) {
       // 画面描画完了後にヘルプを表示
       WidgetsBinding.instance.addPostFrameCallback((_) {

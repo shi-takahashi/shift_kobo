@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../services/auth_service.dart';
 import '../home_screen.dart';
 
@@ -42,9 +43,15 @@ class _TeamCreationScreenState extends State<TeamCreationScreen> {
 
       if (!mounted) return;
 
-      // ホーム画面へ遷移
+      // 初回ヘルプ表示フラグを先に保存（2回表示されるのを防ぐ）
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool('has_seen_first_time_help', true);
+
+      // ホーム画面へ遷移（ウェルカムダイアログを表示）
       Navigator.of(context).pushAndRemoveUntil(
-        MaterialPageRoute(builder: (_) => const HomeScreen()),
+        MaterialPageRoute(
+          builder: (_) => const HomeScreen(showWelcomeDialog: true),
+        ),
         (route) => false, // 全ての前の画面を削除
       );
 

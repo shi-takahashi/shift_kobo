@@ -32,6 +32,7 @@ void main() async {
   await Hive.openBox<ShiftConstraint>('constraints');
 
   // テスト用データの初期化（初回のみ）
+  // TODO: Providerの改修（Firestore対応）が完了したら削除
   await TestDataHelper.initializeTestData();
 
   // AdMobの初期化
