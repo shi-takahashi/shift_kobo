@@ -2,14 +2,17 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../services/auth_service.dart';
 import '../home_screen.dart';
+import '../migration/migration_progress_dialog.dart';
 
 /// チーム作成画面
 class TeamCreationScreen extends StatefulWidget {
   final String userId;
+  final bool shouldMigrateData; // データ移行フラグ
 
   const TeamCreationScreen({
     super.key,
     required this.userId,
+    this.shouldMigrateData = false,
   });
 
   @override
@@ -36,7 +39,8 @@ class _TeamCreationScreenState extends State<TeamCreationScreen> {
     setState(() => _isLoading = true);
 
     try {
-      await _authService.createTeam(
+      // チーム作成
+      final team = await _authService.createTeam(
         teamName: _teamNameController.text.trim(),
         ownerId: widget.userId,
       );
@@ -47,18 +51,45 @@ class _TeamCreationScreenState extends State<TeamCreationScreen> {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setBool('has_seen_first_time_help', true);
 
-      // ホーム画面へ遷移（ウェルカムダイアログを表示）
-      Navigator.of(context).pushAndRemoveUntil(
-        MaterialPageRoute(
-          builder: (_) => const HomeScreen(showWelcomeDialog: true),
-        ),
-        (route) => false, // 全ての前の画面を削除
-      );
+      // データ移行が必要な場合
+      print('🔍 shouldMigrateData: ${widget.shouldMigrateData}');
+      if (widget.shouldMigrateData) {
+        print('🔵 データ移行ダイアログを表示 - teamId: ${team.id}');
+        // データ移行ダイアログを表示
+        final migrationSuccess = await showDialog<bool>(
+          context: context,
+          barrierDismissible: false, // 移行中は閉じられない
+          builder: (context) => MigrationProgressDialog(teamId: team.id),
+        );
 
-      // 成功メッセージ
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('✅ チームを作成しました')),
-      );
+        if (!mounted) return;
+
+        if (migrationSuccess == true) {
+          // 移行成功 - ホーム画面へ遷移（ウェルカムダイアログを表示）
+          Navigator.of(context).pushAndRemoveUntil(
+            MaterialPageRoute(
+              builder: (_) => const HomeScreen(showWelcomeDialog: true),
+            ),
+            (route) => false, // 全ての前の画面を削除
+          );
+        } else {
+          // 移行失敗 - エラーメッセージは既にダイアログで表示されている
+          // ユーザーは「閉じる」ボタンで戻る
+        }
+      } else {
+        // データ移行不要の場合は通常フロー
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('✅ チームを作成しました')),
+        );
+
+        // ホーム画面へ遷移（ウェルカムダイアログを表示）
+        Navigator.of(context).pushAndRemoveUntil(
+          MaterialPageRoute(
+            builder: (_) => const HomeScreen(showWelcomeDialog: true),
+          ),
+          (route) => false, // 全ての前の画面を削除
+        );
+      }
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(

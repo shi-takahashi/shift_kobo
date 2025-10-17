@@ -80,6 +80,9 @@ class _LoginScreenState extends State<LoginScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      appBar: AppBar(
+        title: const Text('ログイン'),
+      ),
       body: Center(
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(24),
@@ -89,27 +92,21 @@ class _LoginScreenState extends State<LoginScreen> {
               mainAxisAlignment: MainAxisAlignment.center,
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                // アプリロゴ・タイトル
+                // アプリロゴ・タイトル（小さめ）
                 Icon(
                   Icons.calendar_month,
-                  size: 80,
+                  size: 60,
                   color: Theme.of(context).colorScheme.primary,
                 ),
                 const SizedBox(height: 16),
                 Text(
                   'シフト工房',
-                  style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                  style: Theme.of(context).textTheme.headlineSmall?.copyWith(
                         fontWeight: FontWeight.bold,
                       ),
                   textAlign: TextAlign.center,
                 ),
-                const SizedBox(height: 8),
-                Text(
-                  'オンライン版',
-                  style: Theme.of(context).textTheme.bodyLarge,
-                  textAlign: TextAlign.center,
-                ),
-                const SizedBox(height: 48),
+                const SizedBox(height: 32),
 
                 // メールアドレス入力
                 TextFormField(
@@ -173,21 +170,6 @@ class _LoginScreenState extends State<LoginScreen> {
                           child: CircularProgressIndicator(strokeWidth: 2),
                         )
                       : const Text('ログイン'),
-                ),
-                const SizedBox(height: 16),
-
-                // サインアップ画面へのリンク
-                TextButton(
-                  onPressed: _isLoading
-                      ? null
-                      : () {
-                          Navigator.of(context).push(
-                            MaterialPageRoute(
-                              builder: (_) => const SignupScreen(),
-                            ),
-                          );
-                        },
-                  child: const Text('新規登録はこちら'),
                 ),
               ],
             ),

@@ -30,10 +30,11 @@ void main() async {
   await Hive.openBox<Staff>('staff');
   await Hive.openBox<Shift>('shifts');
   await Hive.openBox<ShiftConstraint>('constraints');
+  await Hive.openBox<ShiftTimeSetting>('shift_time_settings');
 
   // テスト用データの初期化（初回のみ）
   // TODO: Providerの改修（Firestore対応）が完了したら削除
-  await TestDataHelper.initializeTestData();
+  await TestDataHelper.initializeTestData(); // データ移行テスト用に有効化
 
   // AdMobの初期化
   await AdService.initialize();

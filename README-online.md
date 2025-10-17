@@ -1,12 +1,16 @@
 # シフト工房 オンライン化 開発計画
 
-## 📋 実装方針サマリー（2025-10-15決定）
+## 📋 実装方針サマリー（2025-10-16更新）
 
 ### 主要決定事項
 - ✅ **完全オンライン化**: Hive完全削除、Firestoreのみ使用
 - ✅ **オフライン対応**: Firestoreのキャッシュ機能のみ（`persistenceEnabled: true`）
 - ✅ **認証**: Firebase Authentication（Email/Password）
-- ✅ **データ移行**: 既存バックアップJSON → Firestoreサブコレクション
+- ✅ **データ移行戦略**: **案A採用** - 既存アプリを完全オンライン移行（オンボーディング画面付き）
+  - 既存ユーザー: オンボーディング画面 → アカウント作成 → チーム作成 → **チーム作成時に自動データ移行**
+  - 新規ユーザー: 通常のサインアップフロー
+  - Hive → Firestore自動移行（**ユーザーは何もしなくてOK**、バックアップ不要）
+  - 移行完了後にHiveデータ自動削除
 - ✅ **自動生成**: クライアント実行（既存アルゴリズム維持）
 - ✅ **広告**: Android版はAdMob（メイン収益源）、Web版はAdSense（赤字覚悟）
 - ✅ **開発期間**: 7週間（Android版）+ 2週間（Web版）
@@ -14,6 +18,27 @@
   - Android版アプリ（管理者+メンバー全員）→ メイン
   - Web版（iOSユーザー救済）→ 暫定
   - iOS版アプリ（採算ライン到達後）→ Web版クローズ
+
+### データ移行の自動化方針（重要）
+**既存ユーザーの体験**:
+1. アプリ更新後、起動すると **オンボーディング画面** が表示される
+2. 「アカウント作成して始める」ボタンをタップ → サインアップ画面
+3. メールアドレス・パスワードを入力して新規登録
+4. チーム名を入力してチーム作成
+5. **チーム作成完了後、自動的に既存データ（Hive）をFirestoreに移行**
+6. 移行進捗ダイアログ表示（プログレスバー + 完了件数）
+7. 移行完了 → Hiveデータ自動削除 → ホーム画面へ
+8. **以降はオンライン版として利用** 🎉
+
+**ユーザーがすること**:
+- アカウント作成（メールアドレス・パスワード入力）
+- チーム名入力
+
+**ユーザーがしなくていいこと**:
+- ❌ バックアップファイル作成
+- ❌ ファイル選択
+- ❌ 移行ボタン押下
+- ❌ 難しい操作は一切なし
 
 ### 技術スタック
 ```
@@ -223,8 +248,8 @@ service cloud.firestore {
 
 | 週 | フェーズ | タスク詳細 | 重要度 |
 |----|---------|-----------|--------|
-| **1週目** | Firebase基盤 | ・Firebase初期設定（コンソール・Android/iOS設定）<br>・Firebase Auth実装（Email/Password）<br>・ログイン/サインアップ画面作成<br>・チーム作成画面<br>・Firestore基本接続確認 | ⭐⭐⭐ |
-| **2週目** | データ移行 | ・MigrationService作成<br>・データ移行画面実装<br>・バックアップファイル→Firestore移行機能<br>・移行テスト（サンプルデータ）<br>・Hive削除処理 | ⭐⭐⭐ |
+| **1週目** | Firebase基盤 | ✅ Firebase初期設定（コンソール・Android/iOS設定）<br>✅ Firebase Auth実装（Email/Password）<br>✅ ログイン/サインアップ画面作成<br>✅ チーム作成画面<br>✅ Firestore基本接続確認 | ⭐⭐⭐ |
+| **2週目** | データ移行 | ・**オンボーディング画面実装**（MigrationOnboardingScreen）<br>・既存データ検出ロジック（Hive有無チェック）<br>・MigrationService作成<br>・Hive→Firestore自動移行機能<br>・移行進捗表示UI<br>・移行テスト（サンプルデータ）<br>・Hive削除処理 | ⭐⭐⭐ |
 | **3週目** | 管理者機能 | ・Provider改修（Firestore対応）<br>・カレンダー画面のFirestore連携<br>・シフトCRUD機能（Firestore版）<br>・スタッフ管理のFirestore連携<br>・権限チェック実装（管理者のみ） | ⭐⭐⭐ |
 | **4週目** | メンバー機能 | ・マイシフト画面作成<br>・休み希望入力画面作成<br>・カレンダー画面の閲覧モード<br>・自分のシフトハイライト<br>・メンバー用ナビゲーション | ⭐⭐⭐ |
 | **5週目** | 締め日制御 | ・設定画面に締め日設定追加<br>・休み希望入力の締め日制御<br>・Security Rules詳細化<br>・権限別UI制御の最終調整<br>・メンバー管理画面（招待準備） | ⭐⭐ |
@@ -238,20 +263,22 @@ service cloud.firestore {
 **最優先（MVP）**:
 1. ✅ Firebase Auth + ログイン画面
 2. ✅ チーム作成機能
-3. ✅ データ移行ツール（既存ユーザー対応）
-4. ✅ 管理者機能（シフトCRUD）のFirestore対応
-5. ✅ メンバー閲覧機能
+3. 🔄 **オンボーディング画面実装**（既存ユーザー向け案A）
+4. 🔄 既存データ検出ロジック（Hive有無チェック）
+5. 🔄 データ移行ツール（Hive→Firestore自動移行）
+6. ⏸️ 管理者機能（シフトCRUD）のFirestore対応
+7. ⏸️ メンバー閲覧機能
 
 **中優先（年内リリース目標）**:
-6. ✅ 休み希望入力機能
-7. ✅ 締め日制御
-8. ✅ マイシフト画面
-9. ✅ FCM基盤準備
+8. ⏸️ 休み希望入力機能
+9. ⏸️ 締め日制御
+10. ⏸️ マイシフト画面
+11. ⏸️ FCM基盤準備
 
 **低優先（リリース後）**:
-10. ⏸️ チーム招待機能（招待コード生成）
-11. ⏸️ Push通知の実装（シフト変更通知）
-12. ⏸️ 有料版（広告非表示）
+12. ⏸️ チーム招待機能（招待コード生成）
+13. ⏸️ Push通知の実装（シフト変更通知）
+14. ⏸️ 有料版（広告非表示）
 
 > 複数人で開発する場合は短縮可能（4-5週間）。
 > 優先度は「最低限動くオンライン化＋データ移行安定」が最優先。
@@ -260,26 +287,56 @@ service cloud.firestore {
 
 ### 7.1 ユーザー視点の移行フロー
 
-#### 既存ユーザー（アップデート時）
-1. **アップデート前**
-   - 既存のバックアップ機能で現在のデータをJSONファイルに保存
-   - アプリストアから最新版にアップデート
+#### **【採用】案A: 既存アプリの完全オンライン移行（オンボーディング画面付き）**
 
-2. **初回起動時**
-   - 「既存データがありますか？」ダイアログ表示
-   - アカウント作成（Email/Password）
-   - チーム作成（チーム名入力）
-   - バックアップファイル選択
-   - Firebase移行実行（自動）
+##### 既存ユーザー（アップデート時）
 
-3. **移行完了後**
-   - Hiveデータは自動削除
-   - Firestoreからデータ取得（以降はオンライン）
+1. **アップデート前の準備**
+   - Google Playストアの更新情報に移行手順を記載
+   - 既存ユーザーへの事前告知（アプリ内通知または更新情報）
+   - ※バックアップは不要（自動移行）
 
-#### 新規ユーザー
-1. アカウント作成
-2. チーム作成 or 招待コード入力
+2. **アップデート後の初回起動時**
+   - アプリ起動時にHiveデータの有無を自動検出
+   - **既存データあり** → オンボーディング画面を表示
+   - **既存データなし** → 通常のログイン画面へ
+
+3. **オンボーディング画面（MigrationOnboardingScreen）**
+   - オンライン化の説明
+     - 「シフト工房がパワーアップしました！」
+     - メリット：チームでシフト共有、メンバーが休み希望入力可能、複数端末で同期
+     - 新機能：メンバー招待、リアルタイム更新、データ自動バックアップ
+   - データ移行の案内
+     - 「既存のデータは自動で移行されます」
+     - 「アカウント作成後、すぐにご利用いただけます」
+   - 「アカウント作成して始める」ボタン
+   - 「後で」ボタン（アプリ起動のたびに表示、移行しないと使えない）
+
+4. **アカウント作成・チーム作成**
+   - サインアップ画面へ遷移（Email/Password）
+   - チーム作成画面へ遷移
+     - チーム名入力（既存データから店舗名を推測してプリセット可能）
+     - チーム作成ボタン押下
+
+5. **データ移行実行（自動）**
+   - チーム作成完了後、バックグラウンドで既存Hiveデータを自動検出
+   - MigrationServiceが既存データをFirestoreへ自動移行
+   - 移行進捗表示（プログレスバー + 完了件数）
+   - 移行完了メッセージ（「データ移行が完了しました！」）
+
+6. **移行完了後**
+   - Hiveデータは自動削除（移行完了確認後）
+   - 以降はFirestoreからデータ取得（オンライン）
+   - 通常のホーム画面へ遷移
+   - ウェルカムダイアログ表示（新機能の簡単な説明）
+
+##### 新規ユーザー
+1. アカウント作成（Email/Password）
+2. チーム作成 or 招待コード入力（将来実装）
 3. そのままオンラインで利用開始
+
+##### **【不採用】案B: 別アプリとしてリリース**
+- 理由：インストール数が少ないため、既存アプリを移行する方が効率的
 
 ### 7.2 技術的な移行実装
 
@@ -393,11 +450,298 @@ class MigrationService {
 }
 ```
 
-### 7.3 安全策
-- ✅ 移行前に既存ユーザーのバックアップを必ず作成（アプリ内ガイド）
+### 7.3 オンボーディング画面の実装（案A）
+
+#### 7.3.1 AuthGateでの既存データ検出
+
+```dart
+// lib/widgets/auth_gate.dart
+import 'package:hive_flutter/hive_flutter.dart';
+
+class AuthGate extends StatelessWidget {
+  const AuthGate({super.key});
+
+  /// 既存のHiveデータが存在するかチェック
+  Future<bool> _hasExistingData() async {
+    try {
+      // Hiveボックスが存在するかチェック
+      final staffBoxExists = await Hive.boxExists('staff');
+      final shiftsBoxExists = await Hive.boxExists('shifts');
+
+      if (!staffBoxExists || !shiftsBoxExists) {
+        return false;
+      }
+
+      // ボックスを開いてデータが存在するか確認
+      final staffBox = await Hive.openBox('staff');
+      final shiftsBox = await Hive.openBox('shifts');
+
+      final hasData = staffBox.isNotEmpty || shiftsBox.isNotEmpty;
+
+      await staffBox.close();
+      await shiftsBox.close();
+
+      return hasData;
+    } catch (e) {
+      return false; // エラー時は既存データなしとして扱う
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<bool>(
+      future: _hasExistingData(),
+      builder: (context, dataSnapshot) {
+        if (dataSnapshot.connectionState == ConnectionState.waiting) {
+          return const Scaffold(
+            body: Center(child: CircularProgressIndicator()),
+          );
+        }
+
+        final hasExistingData = dataSnapshot.data ?? false;
+
+        return StreamBuilder<User?>(
+          stream: FirebaseAuth.instance.authStateChanges(),
+          builder: (context, authSnapshot) {
+            // 既存データがあり、未ログインの場合 → オンボーディング画面
+            if (hasExistingData && !authSnapshot.hasData) {
+              return const MigrationOnboardingScreen();
+            }
+
+            // 既存データなし、未ログインの場合 → ログイン画面
+            if (!authSnapshot.hasData) {
+              return const LoginScreen();
+            }
+
+            // ログイン済み → チーム所属チェック
+            return FutureBuilder(
+              future: AuthService().getUser(authSnapshot.data!.uid),
+              builder: (context, userSnapshot) {
+                if (userSnapshot.connectionState == ConnectionState.waiting) {
+                  return const Scaffold(
+                    body: Center(child: CircularProgressIndicator()),
+                  );
+                }
+
+                final appUser = userSnapshot.data;
+
+                // チーム未所属 → チーム作成画面（データ移行フラグ付き）
+                if (appUser?.teamId == null) {
+                  return TeamCreationScreen(
+                    userId: authSnapshot.data!.uid,
+                    shouldMigrateData: hasExistingData,
+                  );
+                }
+
+                // チーム所属済み → ホーム画面
+                return const HomeScreen();
+              },
+            );
+          },
+        );
+      },
+    );
+  }
+}
+```
+
+#### 7.3.2 オンボーディング画面の実装
+
+```dart
+// lib/screens/migration/migration_onboarding_screen.dart
+class MigrationOnboardingScreen extends StatelessWidget {
+  const MigrationOnboardingScreen({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // アイコン
+              Icon(
+                Icons.rocket_launch,
+                size: 100,
+                color: Theme.of(context).colorScheme.primary,
+              ),
+              const SizedBox(height: 24),
+
+              // タイトル
+              Text(
+                'シフト工房が\nパワーアップしました！',
+                style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 16),
+
+              // メリット説明
+              Card(
+                color: Colors.blue.shade50,
+                child: const Padding(
+                  padding: EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        '🎉 新機能',
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 16,
+                        ),
+                      ),
+                      SizedBox(height: 8),
+                      Text('✅ チームでシフトを共有'),
+                      Text('✅ メンバーが休み希望を入力可能'),
+                      Text('✅ 複数端末でリアルタイム同期'),
+                      Text('✅ データ自動バックアップ'),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 24),
+
+              // データ移行の案内
+              Card(
+                color: Colors.green.shade50,
+                child: const Padding(
+                  padding: EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Icon(Icons.check_circle, color: Colors.green),
+                          SizedBox(width: 8),
+                          Text(
+                            'データ移行について',
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 16,
+                            ),
+                          ),
+                        ],
+                      ),
+                      SizedBox(height: 8),
+                      Text('既存のスタッフ・シフトデータは自動で移行されます'),
+                      Text('アカウント作成後、すぐにご利用いただけます'),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 32),
+
+              // アカウント作成ボタン
+              FilledButton.icon(
+                onPressed: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => const SignUpScreen(fromMigration: true),
+                    ),
+                  );
+                },
+                icon: const Icon(Icons.arrow_forward),
+                label: const Text('アカウント作成して始める'),
+              ),
+              const SizedBox(height: 8),
+
+              // 後でボタン
+              TextButton(
+                onPressed: () {
+                  Navigator.of(context).pop();
+                },
+                child: const Text('後で'),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+```
+
+#### 7.3.3 チーム作成後の自動データ移行
+
+```dart
+// lib/screens/team/team_creation_screen.dart（修正版）
+class TeamCreationScreen extends StatefulWidget {
+  final String userId;
+  final bool shouldMigrateData; // データ移行フラグ
+
+  const TeamCreationScreen({
+    super.key,
+    required this.userId,
+    this.shouldMigrateData = false,
+  });
+
+  // ... 省略 ...
+
+  Future<void> _handleCreateTeam() async {
+    if (!_formKey.currentState!.validate()) return;
+
+    setState(() => _isLoading = true);
+
+    try {
+      // チーム作成
+      await _authService.createTeam(
+        teamName: _teamNameController.text.trim(),
+        ownerId: widget.userId,
+      );
+
+      if (!mounted) return;
+
+      // データ移行が必要な場合
+      if (widget.shouldMigrateData) {
+        await _showMigrationDialog();
+      } else {
+        // 通常のホーム画面遷移
+        _navigateToHome();
+      }
+    } catch (e) {
+      // エラー処理
+    }
+  }
+
+  Future<void> _showMigrationDialog() async {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => MigrationProgressDialog(
+        teamId: _authService.currentTeamId!,
+        userId: widget.userId,
+        onComplete: () {
+          Navigator.of(context).pop(); // ダイアログを閉じる
+          _navigateToHome();
+        },
+      ),
+    );
+  }
+
+  void _navigateToHome() {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('has_seen_first_time_help', true);
+
+    Navigator.of(context).pushAndRemoveUntil(
+      MaterialPageRoute(
+        builder: (_) => const HomeScreen(showWelcomeDialog: true),
+      ),
+      (route) => false,
+    );
+  }
+}
+```
+
+### 7.4 安全策
+- ✅ 自動移行によりユーザー操作を最小化（エラーリスク低減）
 - ✅ 少人数テストチーム（5-10人）で事前に移行テスト
-- ✅ 移行失敗時はバックアップから再試行可能
-- ✅ バージョンチェックで旧バージョンからの書き込みを防止
+- ✅ 移行失敗時は既存Hiveデータを保持（再試行可能）
+- ✅ アプリストアの更新情報で事前告知
 
 ## 8. 技術的な実装ポイント
 

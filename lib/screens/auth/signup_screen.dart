@@ -1,10 +1,16 @@
 import 'package:flutter/material.dart';
 import '../../services/auth_service.dart';
 import '../team/team_creation_screen.dart';
+import 'login_screen.dart';
 
 /// サインアップ（新規登録）画面
 class SignupScreen extends StatefulWidget {
-  const SignupScreen({super.key});
+  final bool isFromMigration; // データ移行が必要かどうか
+
+  const SignupScreen({
+    super.key,
+    this.isFromMigration = false,
+  });
 
   @override
   State<SignupScreen> createState() => _SignupScreenState();
@@ -53,7 +59,10 @@ class _SignupScreenState extends State<SignupScreen> {
       // チーム作成画面へ遷移
       Navigator.of(context).pushReplacement(
         MaterialPageRoute(
-          builder: (_) => TeamCreationScreen(userId: user.uid),
+          builder: (_) => TeamCreationScreen(
+            userId: user.uid,
+            shouldMigrateData: widget.isFromMigration, // データ移行フラグを渡す
+          ),
         ),
       );
     } catch (e) {
@@ -74,17 +83,37 @@ class _SignupScreenState extends State<SignupScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('新規登録'),
-      ),
       body: Center(
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(24),
           child: Form(
             key: _formKey,
             child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
+                // アプリロゴ・タイトル
+                Icon(
+                  Icons.calendar_month,
+                  size: 80,
+                  color: Theme.of(context).colorScheme.primary,
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  'シフト工房',
+                  style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                        fontWeight: FontWeight.bold,
+                      ),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'オンライン版',
+                  style: Theme.of(context).textTheme.bodyLarge,
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 48),
+
                 // 表示名入力
                 TextFormField(
                   controller: _displayNameController,
@@ -224,6 +253,30 @@ class _SignupScreenState extends State<SignupScreen> {
                       ],
                     ),
                   ),
+                ),
+                const SizedBox(height: 16),
+
+                // ログイン画面へのリンク（小さく）
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text(
+                      '既にアカウントをお持ちの方は',
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
+                    TextButton(
+                      onPressed: _isLoading
+                          ? null
+                          : () {
+                              Navigator.of(context).push(
+                                MaterialPageRoute(
+                                  builder: (_) => const LoginScreen(),
+                                ),
+                              );
+                            },
+                      child: const Text('ログイン'),
+                    ),
+                  ],
                 ),
               ],
             ),
