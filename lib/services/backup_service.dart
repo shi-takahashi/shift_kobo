@@ -1,11 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
-import 'dart:typed_data';
-import 'package:flutter/foundation.dart';
-import 'package:hive/hive.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:file_picker/file_picker.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-import 'package:path_provider/path_provider.dart';
 import '../models/staff.dart';
 import '../models/shift.dart';
 import '../models/shift_constraint.dart';
@@ -15,35 +11,64 @@ class BackupService {
   static const String backupFilePrefix = 'shift_kobo_backup_';
   static const String backupFileExtension = '.json';
 
-  /// 全データのバックアップを作成
-  static Future<Map<String, dynamic>> createBackupData() async {
+  /// 全データのバックアップを作成（Firestoreから）
+  static Future<Map<String, dynamic>> createBackupData(String teamId) async {
     try {
-      print('バックアップ開始...');
-      
-      // Hiveボックスからデータを取得
-      print('Hiveボックスを開いています...');
-      final staffBox = await Hive.openBox<Staff>('staff');
-      print('スタッフボックス: ${staffBox.length}件');
-      
-      final shiftsBox = await Hive.openBox<Shift>('shifts');
-      print('シフトボックス: ${shiftsBox.length}件');
-      
-      final constraintsBox = await Hive.openBox<ShiftConstraint>('constraints');
-      print('制約ボックス: ${constraintsBox.length}件');
-      
-      final shiftTimeBox = await Hive.openBox<ShiftTimeSetting>('shift_time_settings');
-      print('シフト時間設定ボックス: ${shiftTimeBox.length}件');
+      print('バックアップ開始... (teamId: $teamId)');
+      final firestore = FirebaseFirestore.instance;
 
-      // SharedPreferencesからデータを取得
-      print('SharedPreferencesを取得中...');
-      final prefs = await SharedPreferences.getInstance();
+      // Firestoreからデータを取得
+      print('Firestoreからデータを取得中...');
+
+      // スタッフデータ
+      final staffSnapshot = await firestore
+          .collection('teams')
+          .doc(teamId)
+          .collection('staff')
+          .get();
+      print('スタッフ: ${staffSnapshot.docs.length}件');
+
+      // シフトデータ
+      final shiftsSnapshot = await firestore
+          .collection('teams')
+          .doc(teamId)
+          .collection('shifts')
+          .get();
+      print('シフト: ${shiftsSnapshot.docs.length}件');
+
+      // 制約データ
+      final constraintsSnapshot = await firestore
+          .collection('teams')
+          .doc(teamId)
+          .collection('constraints')
+          .get();
+      print('制約: ${constraintsSnapshot.docs.length}件');
+
+      // シフト時間設定
+      final shiftTimeSnapshot = await firestore
+          .collection('teams')
+          .doc(teamId)
+          .collection('shift_time_settings')
+          .get();
+      print('シフト時間設定: ${shiftTimeSnapshot.docs.length}件');
+
+      // 月間必要人数設定
+      final monthlyReqDoc = await firestore
+          .collection('teams')
+          .doc(teamId)
+          .collection('settings')
+          .doc('monthly_requirements')
+          .get();
+
       final shiftRequirements = <String, int>{};
-      
-      // SharedPreferencesから月間シフト設定を取得
-      for (String key in prefs.getKeys()) {
-        if (key.startsWith('shift_requirement_')) {
-          final shiftType = key.replaceFirst('shift_requirement_', '');
-          shiftRequirements[shiftType] = prefs.getInt(key) ?? 0;
+      if (monthlyReqDoc.exists) {
+        final data = monthlyReqDoc.data();
+        if (data != null) {
+          data.forEach((key, value) {
+            if (key != 'updatedAt' && value is int) {
+              shiftRequirements[key] = value;
+            }
+          });
         }
       }
       print('月間シフト設定: ${shiftRequirements.length}件');
@@ -51,49 +76,65 @@ class BackupService {
       // バックアップデータの構築
       print('バックアップデータを構築中...');
       final backupData = {
-        'version': '1.0.0',
+        'version': '2.0.0', // Firestore版
         'created_at': DateTime.now().toIso8601String(),
         'app_name': 'シフト工房',
+        'teamId': teamId, // チームIDを含める
         'data': {
-          'staff': staffBox.values.map((staff) {
-            try {
-              return _staffToJson(staff);
-            } catch (e) {
-              print('スタッフデータ変換エラー: $e');
-              rethrow;
-            }
+          'staff': staffSnapshot.docs.map((doc) {
+            final data = doc.data();
+            return {
+              'id': doc.id,
+              'name': data['name'] ?? '',
+              'phoneNumber': data['phoneNumber'],
+              'email': data['email'],
+              'maxShiftsPerMonth': data['maxShiftsPerMonth'] ?? 20,
+              'isActive': data['isActive'] ?? true,
+              'preferredDaysOff': List<int>.from(data['preferredDaysOff'] ?? []),
+              'unavailableShiftTypes': List<String>.from(data['unavailableShiftTypes'] ?? []),
+              'specificDaysOff': List<String>.from(data['specificDaysOff'] ?? []),
+            };
           }).toList(),
-          'shifts': shiftsBox.values.map((shift) {
-            try {
-              return _shiftToJson(shift);
-            } catch (e) {
-              print('シフトデータ変換エラー: $e');
-              rethrow;
-            }
+          'shifts': shiftsSnapshot.docs.map((doc) {
+            final data = doc.data();
+            return {
+              'id': doc.id,
+              'date': (data['date'] as Timestamp).toDate().toIso8601String(),
+              'staffId': data['staffId'] ?? '',
+              'shiftType': data['shiftType'] ?? '',
+              'startTime': (data['startTime'] as Timestamp).toDate().toIso8601String(),
+              'endTime': (data['endTime'] as Timestamp).toDate().toIso8601String(),
+              'note': data['note'],
+            };
           }).toList(),
-          'constraints': constraintsBox.values.map((constraint) {
-            try {
-              return _constraintToJson(constraint);
-            } catch (e) {
-              print('制約データ変換エラー: $e');
-              rethrow;
-            }
+          'constraints': constraintsSnapshot.docs.map((doc) {
+            final data = doc.data();
+            return {
+              'id': doc.id,
+              'staffId': data['staffId'] ?? '',
+              'date': (data['date'] as Timestamp).toDate().toIso8601String(),
+              'isAvailable': data['isAvailable'] ?? false,
+              'reason': data['reason'],
+            };
           }).toList(),
-          'shift_time_settings': shiftTimeBox.values.map((setting) {
-            try {
-              return _shiftTimeSettingToJson(setting);
-            } catch (e) {
-              print('シフト時間設定変換エラー: $e');
-              rethrow;
-            }
+          'shift_time_settings': shiftTimeSnapshot.docs.map((doc) {
+            final data = doc.data();
+            return {
+              'id': doc.id,  // IDを保存
+              'shiftType': data['shiftType'] as int,
+              'customName': data['customName'],
+              'startTime': data['startTime'] as String,
+              'endTime': data['endTime'] as String,
+              'isActive': data['isActive'] ?? true,
+            };
           }).toList(),
           'shift_requirements': shiftRequirements,
         },
         'statistics': {
-          'staff_count': staffBox.length,
-          'shifts_count': shiftsBox.length,
-          'constraints_count': constraintsBox.length,
-          'shift_time_settings_count': shiftTimeBox.length,
+          'staff_count': staffSnapshot.docs.length,
+          'shifts_count': shiftsSnapshot.docs.length,
+          'constraints_count': constraintsSnapshot.docs.length,
+          'shift_time_settings_count': shiftTimeSnapshot.docs.length,
         },
       };
 
@@ -107,18 +148,17 @@ class BackupService {
   }
 
   /// バックアップファイルを作成して保存
-  static Future<String?> saveBackupToFile() async {
+  static Future<String?> saveBackupToFile(String teamId) async {
     try {
-      final backupData = await createBackupData();
+      final backupData = await createBackupData(teamId);
       final jsonString = const JsonEncoder.withIndent('  ').convert(backupData);
-      
+
       // ユーザーが保存先を選択
       final timestamp = DateTime.now().toIso8601String().split('T')[0].replaceAll('-', '');
       final fileName = '$backupFilePrefix$timestamp$backupFileExtension';
-      
-      // Android/iOSではbytesパラメータが必要
+
       final bytes = utf8.encode(jsonString);
-      
+
       final outputFile = await FilePicker.platform.saveFile(
         dialogTitle: 'バックアップファイルの保存先を選択',
         fileName: fileName,
@@ -126,29 +166,28 @@ class BackupService {
         allowedExtensions: ['json'],
         bytes: bytes,
       );
-      
+
       if (outputFile != null) {
         return outputFile;
       }
-      
-      return null; // ユーザーがキャンセルした場合
+
+      return null;
     } catch (e) {
       throw Exception('バックアップファイルの保存に失敗しました: $e');
     }
   }
 
   /// バックアップファイルを共有
-  static Future<String?> shareBackupFile() async {
+  static Future<String?> shareBackupFile(String teamId) async {
     try {
-      // Android/iOS用：ユーザーが保存先を選択
-      final filePath = await saveBackupToFile();
-      
+      final filePath = await saveBackupToFile(teamId);
+
       if (filePath != null) {
         print('バックアップ完了: $filePath');
         return filePath;
       } else {
         print('保存がキャンセルされました');
-        return null; // キャンセルの場合はnullを返す
+        return null;
       }
     } catch (e, stackTrace) {
       print('バックアップ共有エラー: $e');
@@ -156,7 +195,6 @@ class BackupService {
       throw Exception('バックアップファイルの共有に失敗しました: $e');
     }
   }
-
 
   /// バックアップファイルを選択
   static Future<String?> pickBackupFile() async {
@@ -170,15 +208,15 @@ class BackupService {
       if (result != null && result.files.isNotEmpty) {
         return result.files.first.path;
       }
-      
+
       return null;
     } catch (e) {
       throw Exception('ファイルの選択に失敗しました: $e');
     }
   }
 
-  /// バックアップファイルから復元
-  static Future<void> restoreFromFile(String filePath, {bool overwrite = false}) async {
+  /// バックアップファイルから復元（Firestoreへ）
+  static Future<void> restoreFromFile(String filePath, String teamId, {bool overwrite = false}) async {
     try {
       final file = File(filePath);
       if (!await file.exists()) {
@@ -194,91 +232,345 @@ class BackupService {
       }
 
       final data = backupData['data'] as Map<String, dynamic>;
+      final firestore = FirebaseFirestore.instance;
 
-      // Hiveボックスを開く
-      final staffBox = await Hive.openBox<Staff>('staff');
-      final shiftsBox = await Hive.openBox<Shift>('shifts');
-      final constraintsBox = await Hive.openBox<ShiftConstraint>('constraints');
-      final shiftTimeBox = await Hive.openBox<ShiftTimeSetting>('shift_time_settings');
+      // シフト時間設定を先に復元（空の状態を作らないため）
+      // この処理を削除より前に行うことで、Providerの自動作成を防ぐ
+      if (data['shift_time_settings'] != null) {
+        final settingsList = data['shift_time_settings'] as List;
+        final batch = firestore.batch();
+        final backupIds = <String>{};
+
+        print('シフト時間設定を復元中...');
+        for (var settingJson in settingsList) {
+          final json = settingJson as Map<String, dynamic>;
+          final docId = json['id'] as String?;
+
+          if (docId != null && docId.isNotEmpty) {
+            backupIds.add(docId);
+          }
+
+          // IDがある場合は指定、ない場合は自動生成
+          final docRef = (docId != null && docId.isNotEmpty)
+              ? firestore
+                  .collection('teams')
+                  .doc(teamId)
+                  .collection('shift_time_settings')
+                  .doc(docId)
+              : firestore
+                  .collection('teams')
+                  .doc(teamId)
+                  .collection('shift_time_settings')
+                  .doc();
+
+          batch.set(docRef, {
+            'shiftType': json['shiftType'] as int,
+            'customName': json['customName'],
+            'startTime': json['startTime'] as String,
+            'endTime': json['endTime'] as String,
+            'isActive': json['isActive'] ?? true,
+            'updatedAt': FieldValue.serverTimestamp(),
+          });
+        }
+
+        await batch.commit();
+        print('シフト時間設定復元完了: ${settingsList.length}件');
+
+        // オーバーライトモードの場合、バックアップにない既存ドキュメントを削除
+        if (overwrite) {
+          final existingDocs = await firestore
+              .collection('teams')
+              .doc(teamId)
+              .collection('shift_time_settings')
+              .get();
+
+          final idsToDelete = existingDocs.docs
+              .where((doc) => !backupIds.contains(doc.id))
+              .toList();
+
+          if (idsToDelete.isNotEmpty) {
+            final deleteBatch = firestore.batch();
+            for (var doc in idsToDelete) {
+              deleteBatch.delete(doc.reference);
+            }
+            await deleteBatch.commit();
+            print('余分なシフト時間設定を削除: ${idsToDelete.length}件');
+          }
+        }
+      }
 
       if (overwrite) {
-        // 既存データをクリア
-        await staffBox.clear();
-        await shiftsBox.clear();
-        await constraintsBox.clear();
-        await shiftTimeBox.clear();
+        print('既存データを削除中...');
+        // シフト時間設定以外の既存データをバッチ削除
+        await _clearFirestoreDataExceptShiftTime(firestore, teamId);
       }
+
+      print('データを復元中...');
 
       // スタッフデータの復元
       if (data['staff'] != null) {
         final staffList = data['staff'] as List;
+        final batch = firestore.batch();
+
         for (var staffJson in staffList) {
-          final staff = _staffFromJson(staffJson as Map<String, dynamic>);
-          await staffBox.put(staff.id, staff);
+          final json = staffJson as Map<String, dynamic>;
+          final docRef = firestore
+              .collection('teams')
+              .doc(teamId)
+              .collection('staff')
+              .doc(json['id'] as String);
+
+          batch.set(docRef, {
+            'name': json['name'] ?? '',
+            'phoneNumber': json['phoneNumber'],
+            'email': json['email'],
+            'maxShiftsPerMonth': json['maxShiftsPerMonth'] ?? 20,
+            'isActive': json['isActive'] ?? true,
+            'preferredDaysOff': List<int>.from(json['preferredDaysOff'] ?? []),
+            'unavailableShiftTypes': List<String>.from(json['unavailableShiftTypes'] ?? []),
+            'specificDaysOff': List<String>.from(json['specificDaysOff'] ?? []),
+            'createdAt': FieldValue.serverTimestamp(),
+          });
         }
+
+        await batch.commit();
+        print('スタッフデータ復元完了: ${staffList.length}件');
       }
 
       // シフトデータの復元
       if (data['shifts'] != null) {
         final shiftsList = data['shifts'] as List;
-        for (var shiftJson in shiftsList) {
-          final shift = _shiftFromJson(shiftJson as Map<String, dynamic>);
-          await shiftsBox.put(shift.id, shift);
+
+        // 500件ずつバッチ処理
+        for (var i = 0; i < shiftsList.length; i += 500) {
+          final batch = firestore.batch();
+          final end = (i + 500 < shiftsList.length) ? i + 500 : shiftsList.length;
+
+          for (var j = i; j < end; j++) {
+            final json = shiftsList[j] as Map<String, dynamic>;
+            final docRef = firestore
+                .collection('teams')
+                .doc(teamId)
+                .collection('shifts')
+                .doc(json['id'] as String);
+
+            batch.set(docRef, {
+              'date': Timestamp.fromDate(DateTime.parse(json['date'] as String)),
+              'staffId': json['staffId'] ?? '',
+              'shiftType': json['shiftType'] ?? '',
+              'startTime': Timestamp.fromDate(DateTime.parse(json['startTime'] as String)),
+              'endTime': Timestamp.fromDate(DateTime.parse(json['endTime'] as String)),
+              'note': json['note'],
+              'createdAt': FieldValue.serverTimestamp(),
+            });
+          }
+
+          await batch.commit();
         }
+        print('シフトデータ復元完了: ${shiftsList.length}件');
       }
 
       // 制約データの復元
       if (data['constraints'] != null) {
         final constraintsList = data['constraints'] as List;
+        final batch = firestore.batch();
+
         for (var constraintJson in constraintsList) {
-          final constraint = _constraintFromJson(constraintJson as Map<String, dynamic>);
-          await constraintsBox.put(constraint.id, constraint);
+          final json = constraintJson as Map<String, dynamic>;
+          final docRef = firestore
+              .collection('teams')
+              .doc(teamId)
+              .collection('constraints')
+              .doc(json['id'] as String);
+
+          batch.set(docRef, {
+            'staffId': json['staffId'] ?? '',
+            'date': Timestamp.fromDate(DateTime.parse(json['date'] as String)),
+            'isAvailable': json['isAvailable'] ?? false,
+            'reason': json['reason'],
+          });
         }
+
+        await batch.commit();
+        print('制約データ復元完了: ${constraintsList.length}件');
       }
 
-      // シフト時間設定の復元
-      if (data['shift_time_settings'] != null) {
-        final settingsList = data['shift_time_settings'] as List;
-        for (var settingJson in settingsList) {
-          final setting = _shiftTimeSettingFromJson(settingJson as Map<String, dynamic>);
-          await shiftTimeBox.add(setting);
-        }
-      }
+      // シフト時間設定は既に復元済み（上部で処理）
 
-      // SharedPreferencesの復元
+      // 月間必要人数設定の復元
       if (data['shift_requirements'] != null) {
-        final prefs = await SharedPreferences.getInstance();
         final requirements = data['shift_requirements'] as Map<String, dynamic>;
-        
-        for (var entry in requirements.entries) {
-          await prefs.setInt('shift_requirement_${entry.key}', entry.value as int);
-        }
+        final requirementsData = <String, dynamic>{};
+
+        requirements.forEach((key, value) {
+          requirementsData[key] = value as int;
+        });
+
+        requirementsData['updatedAt'] = FieldValue.serverTimestamp();
+
+        await firestore
+            .collection('teams')
+            .doc(teamId)
+            .collection('settings')
+            .doc('monthly_requirements')
+            .set(requirementsData);
+
+        print('月間設定復元完了: ${requirements.length}件');
       }
 
       print('復元完了 - 統計:');
+      print('  シフト時間設定: ${data['shift_time_settings']?.length ?? 0}件（先に復元済み）');
       print('  スタッフ: ${data['staff']?.length ?? 0}件');
       print('  シフト: ${data['shifts']?.length ?? 0}件');
       print('  制約: ${data['constraints']?.length ?? 0}件');
-      print('  シフト時間設定: ${data['shift_time_settings']?.length ?? 0}件');
       print('  月間設定: ${data['shift_requirements']?.length ?? 0}件');
 
-    } catch (e) {
+    } catch (e, stackTrace) {
+      print('復元エラー: $e');
+      print('スタックトレース: $stackTrace');
       throw Exception('データの復元に失敗しました: $e');
     }
+  }
+
+  /// Firestoreの既存データをクリア（シフト時間設定以外）
+  static Future<void> _clearFirestoreDataExceptShiftTime(FirebaseFirestore firestore, String teamId) async {
+    // スタッフ削除
+    final staffDocs = await firestore
+        .collection('teams')
+        .doc(teamId)
+        .collection('staff')
+        .get();
+
+    if (staffDocs.docs.isNotEmpty) {
+      final batch = firestore.batch();
+      for (var doc in staffDocs.docs) {
+        batch.delete(doc.reference);
+      }
+      await batch.commit();
+    }
+
+    // シフト削除（バッチ処理）
+    final shiftDocs = await firestore
+        .collection('teams')
+        .doc(teamId)
+        .collection('shifts')
+        .get();
+
+    if (shiftDocs.docs.isNotEmpty) {
+      for (var i = 0; i < shiftDocs.docs.length; i += 500) {
+        final batch = firestore.batch();
+        final end = (i + 500 < shiftDocs.docs.length) ? i + 500 : shiftDocs.docs.length;
+
+        for (var j = i; j < end; j++) {
+          batch.delete(shiftDocs.docs[j].reference);
+        }
+
+        await batch.commit();
+      }
+    }
+
+    // 制約削除
+    final constraintDocs = await firestore
+        .collection('teams')
+        .doc(teamId)
+        .collection('constraints')
+        .get();
+
+    if (constraintDocs.docs.isNotEmpty) {
+      final batch = firestore.batch();
+      for (var doc in constraintDocs.docs) {
+        batch.delete(doc.reference);
+      }
+      await batch.commit();
+    }
+
+    // シフト時間設定は削除しない（空の状態を避けるため）
+
+    print('既存データ削除完了（シフト時間設定を除く）');
+  }
+
+  /// Firestoreの既存データをクリア
+  static Future<void> _clearFirestoreData(FirebaseFirestore firestore, String teamId) async {
+    // スタッフ削除
+    final staffDocs = await firestore
+        .collection('teams')
+        .doc(teamId)
+        .collection('staff')
+        .get();
+
+    if (staffDocs.docs.isNotEmpty) {
+      final batch = firestore.batch();
+      for (var doc in staffDocs.docs) {
+        batch.delete(doc.reference);
+      }
+      await batch.commit();
+    }
+
+    // シフト削除（バッチ処理）
+    final shiftDocs = await firestore
+        .collection('teams')
+        .doc(teamId)
+        .collection('shifts')
+        .get();
+
+    if (shiftDocs.docs.isNotEmpty) {
+      for (var i = 0; i < shiftDocs.docs.length; i += 500) {
+        final batch = firestore.batch();
+        final end = (i + 500 < shiftDocs.docs.length) ? i + 500 : shiftDocs.docs.length;
+
+        for (var j = i; j < end; j++) {
+          batch.delete(shiftDocs.docs[j].reference);
+        }
+
+        await batch.commit();
+      }
+    }
+
+    // 制約削除
+    final constraintDocs = await firestore
+        .collection('teams')
+        .doc(teamId)
+        .collection('constraints')
+        .get();
+
+    if (constraintDocs.docs.isNotEmpty) {
+      final batch = firestore.batch();
+      for (var doc in constraintDocs.docs) {
+        batch.delete(doc.reference);
+      }
+      await batch.commit();
+    }
+
+    // シフト時間設定削除
+    final shiftTimeDocs = await firestore
+        .collection('teams')
+        .doc(teamId)
+        .collection('shift_time_settings')
+        .get();
+
+    if (shiftTimeDocs.docs.isNotEmpty) {
+      final batch = firestore.batch();
+      for (var doc in shiftTimeDocs.docs) {
+        batch.delete(doc.reference);
+      }
+      await batch.commit();
+    }
+
+    print('既存データ削除完了');
   }
 
   /// バックアップデータの検証
   static bool _validateBackupData(Map<String, dynamic> data) {
     try {
       // 必須フィールドの確認
-      if (!data.containsKey('version') || 
-          !data.containsKey('created_at') || 
+      if (!data.containsKey('version') ||
+          !data.containsKey('created_at') ||
           !data.containsKey('data')) {
         return false;
       }
 
       final dataSection = data['data'] as Map<String, dynamic>;
-      
+
       // データセクションの基本構造確認
       return dataSection.containsKey('staff') &&
              dataSection.containsKey('shifts') &&
@@ -287,96 +579,5 @@ class BackupService {
     } catch (e) {
       return false;
     }
-  }
-
-  // JSON変換ヘルパーメソッド
-  static Map<String, dynamic> _staffToJson(Staff staff) {
-    return {
-      'id': staff.id,
-      'name': staff.name,
-      'phoneNumber': staff.phoneNumber,
-      'email': staff.email,
-      'maxShiftsPerMonth': staff.maxShiftsPerMonth,
-      'isActive': staff.isActive,
-      'preferredDaysOff': staff.preferredDaysOff,
-      'unavailableShiftTypes': staff.unavailableShiftTypes,
-      'specificDaysOff': staff.specificDaysOff,
-    };
-  }
-
-  static Staff _staffFromJson(Map<String, dynamic> json) {
-    return Staff(
-      id: json['id'] as String,
-      name: json['name'] as String,
-      phoneNumber: json['phoneNumber'] as String? ?? '',
-      email: json['email'] as String? ?? '',
-      maxShiftsPerMonth: json['maxShiftsPerMonth'] as int? ?? 20,
-      isActive: json['isActive'] as bool? ?? true,
-      preferredDaysOff: List<int>.from(json['preferredDaysOff'] ?? []),
-      unavailableShiftTypes: List<String>.from(json['unavailableShiftTypes'] ?? []),
-      specificDaysOff: List<String>.from(json['specificDaysOff'] ?? []),
-    );
-  }
-
-  static Map<String, dynamic> _shiftToJson(Shift shift) {
-    return {
-      'id': shift.id,
-      'date': shift.date.toIso8601String(),
-      'staffId': shift.staffId,
-      'shiftType': shift.shiftType,
-      'startTime': shift.startTime.toIso8601String(),
-      'endTime': shift.endTime.toIso8601String(),
-    };
-  }
-
-  static Shift _shiftFromJson(Map<String, dynamic> json) {
-    return Shift(
-      id: json['id'] as String,
-      date: DateTime.parse(json['date'] as String),
-      staffId: json['staffId'] as String,
-      shiftType: json['shiftType'] as String,
-      startTime: DateTime.parse(json['startTime'] as String),
-      endTime: DateTime.parse(json['endTime'] as String),
-    );
-  }
-
-  static Map<String, dynamic> _constraintToJson(ShiftConstraint constraint) {
-    return {
-      'id': constraint.id,
-      'staffId': constraint.staffId,
-      'date': constraint.date.toIso8601String(),
-      'isAvailable': constraint.isAvailable,
-      'reason': constraint.reason,
-    };
-  }
-
-  static ShiftConstraint _constraintFromJson(Map<String, dynamic> json) {
-    return ShiftConstraint(
-      id: json['id'] as String,
-      staffId: json['staffId'] as String,
-      date: DateTime.parse(json['date'] as String),
-      isAvailable: json['isAvailable'] as bool? ?? false,
-      reason: json['reason'] as String?,
-    );
-  }
-
-  static Map<String, dynamic> _shiftTimeSettingToJson(ShiftTimeSetting setting) {
-    return {
-      'shiftType': setting.shiftType.index,
-      'customName': setting.customName,
-      'startTime': setting.startTime,
-      'endTime': setting.endTime,
-      'isActive': setting.isActive,
-    };
-  }
-
-  static ShiftTimeSetting _shiftTimeSettingFromJson(Map<String, dynamic> json) {
-    return ShiftTimeSetting(
-      shiftType: ShiftType.values[json['shiftType'] as int],
-      customName: json['customName'] as String?,
-      startTime: json['startTime'] as String,
-      endTime: json['endTime'] as String,
-      isActive: json['isActive'] as bool? ?? true,
-    );
   }
 }

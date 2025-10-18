@@ -366,7 +366,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   void _showBackupDialog(BuildContext context) {
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
+      builder: (dialogContext) => AlertDialog(
         title: const Text('データバックアップ'),
         content: const Column(
           mainAxisSize: MainAxisSize.min,
@@ -384,13 +384,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.of(context).pop(),
+            onPressed: () => Navigator.of(dialogContext).pop(),
             child: const Text('キャンセル'),
           ),
           FilledButton.icon(
             onPressed: () async {
-              Navigator.of(context).pop();
-              await _performBackup(context);
+              Navigator.of(dialogContext).pop();
+              await _performBackup(context);  // 外側のcontextを使用
             },
             icon: const Icon(Icons.backup),
             label: const Text('バックアップ'),
@@ -403,7 +403,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   void _showRestoreDialog(BuildContext context) {
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
+      builder: (dialogContext) => AlertDialog(
         title: const Text('データ復元'),
         content: const Column(
           mainAxisSize: MainAxisSize.min,
@@ -427,12 +427,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.of(context).pop(),
+            onPressed: () => Navigator.of(dialogContext).pop(),
             child: const Text('キャンセル'),
           ),
           FilledButton.icon(
             onPressed: () {
-              Navigator.of(context).pop();
+              Navigator.of(dialogContext).pop();
               // 少し待機してからファイル選択開始
               Future.delayed(const Duration(milliseconds: 300), () {
                 _performRestore();
@@ -451,6 +451,20 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final navigator = Navigator.of(context);
     final scaffoldMessenger = ScaffoldMessenger.of(context);
 
+    // teamIdを取得（StaffProviderから）
+    final staffProvider = Provider.of<StaffProvider>(context, listen: false);
+    final teamId = staffProvider.teamId;
+
+    if (teamId == null) {
+      scaffoldMessenger.showSnackBar(
+        const SnackBar(
+          content: Text('チーム情報が見つかりません'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
     try {
       // ローディング表示
       showDialog(
@@ -468,7 +482,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       );
 
       // バックアップを実行
-      final result = await BackupService.shareBackupFile();
+      final result = await BackupService.shareBackupFile(teamId);
 
       // ローディングを閉じる（保存した参照を使用）
       navigator.pop();
@@ -507,6 +521,23 @@ class _SettingsScreenState extends State<SettingsScreen> {
     setState(() {
       _isRestoring = true;
     });
+
+    // teamIdを取得（StaffProviderから）
+    final staffProvider = Provider.of<StaffProvider>(context, listen: false);
+    final teamId = staffProvider.teamId;
+
+    if (teamId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('チーム情報が見つかりません'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      setState(() {
+        _isRestoring = false;
+      });
+      return;
+    }
 
     String? selectedFilePath;
 
@@ -555,7 +586,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       );
 
       // 復元を実行（上書きモード）
-      await BackupService.restoreFromFile(selectedFilePath, overwrite: true);
+      await BackupService.restoreFromFile(selectedFilePath, teamId, overwrite: true);
 
       if (!mounted) return;
 
@@ -563,13 +594,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
       Navigator.of(context).pop();
 
       // Providerをリロードしてデータを再読み込み
-      final staffProvider = Provider.of<StaffProvider>(context, listen: false);
       final shiftProvider = Provider.of<ShiftProvider>(context, listen: false);
       final shiftTimeProvider = Provider.of<ShiftTimeProvider>(context, listen: false);
+      final monthlyRequirementsProvider = Provider.of<MonthlyRequirementsProvider>(context, listen: false);
 
       staffProvider.reload();
       shiftProvider.reload();
-      await shiftTimeProvider.reload();
+      shiftTimeProvider.reload();
+      monthlyRequirementsProvider.reload();
 
       if (!mounted) return;
 
