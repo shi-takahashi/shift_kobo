@@ -9,12 +9,15 @@ class ShiftTimeProvider extends ChangeNotifier {
   List<ShiftTimeSetting> _settings = [];
   StreamSubscription? _settingsSubscription;
   final Map<ShiftType, String> _docIds = {}; // ShiftType -> Firestore Document ID
+  bool _isLoading = true;
 
   ShiftTimeProvider({this.teamId}) {
     if (teamId != null) {
       _init();
     }
   }
+
+  bool get isLoading => _isLoading;
 
   List<ShiftTimeSetting> get settings {
     final sorted = List<ShiftTimeSetting>.from(_settings);
@@ -77,6 +80,12 @@ class ShiftTimeProvider extends ChangeNotifier {
             isActive: data['isActive'] ?? true,
           );
         }).toList();
+
+        // 初回ロード完了
+        if (_isLoading) {
+          _isLoading = false;
+        }
+
         notifyListeners();
       }
     });

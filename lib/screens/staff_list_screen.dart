@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/staff_provider.dart';
+import '../providers/shift_time_provider.dart';
 import '../models/staff.dart';
 import '../widgets/staff_edit_dialog.dart';
 
@@ -140,9 +141,18 @@ class _StaffListScreenState extends State<StaffListScreen> {
                         child: ListTile(
                           onTap: () {
                             // スタッフタップで編集画面起動
+                            final shiftTimeProvider = context.read<ShiftTimeProvider>();
+                            final staffProvider = context.read<StaffProvider>();
                             showDialog(
                               context: context,
-                              builder: (context) => StaffEditDialog(existingStaff: staff),
+                              useRootNavigator: false,
+                              builder: (dialogContext) => MultiProvider(
+                                providers: [
+                                  ChangeNotifierProvider<ShiftTimeProvider>.value(value: shiftTimeProvider),
+                                  ChangeNotifierProvider<StaffProvider>.value(value: staffProvider),
+                                ],
+                                child: StaffEditDialog(existingStaff: staff),
+                              ),
                             );
                           },
                           leading: CircleAvatar(
@@ -228,9 +238,18 @@ class _StaffListScreenState extends State<StaffListScreen> {
             width: double.infinity,
             child: ElevatedButton.icon(
               onPressed: () {
+                final shiftTimeProvider = context.read<ShiftTimeProvider>();
+                final staffProvider = context.read<StaffProvider>();
                 showDialog(
                   context: context,
-                  builder: (context) => const StaffEditDialog(),
+                  useRootNavigator: false,
+                  builder: (dialogContext) => MultiProvider(
+                    providers: [
+                      ChangeNotifierProvider<ShiftTimeProvider>.value(value: shiftTimeProvider),
+                      ChangeNotifierProvider<StaffProvider>.value(value: staffProvider),
+                    ],
+                    child: const StaffEditDialog(),
+                  ),
                 );
               },
               icon: const Icon(Icons.person_add),
@@ -250,9 +269,18 @@ class _StaffListScreenState extends State<StaffListScreen> {
 
     switch (action) {
       case 'edit':
+        final shiftTimeProvider = context.read<ShiftTimeProvider>();
+        final localStaffProvider = context.read<StaffProvider>();
         showDialog(
           context: context,
-          builder: (context) => StaffEditDialog(existingStaff: staff),
+          useRootNavigator: false,
+          builder: (dialogContext) => MultiProvider(
+            providers: [
+              ChangeNotifierProvider<ShiftTimeProvider>.value(value: shiftTimeProvider),
+              ChangeNotifierProvider<StaffProvider>.value(value: localStaffProvider),
+            ],
+            child: StaffEditDialog(existingStaff: staff),
+          ),
         );
         break;
       case 'toggle':

@@ -438,12 +438,12 @@ class _StaffEditDialogState extends State<StaffEditDialog> {
   }
 
   Widget _buildUnavailableShiftTypesSection() {
-    final shiftTimeProvider = Provider.of<ShiftTimeProvider>(context);
+    final shiftTimeProvider = Provider.of<ShiftTimeProvider>(context, listen: false);
     final activeShiftTypes = shiftTimeProvider.settings
         .where((setting) => setting.isActive)
         .map((setting) => setting.displayName)
         .toList();
-    
+
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(16),

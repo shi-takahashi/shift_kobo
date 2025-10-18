@@ -6,6 +6,7 @@ import 'package:holiday_jp/holiday_jp.dart' as holiday_jp;
 import '../providers/shift_provider.dart';
 import '../providers/staff_provider.dart';
 import '../providers/shift_time_provider.dart';
+import '../providers/monthly_requirements_provider.dart';
 import '../models/shift.dart';
 import '../models/shift_type.dart' as old_shift_type;
 import '../models/shift_time_setting.dart';
@@ -127,11 +128,22 @@ class _CalendarScreenState extends State<CalendarScreen> {
                 ),
                 child: InkWell(
                   onTap: () async {
+                    final shiftProvider = context.read<ShiftProvider>();
+                    final staffProvider = context.read<StaffProvider>();
+                    final shiftTimeProvider = context.read<ShiftTimeProvider>();
+
                     await Navigator.push(
                       context,
                       MaterialPageRoute(
-                        builder: (context) => ExportScreen(
-                          initialMonth: _focusedDay,
+                        builder: (context) => MultiProvider(
+                          providers: [
+                            ChangeNotifierProvider<ShiftProvider>.value(value: shiftProvider),
+                            ChangeNotifierProvider<StaffProvider>.value(value: staffProvider),
+                            ChangeNotifierProvider<ShiftTimeProvider>.value(value: shiftTimeProvider),
+                          ],
+                          child: ExportScreen(
+                            initialMonth: _focusedDay,
+                          ),
                         ),
                       ),
                     );
@@ -538,10 +550,24 @@ class _CalendarScreenState extends State<CalendarScreen> {
   }
 
   void _showAutoAssignmentDialog(BuildContext context) {
+    final shiftProvider = context.read<ShiftProvider>();
+    final staffProvider = context.read<StaffProvider>();
+    final shiftTimeProvider = context.read<ShiftTimeProvider>();
+    final monthlyRequirementsProvider = context.read<MonthlyRequirementsProvider>();
+
     showDialog<bool>(
       context: context,
-      builder: (context) => AutoAssignmentDialog(
-        selectedMonth: _focusedDay,
+      useRootNavigator: false,
+      builder: (dialogContext) => MultiProvider(
+        providers: [
+          ChangeNotifierProvider<ShiftProvider>.value(value: shiftProvider),
+          ChangeNotifierProvider<StaffProvider>.value(value: staffProvider),
+          ChangeNotifierProvider<ShiftTimeProvider>.value(value: shiftTimeProvider),
+          ChangeNotifierProvider<MonthlyRequirementsProvider>.value(value: monthlyRequirementsProvider),
+        ],
+        child: AutoAssignmentDialog(
+          selectedMonth: _focusedDay,
+        ),
       ),
     ).then((result) {
       if (result == true && _selectedDay != null) {
@@ -564,10 +590,20 @@ class _CalendarScreenState extends State<CalendarScreen> {
 
   void _showAddShiftDialog(BuildContext context) {
     if (_selectedDay == null) return;
-    
+
+    final shiftProvider = context.read<ShiftProvider>();
+    final staffProvider = context.read<StaffProvider>();
+
     showDialog<bool>(
       context: context,
-      builder: (context) => ShiftEditDialog(selectedDate: _selectedDay!),
+      useRootNavigator: false,
+      builder: (dialogContext) => MultiProvider(
+        providers: [
+          ChangeNotifierProvider<ShiftProvider>.value(value: shiftProvider),
+          ChangeNotifierProvider<StaffProvider>.value(value: staffProvider),
+        ],
+        child: ShiftEditDialog(selectedDate: _selectedDay!),
+      ),
     ).then((result) {
       if (result == true && _selectedDay != null) {
         // 少し遅延させてからデータを再取得（Providerの更新を待つため）
@@ -580,11 +616,21 @@ class _CalendarScreenState extends State<CalendarScreen> {
   }
 
   void _showEditShiftDialog(BuildContext context, Shift shift) {
+    final shiftProvider = context.read<ShiftProvider>();
+    final staffProvider = context.read<StaffProvider>();
+
     showDialog<bool>(
       context: context,
-      builder: (context) => ShiftEditDialog(
-        selectedDate: shift.date,
-        existingShift: shift,
+      useRootNavigator: false,
+      builder: (dialogContext) => MultiProvider(
+        providers: [
+          ChangeNotifierProvider<ShiftProvider>.value(value: shiftProvider),
+          ChangeNotifierProvider<StaffProvider>.value(value: staffProvider),
+        ],
+        child: ShiftEditDialog(
+          selectedDate: shift.date,
+          existingShift: shift,
+        ),
       ),
     ).then((result) {
       if (result == true && _selectedDay != null) {
@@ -638,11 +684,21 @@ class _CalendarScreenState extends State<CalendarScreen> {
   }
 
   void _showQuickActionDialog(BuildContext context, Shift shift) {
+    final shiftProvider = context.read<ShiftProvider>();
+    final staffProvider = context.read<StaffProvider>();
+
     showDialog(
       context: context,
-      builder: (context) => ShiftQuickActionDialog(
-        shift: shift,
-        onDateMove: (shift, newDate) => _moveShiftToDate(shift, newDate),
+      useRootNavigator: false,
+      builder: (dialogContext) => MultiProvider(
+        providers: [
+          ChangeNotifierProvider<ShiftProvider>.value(value: shiftProvider),
+          ChangeNotifierProvider<StaffProvider>.value(value: staffProvider),
+        ],
+        child: ShiftQuickActionDialog(
+          shift: shift,
+          onDateMove: (shift, newDate) => _moveShiftToDate(shift, newDate),
+        ),
       ),
     ).then((_) {
       if (_selectedDay != null) {
@@ -800,7 +856,6 @@ class _ShiftTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final staffProvider = context.read<StaffProvider>();
-    final shiftTimeProvider = context.read<ShiftTimeProvider>();
     final staff = staffProvider.getStaffById(shift.staffId);
     
     // シフトタイプは文字列で保存されているので、そのまま表示

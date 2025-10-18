@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import '../models/shift_time_setting.dart';
 import '../providers/shift_time_provider.dart';
+import '../providers/monthly_requirements_provider.dart';
+import 'shift_time_settings_screen.dart';
 
 class MonthlyShiftSettingsScreen extends StatefulWidget {
   const MonthlyShiftSettingsScreen({super.key});
@@ -87,8 +88,8 @@ class _MonthlyShiftSettingsScreenState extends State<MonthlyShiftSettingsScreen>
   }
 
   Future<void> _loadSavedRequirements() async {
-    final prefs = await SharedPreferences.getInstance();
-    
+    final requirementsProvider = context.read<MonthlyRequirementsProvider>();
+
     setState(() {
       for (String shiftType in _requirementControllers.keys) {
         int defaultValue = 0;
@@ -96,8 +97,10 @@ class _MonthlyShiftSettingsScreenState extends State<MonthlyShiftSettingsScreen>
         if (shiftType == '日勤') {
           defaultValue = 1;
         }
-        
-        final savedValue = prefs.getInt('shift_requirement_$shiftType') ?? defaultValue;
+
+        final savedValue = requirementsProvider.getRequirement(shiftType) != 0
+            ? requirementsProvider.getRequirement(shiftType)
+            : defaultValue;
         final valueStr = savedValue.toString();
         _requirementControllers[shiftType]!.text = valueStr;
         _originalValues[shiftType] = valueStr;
@@ -116,7 +119,7 @@ class _MonthlyShiftSettingsScreenState extends State<MonthlyShiftSettingsScreen>
         );
         return;
       }
-      
+
       final intValue = int.tryParse(value);
       if (intValue == null || intValue < 0) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -125,19 +128,23 @@ class _MonthlyShiftSettingsScreenState extends State<MonthlyShiftSettingsScreen>
         return;
       }
     }
-    
-    final prefs = await SharedPreferences.getInstance();
-    
+
+    final requirementsProvider = context.read<MonthlyRequirementsProvider>();
+
+    // 全ての設定を一括で保存
+    final requirements = <String, int>{};
     for (var entry in _requirementControllers.entries) {
       final value = int.tryParse(entry.value.text) ?? 0;
-      await prefs.setInt('shift_requirement_${entry.key}', value);
+      requirements[entry.key] = value;
     }
-    
+
+    await requirementsProvider.setRequirements(requirements);
+
     // 保存後、現在の値を元の値として記録
     for (var entry in _requirementControllers.entries) {
       _originalValues[entry.key] = entry.value.text;
     }
-    
+
     setState(() {
       _hasChanges = false;
     });
@@ -198,7 +205,15 @@ class _MonthlyShiftSettingsScreenState extends State<MonthlyShiftSettingsScreen>
                   const SizedBox(height: 16),
                   ElevatedButton(
                     onPressed: () {
-                      Navigator.of(context).pushNamed('/shift_time_settings');
+                      final shiftTimeProvider = context.read<ShiftTimeProvider>();
+                      Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (context) => ChangeNotifierProvider<ShiftTimeProvider>.value(
+                            value: shiftTimeProvider,
+                            child: const ShiftTimeSettingsScreen(),
+                          ),
+                        ),
+                      );
                     },
                     child: const Text('シフト時間設定へ'),
                   ),

@@ -8,10 +8,12 @@ class StaffProvider extends ChangeNotifier {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   List<Staff> _staffList = [];
   StreamSubscription? _staffSubscription;
+  bool _isLoading = true;
 
   List<Staff> get staffList => _staffList;
   List<Staff> get activeStaffList => _staffList.where((s) => s.isActive).toList();
   List<Staff> get staff => _staffList;
+  bool get isLoading => _isLoading;
 
   StaffProvider({this.teamId}) {
     if (teamId != null) {
@@ -51,6 +53,12 @@ class StaffProvider extends ChangeNotifier {
           specificDaysOff: List<String>.from(data['specificDaysOff'] ?? []),
         );
       }).toList();
+
+      // 初回ロード完了
+      if (_isLoading) {
+        _isLoading = false;
+      }
+
       notifyListeners();
     });
   }

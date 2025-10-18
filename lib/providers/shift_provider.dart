@@ -12,9 +12,12 @@ class ShiftProvider extends ChangeNotifier {
   List<ShiftConstraint> _constraints = [];
   StreamSubscription? _shiftsSubscription;
   StreamSubscription? _constraintsSubscription;
+  bool _isShiftsLoading = true;
+  bool _isConstraintsLoading = true;
 
   List<Shift> get shifts => _shifts;
   List<ShiftConstraint> get constraints => _constraints;
+  bool get isLoading => _isShiftsLoading || _isConstraintsLoading;
 
   ShiftProvider({this.teamId}) {
     if (teamId != null) {
@@ -52,6 +55,12 @@ class ShiftProvider extends ChangeNotifier {
           updatedAt: (data['updatedAt'] as Timestamp?)?.toDate(),
         );
       }).toList();
+
+      // 初回ロード完了
+      if (_isShiftsLoading) {
+        _isShiftsLoading = false;
+      }
+
       notifyListeners();
     });
   }
@@ -77,6 +86,12 @@ class ShiftProvider extends ChangeNotifier {
           reason: data['reason'],
         );
       }).toList();
+
+      // 初回ロード完了
+      if (_isConstraintsLoading) {
+        _isConstraintsLoading = false;
+      }
+
       notifyListeners();
     });
   }
@@ -98,6 +113,65 @@ class ShiftProvider extends ChangeNotifier {
       'note': shift.note,
       'createdAt': FieldValue.serverTimestamp(),
     });
+  }
+
+  /// バッチでシフトを追加（自動シフト作成用）
+  Future<void> batchAddShifts(List<Shift> shifts) async {
+    if (teamId == null || shifts.isEmpty) return;
+
+    // Firestoreのバッチは最大500件まで
+    const batchSize = 500;
+
+    for (var i = 0; i < shifts.length; i += batchSize) {
+      final batch = _firestore.batch();
+      final end = (i + batchSize < shifts.length) ? i + batchSize : shifts.length;
+      final batchShifts = shifts.sublist(i, end);
+
+      for (var shift in batchShifts) {
+        final docRef = _firestore
+            .collection('teams')
+            .doc(teamId)
+            .collection('shifts')
+            .doc(shift.id);
+
+        batch.set(docRef, {
+          'date': Timestamp.fromDate(shift.date),
+          'staffId': shift.staffId,
+          'shiftType': shift.shiftType,
+          'startTime': Timestamp.fromDate(shift.startTime),
+          'endTime': Timestamp.fromDate(shift.endTime),
+          'note': shift.note,
+          'createdAt': FieldValue.serverTimestamp(),
+        });
+      }
+
+      await batch.commit();
+    }
+  }
+
+  /// バッチでシフトを削除（月間削除用）
+  Future<void> batchDeleteShifts(List<Shift> shifts) async {
+    if (teamId == null || shifts.isEmpty) return;
+
+    const batchSize = 500;
+
+    for (var i = 0; i < shifts.length; i += batchSize) {
+      final batch = _firestore.batch();
+      final end = (i + batchSize < shifts.length) ? i + batchSize : shifts.length;
+      final batchShifts = shifts.sublist(i, end);
+
+      for (var shift in batchShifts) {
+        final docRef = _firestore
+            .collection('teams')
+            .doc(teamId)
+            .collection('shifts')
+            .doc(shift.id);
+
+        batch.delete(docRef);
+      }
+
+      await batch.commit();
+    }
   }
 
   Future<void> updateShift(Shift shift) async {

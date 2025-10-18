@@ -7,6 +7,7 @@ import 'package:package_info_plus/package_info_plus.dart';
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../providers/monthly_requirements_provider.dart';
 import '../providers/shift_provider.dart';
 import '../providers/shift_time_provider.dart';
 import '../providers/staff_provider.dart';
@@ -62,9 +63,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
           title: const Text('シフト時間設定'),
           subtitle: const Text('各シフトタイプの時間を設定'),
           onTap: () {
+            final shiftTimeProvider = context.read<ShiftTimeProvider>();
             Navigator.of(context).push(
               MaterialPageRoute(
-                builder: (context) => const ShiftTimeSettingsScreen(),
+                builder: (context) => ChangeNotifierProvider<ShiftTimeProvider>.value(
+                  value: shiftTimeProvider,
+                  child: const ShiftTimeSettingsScreen(),
+                ),
               ),
             );
           },
@@ -74,9 +79,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
           title: const Text('月間シフト設定'),
           subtitle: const Text('各シフト時間の必要人数を設定'),
           onTap: () {
+            final shiftTimeProvider = context.read<ShiftTimeProvider>();
+            final monthlyRequirementsProvider = context.read<MonthlyRequirementsProvider>();
             Navigator.of(context).push(
               MaterialPageRoute(
-                builder: (context) => const MonthlyShiftSettingsScreen(),
+                builder: (context) => MultiProvider(
+                  providers: [
+                    ChangeNotifierProvider<ShiftTimeProvider>.value(value: shiftTimeProvider),
+                    ChangeNotifierProvider<MonthlyRequirementsProvider>.value(value: monthlyRequirementsProvider),
+                  ],
+                  child: const MonthlyShiftSettingsScreen(),
+                ),
               ),
             );
           },

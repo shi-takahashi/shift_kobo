@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import '../models/shift_type.dart' as old_shift_type;
 import '../models/shift_time_setting.dart';
 import '../providers/shift_provider.dart';
 import '../providers/staff_provider.dart';
 import '../providers/shift_time_provider.dart';
+import '../providers/monthly_requirements_provider.dart';
 import '../services/shift_assignment_service.dart';
 import '../services/ad_service.dart';
 import '../models/shift.dart';
@@ -68,8 +68,8 @@ class _AutoAssignmentDialogState extends State<AutoAssignmentDialog> {
   }
 
   Future<void> _loadSavedRequirements() async {
-    final prefs = await SharedPreferences.getInstance();
-    
+    final requirementsProvider = context.read<MonthlyRequirementsProvider>();
+
     setState(() {
       for (String shiftType in _requirementControllers.keys) {
         int defaultValue = 0;
@@ -77,20 +77,25 @@ class _AutoAssignmentDialogState extends State<AutoAssignmentDialog> {
         if (shiftType == '日勤') {
           defaultValue = 1;
         }
-        
-        final savedValue = prefs.getInt('shift_requirement_$shiftType') ?? defaultValue;
+
+        final savedValue = requirementsProvider.getRequirement(shiftType) != 0
+            ? requirementsProvider.getRequirement(shiftType)
+            : defaultValue;
         _requirementControllers[shiftType]!.text = savedValue.toString();
       }
     });
   }
 
   Future<void> _saveRequirements() async {
-    final prefs = await SharedPreferences.getInstance();
-    
+    final requirementsProvider = context.read<MonthlyRequirementsProvider>();
+
+    final requirements = <String, int>{};
     for (var entry in _requirementControllers.entries) {
       final value = int.tryParse(entry.value.text) ?? 0;
-      await prefs.setInt('shift_requirement_${entry.key}', value);
+      requirements[entry.key] = value;
     }
+
+    await requirementsProvider.setRequirements(requirements);
   }
 
   @override
@@ -361,18 +366,17 @@ class _AutoAssignmentDialogState extends State<AutoAssignmentDialog> {
 
     try {
       final shiftProvider = Provider.of<ShiftProvider>(context, listen: false);
-      
+
+      print('既存シフト削除開始');
       final existingShifts = shiftProvider.getShiftsForMonth(widget.selectedMonth.year, widget.selectedMonth.month);
-      for (var shift in existingShifts) {
-        await shiftProvider.deleteShift(shift.id);
+      if (existingShifts.isNotEmpty) {
+        await shiftProvider.batchDeleteShifts(existingShifts);
+        print('既存シフト削除完了: ${existingShifts.length}件');
       }
 
-      print('保存開始: ${_previewShifts!.length}件のシフト');
-      for (var shift in _previewShifts!) {
-        print('保存中: ${shift.date.toString().split(' ')[0]} ${shift.shiftType} - スタッフID: ${shift.staffId}');
-        await shiftProvider.addShift(shift);
-      }
-      print('保存完了');
+      print('新規シフト保存開始: ${_previewShifts!.length}件');
+      await shiftProvider.batchAddShifts(_previewShifts!);
+      print('新規シフト保存完了');
 
       if (mounted) {
         // Navigator参照を事前に保存

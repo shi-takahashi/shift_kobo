@@ -9,6 +9,7 @@ import '../widgets/banner_ad_widget.dart';
 import '../providers/staff_provider.dart';
 import '../providers/shift_provider.dart';
 import '../providers/shift_time_provider.dart';
+import '../providers/monthly_requirements_provider.dart';
 
 class HomeScreen extends StatefulWidget {
   final String teamId;
@@ -87,15 +88,44 @@ class _HomeScreenState extends State<HomeScreen> {
         ChangeNotifierProvider(create: (_) => StaffProvider(teamId: widget.teamId)),
         ChangeNotifierProvider(create: (_) => ShiftProvider(teamId: widget.teamId)),
         ChangeNotifierProvider(create: (_) => ShiftTimeProvider(teamId: widget.teamId)),
+        ChangeNotifierProvider(create: (_) => MonthlyRequirementsProvider(teamId: widget.teamId)),
       ],
-      child: Scaffold(
-        appBar: AppBar(
-          backgroundColor: Theme.of(context).colorScheme.inversePrimary,
-          title: Text(_titles[_selectedIndex], style: const TextStyle(fontSize: 18)),
-          toolbarHeight: 48, // デフォルト56 → 48に縮小
-          actions: [
-            IconButton(
-              icon: const Icon(Icons.help_outline, size: 22),
+      child: Consumer4<StaffProvider, ShiftProvider, ShiftTimeProvider, MonthlyRequirementsProvider>(
+        builder: (context, staffProvider, shiftProvider, shiftTimeProvider, monthlyProvider, child) {
+          // すべてのProviderのデータロード完了を待つ
+          final isLoading = staffProvider.isLoading ||
+              shiftProvider.isLoading ||
+              shiftTimeProvider.isLoading ||
+              monthlyProvider.isLoading;
+
+          if (isLoading) {
+            return Scaffold(
+              body: Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    CircularProgressIndicator(
+                      color: Theme.of(context).colorScheme.primary,
+                    ),
+                    const SizedBox(height: 16),
+                    const Text(
+                      'データを読み込み中...',
+                      style: TextStyle(fontSize: 16),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          }
+
+          return Scaffold(
+            appBar: AppBar(
+              backgroundColor: Theme.of(context).colorScheme.inversePrimary,
+              title: Text(_titles[_selectedIndex], style: const TextStyle(fontSize: 18)),
+              toolbarHeight: 48, // デフォルト56 → 48に縮小
+              actions: [
+                IconButton(
+                  icon: const Icon(Icons.help_outline, size: 22),
               onPressed: () {
                 _showHelpDialog(isFirstTime: false);
               },
@@ -135,6 +165,8 @@ class _HomeScreenState extends State<HomeScreen> {
         ],
         ),
         floatingActionButton: _buildFloatingActionButton(),
+          );
+        },
       ),
     );
   }
