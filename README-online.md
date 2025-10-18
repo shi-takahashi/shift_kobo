@@ -226,13 +226,14 @@ service cloud.firestore {
 
 ## 5. 年内リリース向け機能整理
 
-### 必須機能
-- 管理者・メンバー権限によるログイン
-- 管理者：シフト作成・編集・削除
-- メンバー：シフト閲覧、休み希望入力（締め日まで）
-- 締め日制御（休み希望入力期限）
-- オフライン版からFirebaseへのデータ移行
-- 基本UI（権限に応じた画面切替）
+### 必須機能（リリース前に実装）
+- ✅ 管理者・メンバー権限によるログイン
+- ✅ 管理者：シフト作成・編集・削除
+- ✅ メンバー：シフト閲覧、休み希望入力（締め日まで）
+- ✅ **チーム招待機能（招待コード方式）** ← **追加：リリース必須**
+- ✅ 締め日制御（休み希望入力期限）
+- ✅ オフライン版からFirebaseへのデータ移行
+- ✅ 基本UI（権限に応じた画面切替）
 
 ### Push通知
 - 送信仕組みのみ準備（Firebase Cloud Messaging）
@@ -240,7 +241,8 @@ service cloud.firestore {
 
 ### 後回し機能（リリース後追加）
 - 実際のシフト変更通知
-- チーム招待・管理機能
+- QRコード招待（招待コードのみで十分）
+- メール招待リンク
 - 広告収益・有料版
 - 高度なUI改善・添付ファイル拡張
 
@@ -249,11 +251,11 @@ service cloud.firestore {
 | 週 | フェーズ | タスク詳細 | 重要度 |
 |----|---------|-----------|--------|
 | **1週目** | Firebase基盤 | ✅ Firebase初期設定（コンソール・Android/iOS設定）<br>✅ Firebase Auth実装（Email/Password）<br>✅ ログイン/サインアップ画面作成<br>✅ チーム作成画面<br>✅ Firestore基本接続確認 | ⭐⭐⭐ |
-| **2週目** | データ移行 | ・**オンボーディング画面実装**（MigrationOnboardingScreen）<br>・既存データ検出ロジック（Hive有無チェック）<br>・MigrationService作成<br>・Hive→Firestore自動移行機能<br>・移行進捗表示UI<br>・移行テスト（サンプルデータ）<br>・Hive削除処理 | ⭐⭐⭐ |
+| **2週目** | データ移行 | ✅ **オンボーディング画面実装**（MigrationOnboardingScreen）<br>✅ 既存データ検出ロジック（Hive有無チェック）<br>✅ MigrationService作成<br>✅ Hive→Firestore自動移行機能<br>✅ 移行進捗表示UI<br>✅ 移行テスト（サンプルデータ）<br>✅ Hive削除処理 | ⭐⭐⭐ |
 | **3週目** | 管理者機能 | ・Provider改修（Firestore対応）<br>・カレンダー画面のFirestore連携<br>・シフトCRUD機能（Firestore版）<br>・スタッフ管理のFirestore連携<br>・権限チェック実装（管理者のみ） | ⭐⭐⭐ |
-| **4週目** | メンバー機能 | ・マイシフト画面作成<br>・休み希望入力画面作成<br>・カレンダー画面の閲覧モード<br>・自分のシフトハイライト<br>・メンバー用ナビゲーション | ⭐⭐⭐ |
-| **5週目** | 締め日制御 | ・設定画面に締め日設定追加<br>・休み希望入力の締め日制御<br>・Security Rules詳細化<br>・権限別UI制御の最終調整<br>・メンバー管理画面（招待準備） | ⭐⭐ |
-| **6週目** | FCM・テスト | ・Firebase Cloud Messaging基盤設定<br>・テスト通知送信<br>・既存ユーザーでの移行テスト<br>・新規ユーザーでの動作確認<br>・UI調整・バグ修正 | ⭐⭐ |
+| **4週目** | **招待機能 + メンバー機能** | 🔥 **チーム招待コード生成機能**<br>🔥 **招待コード入力画面**<br>🔥 **チーム参加処理（Firestore更新）**<br>・マイシフト画面作成<br>・休み希望入力画面作成<br>・カレンダー画面の閲覧モード<br>・自分のシフトハイライト<br>・メンバー用ナビゲーション | ⭐⭐⭐ |
+| **5週目** | 締め日制御 | ・設定画面に締め日設定追加<br>・休み希望入力の締め日制御<br>・Security Rules詳細化<br>・権限別UI制御の最終調整 | ⭐⭐ |
+| **6週目** | FCM・テスト | ・Firebase Cloud Messaging基盤設定<br>・テスト通知送信<br>・既存ユーザーでの移行テスト<br>・新規ユーザーでの動作確認<br>・招待機能テスト<br>・UI調整・バグ修正 | ⭐⭐ |
 | **7週目** | リリース準備 | ・少人数テストチーム検証<br>・Security Rules最終確認<br>・バグ修正<br>・リリースノート作成<br>・ストア申請準備 | ⭐ |
 
 **合計**: 7週間（約49日）
@@ -263,22 +265,24 @@ service cloud.firestore {
 **最優先（MVP）**:
 1. ✅ Firebase Auth + ログイン画面
 2. ✅ チーム作成機能
-3. 🔄 **オンボーディング画面実装**（既存ユーザー向け案A）
-4. 🔄 既存データ検出ロジック（Hive有無チェック）
-5. 🔄 データ移行ツール（Hive→Firestore自動移行）
+3. ✅ **オンボーディング画面実装**（既存ユーザー向け案A）
+4. ✅ 既存データ検出ロジック（Hive有無チェック）
+5. ✅ データ移行ツール（Hive→Firestore自動移行）
 6. ⏸️ 管理者機能（シフトCRUD）のFirestore対応
-7. ⏸️ メンバー閲覧機能
+7. ⏸️ **チーム招待機能（招待コード方式）** ← **リリース必須に昇格**
 
 **中優先（年内リリース目標）**:
-8. ⏸️ 休み希望入力機能
-9. ⏸️ 締め日制御
-10. ⏸️ マイシフト画面
-11. ⏸️ FCM基盤準備
+8. ⏸️ メンバー閲覧機能
+9. ⏸️ 休み希望入力機能
+10. ⏸️ 締め日制御
+11. ⏸️ マイシフト画面
+12. ⏸️ FCM基盤準備
 
 **低優先（リリース後）**:
-12. ⏸️ チーム招待機能（招待コード生成）
-13. ⏸️ Push通知の実装（シフト変更通知）
-14. ⏸️ 有料版（広告非表示）
+13. ⏸️ QRコード招待（招待コードで十分）
+14. ⏸️ メール招待リンク
+15. ⏸️ Push通知の実装（シフト変更通知）
+16. ⏸️ 有料版（広告非表示）
 
 > 複数人で開発する場合は短縮可能（4-5週間）。
 > 優先度は「最低限動くオンライン化＋データ移行安定」が最優先。
@@ -743,9 +747,140 @@ class TeamCreationScreen extends StatefulWidget {
 - ✅ 移行失敗時は既存Hiveデータを保持（再試行可能）
 - ✅ アプリストアの更新情報で事前告知
 
-## 8. 技術的な実装ポイント
+## 8. チーム招待機能の詳細設計（リリース必須）
 
-### 8.1 必要な追加パッケージ
+### 8.1 招待コード方式（シンプル実装）
+
+#### 管理者側：招待コード生成・表示
+
+```dart
+// 設定画面に「チーム招待」メニュー追加
+class TeamInviteScreen extends StatelessWidget {
+  final String teamId;
+
+  @override
+  Widget build(BuildContext context) {
+    // teamIdの最初6文字を大文字に変換して招待コードとして表示
+    final inviteCode = teamId.substring(0, 6).toUpperCase();
+
+    return Scaffold(
+      appBar: AppBar(title: Text('チーム招待')),
+      body: Center(
+        child: Column(
+          children: [
+            Text('招待コード', style: TextStyle(fontSize: 18)),
+            Text(inviteCode, style: TextStyle(fontSize: 48, fontWeight: FontWeight.bold)),
+            Text('このコードをメンバーに共有してください'),
+            // コピーボタン、QRコード表示（将来的）
+          ],
+        ),
+      ),
+    );
+  }
+}
+```
+
+#### メンバー側：招待コード入力
+
+```dart
+// ログイン後、teamIdがnullの場合に表示
+class JoinTeamScreen extends StatefulWidget {
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: Text('チームに参加')),
+      body: Padding(
+        padding: EdgeInsets.all(24),
+        child: Column(
+          children: [
+            Text('管理者から受け取った招待コードを入力してください'),
+            TextField(
+              decoration: InputDecoration(labelText: '招待コード（6桁）'),
+              maxLength: 6,
+              textCapitalization: TextCapitalization.characters,
+            ),
+            ElevatedButton(
+              onPressed: _handleJoinTeam,
+              child: Text('チームに参加'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+```
+
+#### チーム参加処理
+
+```dart
+class TeamService {
+  Future<void> joinTeamByCode(String inviteCode, String userId) async {
+    // 1. 招待コードからteamIdを検索
+    final teamsQuery = await FirebaseFirestore.instance
+        .collection('teams')
+        .where(FieldPath.documentId, isGreaterThanOrEqualTo: inviteCode.toLowerCase())
+        .where(FieldPath.documentId, isLessThan: inviteCode.toLowerCase() + '\uf8ff')
+        .limit(1)
+        .get();
+
+    if (teamsQuery.docs.isEmpty) {
+      throw '招待コードが見つかりません';
+    }
+
+    final teamId = teamsQuery.docs.first.id;
+
+    // 2. usersコレクションのteamIdを更新
+    await FirebaseFirestore.instance
+        .collection('users')
+        .doc(userId)
+        .update({
+      'teamId': teamId,
+      'role': 'member', // メンバーとして参加
+      'updatedAt': FieldValue.serverTimestamp(),
+    });
+
+    // 3. teamsコレクションのmemberIdsに追加
+    await FirebaseFirestore.instance
+        .collection('teams')
+        .doc(teamId)
+        .update({
+      'memberIds': FieldValue.arrayUnion([userId]),
+      'updatedAt': FieldValue.serverTimestamp(),
+    });
+  }
+}
+```
+
+### 8.2 ユーザーフロー
+
+#### 管理者（チーム作成済み）
+1. 設定画面 → 「チーム招待」
+2. 招待コード表示（例: `ABC123`）
+3. コードをメンバーに共有（LINEなど）
+
+#### メンバー（新規登録）
+1. アプリ起動 → ウェルカム画面 → サインアップ
+2. ログイン後、「チームに参加」画面が表示される
+3. 招待コード入力 → 「チームに参加」ボタン
+4. チーム参加完了 → カレンダー画面（閲覧モード）
+
+### 8.3 実装スコープ
+
+**リリース時に実装**:
+- ✅ 招待コード生成・表示
+- ✅ 招待コード入力画面
+- ✅ チーム参加処理（Firestore更新）
+- ✅ チーム参加後のナビゲーション
+
+**リリース後に追加**:
+- QRコード表示・読み取り
+- メール招待リンク
+- 招待履歴管理
+
+## 9. 技術的な実装ポイント
+
+### 9.1 必要な追加パッケージ
 
 ```yaml
 dependencies:
@@ -936,7 +1071,7 @@ Widget buildBannerAd() {
 - 収益性が低いため、最小限の配置
 - iOSユーザー向け救済措置のため、広告体験よりUX優先
 
-## 9. プラットフォーム戦略（Android/Web/iOS）
+## 10. プラットフォーム戦略（Android/Web/iOS）
 
 ### 9.1 基本方針
 
@@ -1302,7 +1437,7 @@ Widget buildMemberFeatures(String userRole) {
 - iOS版: 500ユーザー × $0.5/月 = $250/月
 - **合計**: 約$1,000/月（約¥150,000/月）
 
-## 10. 今後の拡張（リリース後）
+## 11. 今後の拡張（リリース後）
 - Push通知による変更通知（シフト確定・変更時）
 - チーム招待／メンバー管理機能（招待コード生成）
 - 広告収益や有料版（広告非表示プラン）

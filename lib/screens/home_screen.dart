@@ -1,16 +1,22 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'calendar_screen.dart';
 import 'staff_list_screen.dart';
 import 'settings_screen.dart';
 import '../widgets/auto_assignment_dialog.dart';
 import '../widgets/banner_ad_widget.dart';
+import '../providers/staff_provider.dart';
+import '../providers/shift_provider.dart';
+import '../providers/shift_time_provider.dart';
 
 class HomeScreen extends StatefulWidget {
+  final String teamId;
   final bool showWelcomeDialog;
 
   const HomeScreen({
     super.key,
+    required this.teamId,
     this.showWelcomeDialog = false,
   });
 
@@ -76,30 +82,36 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        backgroundColor: Theme.of(context).colorScheme.inversePrimary,
-        title: Text(_titles[_selectedIndex], style: const TextStyle(fontSize: 18)),
-        toolbarHeight: 48, // デフォルト56 → 48に縮小
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.help_outline, size: 22),
-            onPressed: () {
-              _showHelpDialog(isFirstTime: false);
-            },
-          ),
-        ],
-      ),
-      body: Column(
-        children: [
-          Expanded(
-            child: _screens[_selectedIndex],
-          ),
-          // バナー広告
-          const BannerAdWidget(),
-        ],
-      ),
-      bottomNavigationBar: NavigationBar(
+    return MultiProvider(
+      providers: [
+        ChangeNotifierProvider(create: (_) => StaffProvider(teamId: widget.teamId)),
+        ChangeNotifierProvider(create: (_) => ShiftProvider(teamId: widget.teamId)),
+        ChangeNotifierProvider(create: (_) => ShiftTimeProvider(teamId: widget.teamId)),
+      ],
+      child: Scaffold(
+        appBar: AppBar(
+          backgroundColor: Theme.of(context).colorScheme.inversePrimary,
+          title: Text(_titles[_selectedIndex], style: const TextStyle(fontSize: 18)),
+          toolbarHeight: 48, // デフォルト56 → 48に縮小
+          actions: [
+            IconButton(
+              icon: const Icon(Icons.help_outline, size: 22),
+              onPressed: () {
+                _showHelpDialog(isFirstTime: false);
+              },
+            ),
+          ],
+        ),
+        body: Column(
+          children: [
+            Expanded(
+              child: _screens[_selectedIndex],
+            ),
+            // バナー広告
+            const BannerAdWidget(),
+          ],
+        ),
+        bottomNavigationBar: NavigationBar(
         height: 65, // デフォルト80 → 65に縮小
         onDestinationSelected: (int index) {
           setState(() {
@@ -121,8 +133,9 @@ class _HomeScreenState extends State<HomeScreen> {
             label: '設定',
           ),
         ],
+        ),
+        floatingActionButton: _buildFloatingActionButton(),
       ),
-      floatingActionButton: _buildFloatingActionButton(),
     );
   }
 

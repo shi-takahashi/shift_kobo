@@ -3,16 +3,12 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:hive_flutter/hive_flutter.dart';
-import 'package:provider/provider.dart';
 
 import 'firebase_options.dart';
 import 'models/shift.dart';
 import 'models/shift_constraint.dart';
 import 'models/shift_time_setting.dart';
 import 'models/staff.dart';
-import 'providers/shift_provider.dart';
-import 'providers/shift_time_provider.dart';
-import 'providers/staff_provider.dart';
 import 'services/ad_service.dart';
 import 'utils/test_data_helper.dart';
 import 'widgets/auth_gate.dart';
@@ -64,29 +60,22 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MultiProvider(
-      providers: [
-        ChangeNotifierProvider(create: (_) => StaffProvider()),
-        ChangeNotifierProvider(create: (_) => ShiftProvider()),
-        ChangeNotifierProvider(create: (_) => ShiftTimeProvider()..initialize()),
-      ],
-      child: MaterialApp(
-        title: 'シフト工房',
-        theme: ThemeData(
-          colorScheme: ColorScheme.fromSeed(seedColor: Colors.blue),
-          useMaterial3: true,
-        ),
-        localizationsDelegates: const [
-          GlobalMaterialLocalizations.delegate,
-          GlobalWidgetsLocalizations.delegate,
-          GlobalCupertinoLocalizations.delegate,
-        ],
-        supportedLocales: const [
-          Locale('ja', 'JP'),
-        ],
-        locale: const Locale('ja', 'JP'),
-        home: const AuthGate(), // 認証状態に応じて画面を切り替え
+    return MaterialApp(
+      title: 'シフト工房',
+      theme: ThemeData(
+        colorScheme: ColorScheme.fromSeed(seedColor: Colors.blue),
+        useMaterial3: true,
       ),
+      localizationsDelegates: const [
+        GlobalMaterialLocalizations.delegate,
+        GlobalWidgetsLocalizations.delegate,
+        GlobalCupertinoLocalizations.delegate,
+      ],
+      supportedLocales: const [
+        Locale('ja', 'JP'),
+      ],
+      locale: const Locale('ja', 'JP'),
+      home: const AuthGate(), // 認証状態に応じて画面を切り替え
     );
   }
 }

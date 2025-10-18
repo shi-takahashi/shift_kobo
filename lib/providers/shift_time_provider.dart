@@ -1,11 +1,20 @@
+import 'dart:async';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
-import 'package:hive_flutter/hive_flutter.dart';
 import '../models/shift_time_setting.dart';
 
 class ShiftTimeProvider extends ChangeNotifier {
-  static const String _boxName = 'shift_time_settings';
-  Box<ShiftTimeSetting>? _box;
+  final String? teamId;
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   List<ShiftTimeSetting> _settings = [];
+  StreamSubscription? _settingsSubscription;
+  final Map<ShiftType, String> _docIds = {}; // ShiftType -> Firestore Document ID
+
+  ShiftTimeProvider({this.teamId}) {
+    if (teamId != null) {
+      _init();
+    }
+  }
 
   List<ShiftTimeSetting> get settings {
     final sorted = List<ShiftTimeSetting>.from(_settings);
@@ -14,14 +23,14 @@ class ShiftTimeProvider extends ChangeNotifier {
       if (a.isActive != b.isActive) {
         return b.isActive ? 1 : -1;
       }
-      
+
       // 2. 開始時間順
       final aStart = _timeToMinutes(a.startTime);
       final bStart = _timeToMinutes(b.startTime);
       if (aStart != bStart) {
         return aStart.compareTo(bStart);
       }
-      
+
       // 3. 終了時間順
       final aEnd = _timeToMinutes(a.endTime);
       final bEnd = _timeToMinutes(b.endTime);
@@ -37,105 +46,121 @@ class ShiftTimeProvider extends ChangeNotifier {
     return hour * 60 + minute;
   }
 
-  Future<void> initialize() async {
-    _box = await Hive.openBox<ShiftTimeSetting>(_boxName);
-    await _loadSettings();
+  void _init() {
+    _subscribeToSettings();
   }
 
-  Future<void> _loadSettings() async {
-    if (_box == null) return;
+  /// Firestoreからシフト時間設定をリアルタイムで購読
+  void _subscribeToSettings() {
+    if (teamId == null) return;
 
-    if (_box!.isEmpty) {
-      await _createDefaultSettings();
-    } else {
-      _settings = _box!.values.toList();
-    }
-    notifyListeners();
+    _settingsSubscription?.cancel();
+    _settingsSubscription = _firestore
+        .collection('teams')
+        .doc(teamId)
+        .collection('shift_time_settings')
+        .snapshots()
+        .listen((snapshot) async {
+      if (snapshot.docs.isEmpty) {
+        // デフォルト設定を作成
+        await _createDefaultSettings();
+      } else {
+        _settings = snapshot.docs.map((doc) {
+          final data = doc.data();
+          final shiftType = ShiftType.values[data['shiftType'] as int];
+          _docIds[shiftType] = doc.id;
+          return ShiftTimeSetting(
+            shiftType: shiftType,
+            customName: data['customName'] ?? '',
+            startTime: data['startTime'] ?? '',
+            endTime: data['endTime'] ?? '',
+            isActive: data['isActive'] ?? true,
+          );
+        }).toList();
+        notifyListeners();
+      }
+    });
   }
 
   Future<void> _createDefaultSettings() async {
+    if (teamId == null) return;
+
     final defaultSettings = ShiftTimeSetting.getDefaultSettings();
+    final batch = _firestore.batch();
+
     for (final setting in defaultSettings) {
-      await _box!.add(setting);
+      final docRef = _firestore
+          .collection('teams')
+          .doc(teamId)
+          .collection('shift_time_settings')
+          .doc();
+
+      batch.set(docRef, {
+        'shiftType': setting.shiftType.index,
+        'customName': setting.customName,
+        'startTime': setting.startTime,
+        'endTime': setting.endTime,
+        'isActive': setting.isActive,
+        'createdAt': FieldValue.serverTimestamp(),
+      });
     }
-    // ボックスに保存された後、ボックスから取得し直す
-    _settings = _box!.values.toList();
+
+    await batch.commit();
   }
 
   Future<void> updateShiftTime(ShiftType shiftType, String startTime, String endTime) async {
-    if (_box == null) return;
+    if (teamId == null) return;
 
-    final index = _settings.indexWhere((s) => s.shiftType == shiftType);
-    if (index >= 0) {
-      final setting = _settings[index];
-      if (setting.isInBox) {
-        setting.startTime = startTime;
-        setting.endTime = endTime;
-        await setting.save();
-      } else {
-        // オブジェクトがボックスにない場合は、新しく作成して追加
-        final newSetting = ShiftTimeSetting(
-          shiftType: shiftType,
-          startTime: startTime,
-          endTime: endTime,
-          isActive: setting.isActive,
-          customName: setting.customName,
-        );
-        await _box!.add(newSetting);
-        _settings = _box!.values.toList();
-      }
+    final docId = _docIds[shiftType];
+    if (docId != null) {
+      await _firestore
+          .collection('teams')
+          .doc(teamId)
+          .collection('shift_time_settings')
+          .doc(docId)
+          .update({
+        'startTime': startTime,
+        'endTime': endTime,
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
     }
-    notifyListeners();
   }
 
   Future<void> updateShiftName(ShiftType shiftType, String newName) async {
-    if (_box == null) return;
+    if (teamId == null) return;
 
-    final index = _settings.indexWhere((s) => s.shiftType == shiftType);
-    if (index >= 0) {
-      final setting = _settings[index];
-      if (setting.isInBox) {
-        setting.customName = newName;
-        await setting.save();
-      } else {
-        // オブジェクトがボックスにない場合は、新しく作成して追加
-        final newSetting = ShiftTimeSetting(
-          shiftType: shiftType,
-          startTime: setting.startTime,
-          endTime: setting.endTime,
-          isActive: setting.isActive,
-          customName: newName,
-        );
-        await _box!.add(newSetting);
-        _settings = _box!.values.toList();
-      }
+    final docId = _docIds[shiftType];
+    if (docId != null) {
+      await _firestore
+          .collection('teams')
+          .doc(teamId)
+          .collection('shift_time_settings')
+          .doc(docId)
+          .update({
+        'customName': newName,
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
     }
-    notifyListeners();
   }
 
   Future<void> toggleShiftTypeActive(ShiftType shiftType) async {
-    if (_box == null) return;
+    if (teamId == null) return;
 
-    final index = _settings.indexWhere((s) => s.shiftType == shiftType);
-    if (index >= 0) {
-      final setting = _settings[index];
-      if (setting.isInBox) {
-        setting.isActive = !setting.isActive;
-        await setting.save();
-      } else {
-        // オブジェクトがボックスにない場合は、新しく作成して追加
-        final newSetting = ShiftTimeSetting(
-          shiftType: shiftType,
-          startTime: setting.startTime,
-          endTime: setting.endTime,
-          isActive: !setting.isActive,
-          customName: setting.customName,
-        );
-        await _box!.add(newSetting);
-        _settings = _box!.values.toList();
+    final docId = _docIds[shiftType];
+    if (docId != null) {
+      final setting = getSettingByType(shiftType);
+      if (setting != null) {
+        await _firestore
+            .collection('teams')
+            .doc(teamId)
+            .collection('shift_time_settings')
+            .doc(docId)
+            .update({
+          'isActive': !setting.isActive,
+          'updatedAt': FieldValue.serverTimestamp(),
+        });
       }
     }
-    notifyListeners();
   }
 
   ShiftTimeSetting? getSettingByType(ShiftType shiftType) {
@@ -157,6 +182,12 @@ class ShiftTimeProvider extends ChangeNotifier {
 
   /// データの再読み込み（バックアップ復元後などに使用）
   Future<void> reload() async {
-    await _loadSettings();
+    _subscribeToSettings();
+  }
+
+  @override
+  void dispose() {
+    _settingsSubscription?.cancel();
+    super.dispose();
   }
 }

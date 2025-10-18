@@ -1,79 +1,161 @@
+import 'dart:async';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
-import 'package:hive/hive.dart';
 import '../models/shift.dart';
 import '../models/shift_constraint.dart';
 import '../models/staff.dart';
 
 class ShiftProvider extends ChangeNotifier {
-  late Box<Shift> _shiftBox;
-  late Box<ShiftConstraint> _constraintBox;
+  final String? teamId;
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   List<Shift> _shifts = [];
   List<ShiftConstraint> _constraints = [];
+  StreamSubscription? _shiftsSubscription;
+  StreamSubscription? _constraintsSubscription;
 
   List<Shift> get shifts => _shifts;
   List<ShiftConstraint> get constraints => _constraints;
 
-  ShiftProvider() {
-    _init();
+  ShiftProvider({this.teamId}) {
+    if (teamId != null) {
+      _init();
+    }
   }
 
-  Future<void> _init() async {
-    _shiftBox = Hive.box<Shift>('shifts');
-    _constraintBox = Hive.box<ShiftConstraint>('constraints');
-    _loadData();
+  void _init() {
+    _subscribeToShifts();
+    _subscribeToConstraints();
   }
 
-  void _loadData() {
-    _shifts = _shiftBox.values.toList();
-    _constraints = _constraintBox.values.toList();
-    notifyListeners();
+  /// Firestoreからシフトをリアルタイムで購読
+  void _subscribeToShifts() {
+    if (teamId == null) return;
+
+    _shiftsSubscription?.cancel();
+    _shiftsSubscription = _firestore
+        .collection('teams')
+        .doc(teamId)
+        .collection('shifts')
+        .snapshots()
+        .listen((snapshot) {
+      _shifts = snapshot.docs.map((doc) {
+        final data = doc.data();
+        return Shift(
+          id: doc.id,
+          date: (data['date'] as Timestamp).toDate(),
+          staffId: data['staffId'] ?? '',
+          shiftType: data['shiftType'] ?? '',
+          startTime: (data['startTime'] as Timestamp).toDate(),
+          endTime: (data['endTime'] as Timestamp).toDate(),
+          note: data['note'],
+          createdAt: (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
+          updatedAt: (data['updatedAt'] as Timestamp?)?.toDate(),
+        );
+      }).toList();
+      notifyListeners();
+    });
+  }
+
+  /// Firestoreから制約をリアルタイムで購読
+  void _subscribeToConstraints() {
+    if (teamId == null) return;
+
+    _constraintsSubscription?.cancel();
+    _constraintsSubscription = _firestore
+        .collection('teams')
+        .doc(teamId)
+        .collection('constraints')
+        .snapshots()
+        .listen((snapshot) {
+      _constraints = snapshot.docs.map((doc) {
+        final data = doc.data();
+        return ShiftConstraint(
+          id: doc.id,
+          staffId: data['staffId'] ?? '',
+          date: (data['date'] as Timestamp).toDate(),
+          isAvailable: data['isAvailable'] ?? true,
+          reason: data['reason'],
+        );
+      }).toList();
+      notifyListeners();
+    });
   }
 
   Future<void> addShift(Shift shift) async {
-    await _shiftBox.put(shift.id, shift);
-    _loadData();
+    if (teamId == null) return;
+
+    await _firestore
+        .collection('teams')
+        .doc(teamId)
+        .collection('shifts')
+        .doc(shift.id)
+        .set({
+      'date': Timestamp.fromDate(shift.date),
+      'staffId': shift.staffId,
+      'shiftType': shift.shiftType,
+      'startTime': Timestamp.fromDate(shift.startTime),
+      'endTime': Timestamp.fromDate(shift.endTime),
+      'note': shift.note,
+      'createdAt': FieldValue.serverTimestamp(),
+    });
   }
 
   Future<void> updateShift(Shift shift) async {
-    // 既存のShiftをボックスから取得
-    final existingShift = _shiftBox.get(shift.id);
-    if (existingShift != null) {
-      // 既存のShiftを更新
-      existingShift.staffId = shift.staffId;
-      existingShift.date = shift.date;
-      existingShift.startTime = shift.startTime;
-      existingShift.endTime = shift.endTime;
-      existingShift.shiftType = shift.shiftType;
-      existingShift.note = shift.note;
-      existingShift.updatedAt = DateTime.now();
-      await existingShift.save();
-    } else {
-      // 存在しない場合は新規追加（通常は起こらないが安全のため）
-      shift.updatedAt = DateTime.now();
-      await _shiftBox.put(shift.id, shift);
-    }
-    _loadData();
+    if (teamId == null) return;
+
+    await _firestore
+        .collection('teams')
+        .doc(teamId)
+        .collection('shifts')
+        .doc(shift.id)
+        .update({
+      'date': Timestamp.fromDate(shift.date),
+      'staffId': shift.staffId,
+      'shiftType': shift.shiftType,
+      'startTime': Timestamp.fromDate(shift.startTime),
+      'endTime': Timestamp.fromDate(shift.endTime),
+      'note': shift.note,
+      'updatedAt': FieldValue.serverTimestamp(),
+    });
   }
 
   Future<void> deleteShift(String shiftId) async {
-    final shift = _shiftBox.get(shiftId);
-    if (shift != null) {
-      await shift.delete();
-      _loadData();
-    }
+    if (teamId == null) return;
+
+    await _firestore
+        .collection('teams')
+        .doc(teamId)
+        .collection('shifts')
+        .doc(shiftId)
+        .delete();
   }
 
   Future<void> addConstraint(ShiftConstraint constraint) async {
-    await _constraintBox.put(constraint.id, constraint);
-    _loadData();
+    if (teamId == null) return;
+
+    await _firestore
+        .collection('teams')
+        .doc(teamId)
+        .collection('constraints')
+        .doc(constraint.id)
+        .set({
+      'staffId': constraint.staffId,
+      'date': Timestamp.fromDate(constraint.date),
+      'isAvailable': constraint.isAvailable,
+      'reason': constraint.reason,
+      'createdAt': FieldValue.serverTimestamp(),
+    });
   }
 
   Future<void> deleteConstraint(String constraintId) async {
-    final constraint = _constraintBox.get(constraintId);
-    if (constraint != null) {
-      await constraint.delete();
-      _loadData();
-    }
+    if (teamId == null) return;
+
+    await _firestore
+        .collection('teams')
+        .doc(teamId)
+        .collection('constraints')
+        .doc(constraintId)
+        .delete();
   }
 
   List<Shift> getShiftsForDate(DateTime date) {
@@ -184,6 +266,14 @@ class ShiftProvider extends ChangeNotifier {
 
   /// データの再読み込み（バックアップ復元後などに使用）
   void reload() {
-    _loadData();
+    _subscribeToShifts();
+    _subscribeToConstraints();
+  }
+
+  @override
+  void dispose() {
+    _shiftsSubscription?.cancel();
+    _constraintsSubscription?.cancel();
+    super.dispose();
   }
 }

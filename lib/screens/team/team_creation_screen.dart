@@ -68,7 +68,10 @@ class _TeamCreationScreenState extends State<TeamCreationScreen> {
           // 移行成功 - ホーム画面へ遷移（ウェルカムダイアログを表示）
           Navigator.of(context).pushAndRemoveUntil(
             MaterialPageRoute(
-              builder: (_) => const HomeScreen(showWelcomeDialog: true),
+              builder: (_) => HomeScreen(
+                teamId: team.id,
+                showWelcomeDialog: true,
+              ),
             ),
             (route) => false, // 全ての前の画面を削除
           );
@@ -85,7 +88,10 @@ class _TeamCreationScreenState extends State<TeamCreationScreen> {
         // ホーム画面へ遷移（ウェルカムダイアログを表示）
         Navigator.of(context).pushAndRemoveUntil(
           MaterialPageRoute(
-            builder: (_) => const HomeScreen(showWelcomeDialog: true),
+            builder: (_) => HomeScreen(
+              teamId: team.id,
+              showWelcomeDialog: true,
+            ),
           ),
           (route) => false, // 全ての前の画面を削除
         );
