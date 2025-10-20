@@ -14,9 +14,11 @@ import '../providers/staff_provider.dart';
 import '../services/auth_service.dart';
 import '../services/backup_service.dart';
 import '../widgets/auth_gate.dart';
+import 'help_screen.dart';
 import 'monthly_shift_settings_screen.dart';
 import 'privacy_policy_screen.dart';
 import 'shift_time_settings_screen.dart';
+import 'team/team_invite_screen.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -95,6 +97,47 @@ class _SettingsScreenState extends State<SettingsScreen> {
           },
         ),
         const Divider(),
+        // アカウントセクション
+        const Padding(
+          padding: EdgeInsets.all(16.0),
+          child: Text(
+            'アカウント',
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ),
+
+        // ログインユーザー情報
+        if (FirebaseAuth.instance.currentUser != null)
+          ListTile(
+            leading: const Icon(Icons.account_circle),
+            title: const Text('ログイン中'),
+            subtitle: Text(FirebaseAuth.instance.currentUser!.email ?? ''),
+          ),
+
+        // チーム招待メニュー
+        if (FirebaseAuth.instance.currentUser != null)
+          ListTile(
+            leading: const Icon(Icons.group_add),
+            title: const Text('チーム招待'),
+            subtitle: const Text('スタッフを招待する'),
+            onTap: _navigateToTeamInvite,
+          ),
+
+        // ログアウトボタン
+        if (FirebaseAuth.instance.currentUser != null)
+          ListTile(
+            leading: const Icon(Icons.logout, color: Colors.red),
+            title: const Text(
+              'ログアウト',
+              style: TextStyle(color: Colors.red),
+            ),
+            onTap: _handleLogout,
+          ),
+
+        const Divider(),
         const Padding(
           padding: EdgeInsets.all(16.0),
           child: Text(
@@ -118,37 +161,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
           enabled: !_isRestoring,
           onTap: _isRestoring ? null : () => _showRestoreDialog(context),
         ),
-        // アカウントセクション
-        const Divider(),
-        const Padding(
-          padding: EdgeInsets.all(16.0),
-          child: Text(
-            'アカウント',
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-        ),
-
-        // ログインユーザー情報
-        if (FirebaseAuth.instance.currentUser != null)
-          ListTile(
-            leading: const Icon(Icons.account_circle),
-            title: const Text('ログイン中'),
-            subtitle: Text(FirebaseAuth.instance.currentUser!.email ?? ''),
-          ),
-
-        // ログアウトボタン
-        if (FirebaseAuth.instance.currentUser != null)
-          ListTile(
-            leading: const Icon(Icons.logout, color: Colors.red),
-            title: const Text(
-              'ログアウト',
-              style: TextStyle(color: Colors.red),
-            ),
-            onTap: _handleLogout,
-          ),
 
         const Divider(),
         const Padding(
@@ -160,6 +172,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
               fontWeight: FontWeight.bold,
             ),
           ),
+        ),
+        ListTile(
+          leading: const Icon(Icons.help_outline),
+          title: const Text('ヘルプ'),
+          subtitle: const Text('使い方・よくある質問'),
+          onTap: () {
+            Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => const HelpScreen()),
+            );
+          },
         ),
         ListTile(
           leading: const Icon(Icons.info),
@@ -207,6 +229,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
           onTap: _sendContactEmail,
         ),
       ],
+    );
+  }
+
+  /// チーム招待画面へ遷移
+  void _navigateToTeamInvite() {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) => const TeamInviteScreen(),
+      ),
     );
   }
 

@@ -96,6 +96,12 @@ class _StaffEditDialogState extends State<StaffEditDialog> {
                           style: Theme.of(context).textTheme.headlineSmall,
                         ),
                         const SizedBox(height: 16),
+                        // 編集モードの場合のみ紐付け状態を表示
+                        if (widget.existingStaff != null)
+                          ...[
+                            _buildLinkStatusCard(),
+                            const SizedBox(height: 16),
+                          ],
                         _buildBasicInfoSection(),
                         const SizedBox(height: 24),
                         _buildShiftConstraintsSection(),
@@ -123,6 +129,52 @@ class _StaffEditDialogState extends State<StaffEditDialog> {
               ),
             ],
           ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildLinkStatusCard() {
+    final isLinked = widget.existingStaff?.userId != null;
+
+    return Card(
+      color: isLinked ? Colors.green.shade50 : Colors.grey.shade100,
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Row(
+          children: [
+            Icon(
+              isLinked ? Icons.check_circle : Icons.radio_button_unchecked,
+              color: isLinked ? Colors.green : Colors.grey,
+              size: 32,
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    isLinked ? 'アプリ利用中' : '未参加',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      color: isLinked ? Colors.green.shade900 : Colors.grey.shade700,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    isLinked
+                        ? 'このスタッフはアプリアカウントと紐付いています'
+                        : 'メールアドレスを入力すると、同じメールアドレスでアカウント作成した時に自動紐付き',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: isLinked ? Colors.green.shade700 : Colors.grey.shade600,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
         ),
       ),
     );

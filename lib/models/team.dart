@@ -6,7 +6,8 @@ class Team {
   final String name;            // チーム名
   final String ownerId;         // 作成者のUID
   final List<String> adminIds;  // 管理者のUIDリスト
-  final List<String> memberIds; // メンバーのUIDリスト（管理者も含む）
+  final List<String> memberIds; // スタッフのUIDリスト（管理者も含む）
+  final String inviteCode;      // 招待コード（8文字ランダム）
   final DateTime? shiftDeadline; // 休み希望締め日
   final DateTime createdAt;     // 作成日時
   final DateTime updatedAt;     // 更新日時
@@ -17,6 +18,7 @@ class Team {
     required this.ownerId,
     required this.adminIds,
     required this.memberIds,
+    required this.inviteCode,
     this.shiftDeadline,
     required this.createdAt,
     required this.updatedAt,
@@ -31,6 +33,7 @@ class Team {
       ownerId: data['ownerId'] ?? '',
       adminIds: List<String>.from(data['adminIds'] ?? []),
       memberIds: List<String>.from(data['memberIds'] ?? []),
+      inviteCode: data['inviteCode'] ?? '',
       shiftDeadline: (data['shiftDeadline'] as Timestamp?)?.toDate(),
       createdAt: (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
       updatedAt: (data['updatedAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
@@ -44,6 +47,7 @@ class Team {
       'ownerId': ownerId,
       'adminIds': adminIds,
       'memberIds': memberIds,
+      'inviteCode': inviteCode,
       'shiftDeadline': shiftDeadline != null
           ? Timestamp.fromDate(shiftDeadline!)
           : null,
@@ -59,6 +63,7 @@ class Team {
     String? ownerId,
     List<String>? adminIds,
     List<String>? memberIds,
+    String? inviteCode,
     DateTime? shiftDeadline,
     DateTime? createdAt,
     DateTime? updatedAt,
@@ -69,6 +74,7 @@ class Team {
       ownerId: ownerId ?? this.ownerId,
       adminIds: adminIds ?? this.adminIds,
       memberIds: memberIds ?? this.memberIds,
+      inviteCode: inviteCode ?? this.inviteCode,
       shiftDeadline: shiftDeadline ?? this.shiftDeadline,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
@@ -78,6 +84,6 @@ class Team {
   /// 指定したユーザーが管理者かどうか
   bool isAdmin(String uid) => adminIds.contains(uid);
 
-  /// 指定したユーザーがメンバーかどうか
+  /// 指定したユーザーがスタッフかどうか
   bool isMember(String uid) => memberIds.contains(uid);
 }

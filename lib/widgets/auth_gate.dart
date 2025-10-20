@@ -6,6 +6,7 @@ import '../models/shift.dart';
 import '../screens/auth/welcome_screen.dart';
 import '../screens/home_screen.dart';
 import '../screens/team/team_creation_screen.dart';
+import '../screens/team/join_team_screen.dart';
 import '../screens/migration/migration_onboarding_screen.dart';
 import '../services/auth_service.dart';
 
@@ -91,11 +92,19 @@ class AuthGate extends StatelessWidget {
 
                   final appUser = userSnapshot.data;
                   if (appUser?.teamId == null) {
-                    // チーム未所属の場合はチーム作成画面へ（データ移行フラグ付き）
-                    return TeamCreationScreen(
-                      userId: authSnapshot.data!.uid,
-                      shouldMigrateData: hasExistingData,
-                    );
+                    // チーム未所属の場合
+                    if (hasExistingData) {
+                      // 既存データがある場合はチーム作成画面へ（データ移行フラグ付き）
+                      return TeamCreationScreen(
+                        userId: authSnapshot.data!.uid,
+                        shouldMigrateData: true,
+                      );
+                    } else {
+                      // 既存データがない場合はチーム参加画面へ
+                      return JoinTeamScreen(
+                        userId: authSnapshot.data!.uid,
+                      );
+                    }
                   }
 
                   // チーム所属済みの場合はホーム画面へ（teamIdを渡す）

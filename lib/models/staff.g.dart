@@ -29,13 +29,14 @@ class StaffAdapter extends TypeAdapter<Staff> {
       constraints: (fields[9] as List?)?.cast<ShiftConstraint>(),
       unavailableShiftTypes: (fields[10] as List?)?.cast<String>(),
       specificDaysOff: (fields[11] as List?)?.cast<String>(),
+      userId: fields[12] as String?,
     );
   }
 
   @override
   void write(BinaryWriter writer, Staff obj) {
     writer
-      ..writeByte(12)
+      ..writeByte(13)
       ..writeByte(0)
       ..write(obj.id)
       ..writeByte(1)
@@ -59,7 +60,9 @@ class StaffAdapter extends TypeAdapter<Staff> {
       ..writeByte(10)
       ..write(obj.unavailableShiftTypes)
       ..writeByte(11)
-      ..write(obj.specificDaysOff);
+      ..write(obj.specificDaysOff)
+      ..writeByte(12)
+      ..write(obj.userId);
   }
 
   @override

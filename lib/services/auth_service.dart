@@ -1,3 +1,4 @@
+import 'dart:math';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../models/app_user.dart';
@@ -87,12 +88,44 @@ class AuthService {
     }
   }
 
+  /// 8文字のランダム招待コード生成（重複チェック付き）
+  Future<String> _generateUniqueInviteCode() async {
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+    final random = Random();
+
+    // 最大10回まで重複チェック
+    for (var i = 0; i < 10; i++) {
+      // 8文字のランダムコード生成
+      final code = List.generate(
+        8,
+        (_) => chars[random.nextInt(chars.length)],
+      ).join();
+
+      // Firestoreで重複チェック
+      final existingTeam = await _firestore
+          .collection('teams')
+          .where('inviteCode', isEqualTo: code)
+          .limit(1)
+          .get();
+
+      if (existingTeam.docs.isEmpty) {
+        return code; // 重複なし
+      }
+    }
+
+    // 10回試行しても重複した場合（極めて稀）
+    throw '招待コードの生成に失敗しました。もう一度お試しください。';
+  }
+
   /// チーム作成
   Future<Team> createTeam({
     required String teamName,
     required String ownerId,
   }) async {
     try {
+      // 招待コード生成（重複チェック付き）
+      final inviteCode = await _generateUniqueInviteCode();
+
       // チーム作成
       final teamRef = _firestore.collection('teams').doc();
       final team = Team(
@@ -100,7 +133,8 @@ class AuthService {
         name: teamName,
         ownerId: ownerId,
         adminIds: [ownerId],   // 作成者を管理者に
-        memberIds: [ownerId],  // 作成者をメンバーに
+        memberIds: [ownerId],  // 作成者をスタッフに
+        inviteCode: inviteCode, // 招待コード
         createdAt: DateTime.now(),
         updatedAt: DateTime.now(),
       );
@@ -127,6 +161,98 @@ class AuthService {
       return Team.fromFirestore(doc);
     } catch (e) {
       throw '❌ チーム情報の取得に失敗しました: $e';
+    }
+  }
+
+  /// 招待コードでチームに参加
+  Future<void> joinTeamByCode({
+    required String inviteCode,
+    required String userId,
+  }) async {
+    try {
+      // 1. 招待コードでteamsコレクションを検索
+      final inviteCodeUpper = inviteCode.toUpperCase();
+
+      final teamsQuery = await _firestore
+          .collection('teams')
+          .where('inviteCode', isEqualTo: inviteCodeUpper)
+          .limit(1)
+          .get();
+
+      if (teamsQuery.docs.isEmpty) {
+        throw '招待コードが見つかりません';
+      }
+
+      final teamId = teamsQuery.docs.first.id;
+
+      // 2. usersコレクションのteamIdを更新（スタッフとして参加）
+      await _firestore.collection('users').doc(userId).update({
+        'teamId': teamId,
+        'role': 'member', // スタッフとして参加
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+
+      // 3. teamsコレクションのmemberIdsに追加
+      await _firestore.collection('teams').doc(teamId).update({
+        'memberIds': FieldValue.arrayUnion([userId]),
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+
+      // 4. ユーザーのメールアドレスでスタッフとの自動紐付けを試行
+      final userDoc = await _firestore.collection('users').doc(userId).get();
+      final email = userDoc.data()?['email'] as String?;
+      if (email != null && email.isNotEmpty) {
+        await _autoLinkStaffByEmail(
+          teamId: teamId,
+          userId: userId,
+          email: email,
+        );
+      }
+    } catch (e) {
+      if (e.toString().contains('招待コードが見つかりません')) {
+        throw e; // カスタムエラーメッセージはそのまま投げる
+      }
+      throw '❌ チーム参加に失敗しました: $e';
+    }
+  }
+
+  /// メールアドレスでスタッフと自動紐付け
+  Future<void> _autoLinkStaffByEmail({
+    required String teamId,
+    required String userId,
+    required String email,
+  }) async {
+    try {
+      // メールアドレスが一致する未紐付けスタッフを検索
+      final staffQuery = await _firestore
+          .collection('teams')
+          .doc(teamId)
+          .collection('staff')
+          .where('email', isEqualTo: email)
+          .where('userId', isNull: true)
+          .limit(1)
+          .get();
+
+      if (staffQuery.docs.isNotEmpty) {
+        // 一致するスタッフが見つかった場合、userIdを設定
+        final staffDoc = staffQuery.docs.first;
+        await _firestore
+            .collection('teams')
+            .doc(teamId)
+            .collection('staff')
+            .doc(staffDoc.id)
+            .update({
+          'userId': userId,
+          'updatedAt': FieldValue.serverTimestamp(),
+        });
+
+        print('✅ スタッフ自動紐付け成功: ${staffDoc.data()['name']} <-> $email');
+      } else {
+        print('ℹ️ スタッフ自動紐付けスキップ: メールアドレス $email に一致する未紐付けスタッフが見つかりません');
+      }
+    } catch (e) {
+      // 紐付け失敗してもチーム参加は成功扱い（エラーを投げない）
+      print('⚠️ スタッフ自動紐付けエラー: $e');
     }
   }
 

@@ -177,6 +177,32 @@ class _StaffListScreenState extends State<StaffListScreen> {
                           subtitle: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
+                              // 紐付け状態バッジ
+                              Row(
+                                children: [
+                                  Icon(
+                                    staff.userId != null
+                                        ? Icons.check_circle
+                                        : Icons.radio_button_unchecked,
+                                    size: 16,
+                                    color: staff.userId != null
+                                        ? Colors.green
+                                        : Colors.grey,
+                                  ),
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    staff.userId != null ? 'アプリ利用中' : '未参加',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: staff.userId != null
+                                          ? Colors.green
+                                          : Colors.grey,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 4),
                               if (staff.phoneNumber != null)
                                 Text('📞 ${staff.phoneNumber}'),
                               const SizedBox(height: 4),

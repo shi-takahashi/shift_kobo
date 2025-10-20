@@ -10,7 +10,6 @@ import 'models/shift_constraint.dart';
 import 'models/shift_time_setting.dart';
 import 'models/staff.dart';
 import 'services/ad_service.dart';
-import 'utils/test_data_helper.dart';
 import 'widgets/auth_gate.dart';
 
 void main() async {
@@ -30,7 +29,7 @@ void main() async {
 
   // テスト用データの初期化（初回のみ）
   // TODO: Providerの改修（Firestore対応）が完了したら削除
-  await TestDataHelper.initializeTestData(); // データ移行テスト用に有効化
+  // await TestDataHelper.initializeTestData(); // データ移行テスト用に有効化
 
   // AdMobの初期化
   await AdService.initialize();

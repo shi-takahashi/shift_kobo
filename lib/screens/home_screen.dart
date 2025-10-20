@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'calendar_screen.dart';
+import 'help_screen.dart';
 import 'staff_list_screen.dart';
 import 'settings_screen.dart';
 import '../widgets/auto_assignment_dialog.dart';
@@ -189,41 +190,40 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _showHelpDialog({required bool isFirstTime}) {
-    showDialog(
-      context: context,
-      barrierDismissible: !isFirstTime, // 初回時は背景タップで閉じない
-      builder: (context) => AlertDialog(
-        title: Row(
-          children: [
-            Icon(
-              isFirstTime ? Icons.waving_hand : Icons.help_outline,
-              color: isFirstTime ? Colors.orange : null,
-              size: 24,
-            ),
-            const SizedBox(width: 8),
-            Text(isFirstTime ? 'ようこそ！' : '使い方'),
-          ],
-        ),
-        content: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
+    // 初回起動時は簡易的なウェルカムダイアログを表示
+    if (isFirstTime) {
+      showDialog(
+        context: context,
+        barrierDismissible: false, // 初回時は背景タップで閉じない
+        builder: (context) => AlertDialog(
+          title: Row(
             children: [
-              if (isFirstTime) ...[
+              Icon(
+                Icons.waving_hand,
+                color: Colors.orange,
+                size: 24,
+              ),
+              const SizedBox(width: 8),
+              const Text('ようこそ！'),
+            ],
+          ),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
                 const Text(
                   'シフト工房へようこそ！\n基本的な使い方をご説明します。',
                   style: TextStyle(fontWeight: FontWeight.bold),
                 ),
                 const SizedBox(height: 16),
-              ],
-              const Text('1. スタッフ管理でスタッフを登録'),
-              const SizedBox(height: 8),
-              const Text('2. カレンダーでシフトを自動作成'),
-              const SizedBox(height: 8),
-              const Text('3. 必要に応じて手動で調整'),
-              const SizedBox(height: 8),
-              const Text('4. 完成したシフト表を共有'),
-              if (isFirstTime) ...[
+                const Text('1. スタッフ管理でスタッフを登録'),
+                const SizedBox(height: 8),
+                const Text('2. カレンダーでシフトを自動作成'),
+                const SizedBox(height: 8),
+                const Text('3. 必要に応じて手動で調整'),
+                const SizedBox(height: 8),
+                const Text('4. 完成したシフト表を共有'),
                 const SizedBox(height: 16),
                 Container(
                   padding: const EdgeInsets.all(12),
@@ -232,26 +232,29 @@ class _HomeScreenState extends State<HomeScreen> {
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: const Text(
-                    '💡 ヒント：右上の？ボタンでいつでもこのヘルプを表示できます。',
+                    '💡 ヒント：右上の？ボタンや設定画面からいつでも詳しいヘルプを見られます。',
                     style: TextStyle(fontSize: 12, color: Colors.blue),
                   ),
                 ),
               ],
-            ],
+            ),
           ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () {
-              Navigator.pop(context);
-              if (isFirstTime) {
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.pop(context);
                 _markFirstTimeHelpSeen();
-              }
-            },
-            child: Text(isFirstTime ? '始める' : '閉じる'),
-          ),
-        ],
-      ),
-    );
+              },
+              child: const Text('始める'),
+            ),
+          ],
+        ),
+      );
+    } else {
+      // 右上の？アイコンからは詳細なヘルプ画面へ遷移
+      Navigator.of(context).push(
+        MaterialPageRoute(builder: (_) => const HelpScreen()),
+      );
+    }
   }
 }

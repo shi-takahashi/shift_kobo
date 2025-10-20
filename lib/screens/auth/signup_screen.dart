@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../services/auth_service.dart';
+import '../team/join_team_screen.dart';
 import '../team/team_creation_screen.dart';
 import 'login_screen.dart';
 
@@ -56,15 +57,26 @@ class _SignupScreenState extends State<SignupScreen> {
 
       if (!mounted) return;
 
-      // チーム作成画面へ遷移
-      Navigator.of(context).pushReplacement(
-        MaterialPageRoute(
-          builder: (_) => TeamCreationScreen(
-            userId: user.uid,
-            shouldMigrateData: widget.isFromMigration, // データ移行フラグを渡す
+      // データ移行が必要な場合（既存ユーザー）はチーム作成画面へ
+      // 新規ユーザーの場合は、チーム作成 or 参加の選択画面へ
+      if (widget.isFromMigration) {
+        // 既存ユーザー → 直接チーム作成（データ移行あり）
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(
+            builder: (_) => TeamCreationScreen(
+              userId: user.uid,
+              shouldMigrateData: true,
+            ),
           ),
-        ),
-      );
+        );
+      } else {
+        // 新規ユーザー → チーム作成 or 参加を選択
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(
+            builder: (_) => JoinTeamScreen(userId: user.uid),
+          ),
+        );
+      }
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(

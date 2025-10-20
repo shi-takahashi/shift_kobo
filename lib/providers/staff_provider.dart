@@ -51,6 +51,7 @@ class StaffProvider extends ChangeNotifier {
           updatedAt: (data['updatedAt'] as Timestamp?)?.toDate(),
           unavailableShiftTypes: List<String>.from(data['unavailableShiftTypes'] ?? []),
           specificDaysOff: List<String>.from(data['specificDaysOff'] ?? []),
+          userId: data['userId'],
         );
       }).toList();
 
@@ -80,6 +81,7 @@ class StaffProvider extends ChangeNotifier {
       'preferredDaysOff': staff.preferredDaysOff,
       'unavailableShiftTypes': staff.unavailableShiftTypes,
       'specificDaysOff': staff.specificDaysOff,
+      'userId': staff.userId,
       'createdAt': FieldValue.serverTimestamp(),
     });
   }
@@ -101,8 +103,50 @@ class StaffProvider extends ChangeNotifier {
       'preferredDaysOff': staff.preferredDaysOff,
       'unavailableShiftTypes': staff.unavailableShiftTypes,
       'specificDaysOff': staff.specificDaysOff,
+      'userId': staff.userId,
       'updatedAt': FieldValue.serverTimestamp(),
     });
+
+    // メールアドレスが設定されている場合、自動紐付けを試行
+    if (staff.email != null && staff.email!.isNotEmpty) {
+      await _tryAutoLinkByEmail(staff.id, staff.email!);
+    }
+  }
+
+  /// メールアドレスでユーザーと自動紐付けを試行
+  Future<void> _tryAutoLinkByEmail(String staffId, String email) async {
+    if (teamId == null) return;
+
+    try {
+      // 1. チームスタッフから同じメールアドレスのユーザーを検索
+      final usersQuery = await _firestore
+          .collection('users')
+          .where('email', isEqualTo: email)
+          .where('teamId', isEqualTo: teamId)
+          .limit(1)
+          .get();
+
+      if (usersQuery.docs.isNotEmpty) {
+        // 2. 一致するユーザーが見つかった場合、userIdを設定
+        final userId = usersQuery.docs.first.id;
+        await _firestore
+            .collection('teams')
+            .doc(teamId)
+            .collection('staff')
+            .doc(staffId)
+            .update({
+          'userId': userId,
+          'updatedAt': FieldValue.serverTimestamp(),
+        });
+
+        print('✅ スタッフ手動紐付け成功: $email <-> $userId');
+      } else {
+        print('ℹ️ スタッフ手動紐付けスキップ: メールアドレス $email に一致するチームスタッフが見つかりません');
+      }
+    } catch (e) {
+      // 紐付け失敗してもスタッフ更新は成功扱い（エラーを投げない）
+      print('⚠️ スタッフ手動紐付けエラー: $e');
+    }
   }
 
   Future<void> deleteStaff(String staffId) async {

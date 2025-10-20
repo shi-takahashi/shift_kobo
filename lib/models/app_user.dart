@@ -3,7 +3,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 /// ユーザーロール
 enum UserRole {
   admin,  // 管理者
-  member, // メンバー
+  member, // スタッフ
 }
 
 /// アプリユーザー（Firebase Authと紐づく）
@@ -79,6 +79,6 @@ class AppUser {
   /// 管理者かどうか
   bool get isAdmin => role == UserRole.admin;
 
-  /// メンバーかどうか
+  /// スタッフかどうか
   bool get isMember => role == UserRole.member;
 }

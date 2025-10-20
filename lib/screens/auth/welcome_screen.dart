@@ -81,7 +81,7 @@ class WelcomeScreen extends StatelessWidget {
                       _FeatureItem(
                         icon: Icons.calendar_today,
                         text: '休み希望管理',
-                        description: 'メンバーの希望を簡単に収集',
+                        description: 'スタッフの希望を簡単に収集',
                       ),
                       SizedBox(height: 8),
                       _FeatureItem(

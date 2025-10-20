@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../services/auth_service.dart';
+import '../../widgets/invite_guide_dialog.dart';
 import '../home_screen.dart';
 import '../migration/migration_progress_dialog.dart';
 
@@ -30,6 +31,36 @@ class _TeamCreationScreenState extends State<TeamCreationScreen> {
   void dispose() {
     _teamNameController.dispose();
     super.dispose();
+  }
+
+  /// 招待案内ダイアログを表示してホーム画面へ遷移
+  Future<void> _showInviteGuideDialog(
+    String teamId,
+    String teamName,
+    String inviteCode,
+  ) async {
+    // 招待案内ダイアログを表示
+    await showDialog(
+      context: context,
+      barrierDismissible: false, // 必ず「始める」ボタンを押してもらう
+      builder: (context) => InviteGuideDialog(
+        inviteCode: inviteCode,
+        teamName: teamName,
+      ),
+    );
+
+    if (!mounted) return;
+
+    // ホーム画面へ遷移（ウェルカムダイアログは表示しない）
+    Navigator.of(context).pushAndRemoveUntil(
+      MaterialPageRoute(
+        builder: (_) => HomeScreen(
+          teamId: teamId,
+          showWelcomeDialog: false, // 招待案内を表示したのでウェルカムは不要
+        ),
+      ),
+      (route) => false, // 全ての前の画面を削除
+    );
   }
 
   /// チーム作成処理
@@ -65,16 +96,8 @@ class _TeamCreationScreenState extends State<TeamCreationScreen> {
         if (!mounted) return;
 
         if (migrationSuccess == true) {
-          // 移行成功 - ホーム画面へ遷移（ウェルカムダイアログを表示）
-          Navigator.of(context).pushAndRemoveUntil(
-            MaterialPageRoute(
-              builder: (_) => HomeScreen(
-                teamId: team.id,
-                showWelcomeDialog: true,
-              ),
-            ),
-            (route) => false, // 全ての前の画面を削除
-          );
+          // 移行成功 - 招待案内ダイアログを表示してからホーム画面へ
+          await _showInviteGuideDialog(team.id, team.name, team.inviteCode);
         } else {
           // 移行失敗 - エラーメッセージは既にダイアログで表示されている
           // ユーザーは「閉じる」ボタンで戻る
@@ -85,16 +108,8 @@ class _TeamCreationScreenState extends State<TeamCreationScreen> {
           const SnackBar(content: Text('✅ チームを作成しました')),
         );
 
-        // ホーム画面へ遷移（ウェルカムダイアログを表示）
-        Navigator.of(context).pushAndRemoveUntil(
-          MaterialPageRoute(
-            builder: (_) => HomeScreen(
-              teamId: team.id,
-              showWelcomeDialog: true,
-            ),
-          ),
-          (route) => false, // 全ての前の画面を削除
-        );
+        // 招待案内ダイアログを表示してからホーム画面へ
+        await _showInviteGuideDialog(team.id, team.name, team.inviteCode);
       }
     } catch (e) {
       if (!mounted) return;
@@ -200,7 +215,7 @@ class _TeamCreationScreenState extends State<TeamCreationScreen> {
                         SizedBox(height: 8),
                         Text('• あなたは管理者として登録されます'),
                         Text('• スタッフの登録・シフト作成ができます'),
-                        Text('• 将来的にメンバーを招待できます'),
+                        Text('• 将来的にスタッフを招待できます'),
                       ],
                     ),
                   ),

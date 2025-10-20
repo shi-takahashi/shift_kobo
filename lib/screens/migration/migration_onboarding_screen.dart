@@ -73,8 +73,8 @@ class MigrationOnboardingScreen extends StatelessWidget {
                       SizedBox(height: 8),
                       _FeatureItem(
                         icon: Icons.calendar_today,
-                        text: 'メンバーが休み希望を入力',
-                        description: '管理者はメンバーの希望を確認できます',
+                        text: 'スタッフが休み希望を入力',
+                        description: '管理者はスタッフの希望を確認できます',
                       ),
                       SizedBox(height: 8),
                       _FeatureItem(
