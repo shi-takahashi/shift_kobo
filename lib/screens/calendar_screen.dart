@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:table_calendar/table_calendar.dart';
 import 'package:provider/provider.dart';
 import 'package:holiday_jp/holiday_jp.dart' as holiday_jp;
+import '../models/app_user.dart';
 import '../providers/shift_provider.dart';
 import '../providers/staff_provider.dart';
 import '../providers/shift_time_provider.dart';
@@ -17,7 +18,12 @@ import '../widgets/shift_quick_action_dialog.dart';
 import 'export_screen.dart';
 
 class CalendarScreen extends StatefulWidget {
-  const CalendarScreen({super.key});
+  final AppUser appUser;
+
+  const CalendarScreen({
+    super.key,
+    required this.appUser,
+  });
 
   @override
   State<CalendarScreen> createState() => _CalendarScreenState();
@@ -183,46 +189,50 @@ class _CalendarScreenState extends State<CalendarScreen> {
                 ),
               ),
               const SizedBox(width: 8),
-              Container(
-                decoration: BoxDecoration(
-                  color: Colors.blue.shade600,
-                  borderRadius: BorderRadius.circular(8.0),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.blue.shade200,
-                      blurRadius: 3,
-                      offset: const Offset(0, 2),
-                    ),
-                  ],
-                ),
-                child: InkWell(
-                  onTap: () => _showAutoAssignmentDialog(context),
-                  borderRadius: BorderRadius.circular(8.0),
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const Icon(
-                          Icons.auto_fix_high,
-                          size: 16,
-                          color: Colors.white,
-                        ),
-                        const SizedBox(width: 4),
-                        const Text(
-                          '自動作成',
-                          style: TextStyle(
+              // 管理者のみ自動作成ボタンを表示
+              if (widget.appUser.isAdmin) ...[
+                Container(
+                  decoration: BoxDecoration(
+                    color: Colors.blue.shade600,
+                    borderRadius: BorderRadius.circular(8.0),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.blue.shade200,
+                        blurRadius: 3,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                  child: InkWell(
+                    onTap: () => _showAutoAssignmentDialog(context),
+                    borderRadius: BorderRadius.circular(8.0),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(
+                            Icons.auto_fix_high,
+                            size: 16,
                             color: Colors.white,
-                            fontSize: 13,
-                            fontWeight: FontWeight.w600,
                           ),
-                        ),
-                      ],
+                          const SizedBox(width: 4),
+                          const Text(
+                            '自動作成',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                 ),
-              ),
-              const SizedBox(width: 16),
+                const SizedBox(width: 16),
+              ],
+              if (!widget.appUser.isAdmin) const SizedBox(width: 16),
             ],
           ),
           body: Padding(
@@ -515,27 +525,29 @@ class _CalendarScreenState extends State<CalendarScreen> {
                                     onEdit: (shift) => _showEditShiftDialog(context, shift),
                                     onDelete: (shift) => _showDeleteConfirmDialog(context, shift),
                                     onQuickAction: (shift) => _showQuickActionDialog(context, shift),
+                                    isAdmin: widget.appUser.isAdmin,
                                   );
                                 },
                             ),
                           ),
                         ),
                       ],
-                      // 日付が選択されている時は常に追加ボタンを表示
-                      Padding(
-                        padding: const EdgeInsets.all(16.0),
-                        child: SizedBox(
-                          width: double.infinity,
-                          child: ElevatedButton.icon(
-                            onPressed: () => _showAddShiftDialog(context),
-                            icon: const Icon(Icons.add),
-                            label: const Text('シフトを追加'),
-                            style: ElevatedButton.styleFrom(
-                              padding: const EdgeInsets.symmetric(vertical: 12),
+                      // 管理者のみシフト追加ボタンを表示
+                      if (widget.appUser.isAdmin)
+                        Padding(
+                          padding: const EdgeInsets.all(16.0),
+                          child: SizedBox(
+                            width: double.infinity,
+                            child: ElevatedButton.icon(
+                              onPressed: () => _showAddShiftDialog(context),
+                              icon: const Icon(Icons.add),
+                              label: const Text('シフトを追加'),
+                              style: ElevatedButton.styleFrom(
+                                padding: const EdgeInsets.symmetric(vertical: 12),
+                              ),
                             ),
                           ),
                         ),
-                      ),
                     ],
                   );
                 },
@@ -844,6 +856,7 @@ class _ShiftTile extends StatelessWidget {
   final Function(Shift) onEdit;
   final Function(Shift)? onDelete;
   final Function(Shift)? onQuickAction;
+  final bool isAdmin;
 
   const _ShiftTile({
     required this.shift,
@@ -851,6 +864,7 @@ class _ShiftTile extends StatelessWidget {
     required this.onEdit,
     this.onDelete,
     this.onQuickAction,
+    required this.isAdmin,
   });
 
   @override
@@ -873,10 +887,10 @@ class _ShiftTile extends StatelessWidget {
           ),
         ),
         child: InkWell(
-          onTap: () => onEdit(shift), // タップで編集画面を開く
-          onLongPress: () {
-            if (onQuickAction != null) onQuickAction!(shift);
-          },
+          onTap: isAdmin ? () => onEdit(shift) : null, // 管理者のみ編集可能
+          onLongPress: isAdmin && onQuickAction != null
+              ? () => onQuickAction!(shift)
+              : null, // 管理者のみクイックアクション可能
           child: ListTile(
           dense: true,
           leading: CircleAvatar(

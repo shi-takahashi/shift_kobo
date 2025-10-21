@@ -51,11 +51,24 @@ class _TeamCreationScreenState extends State<TeamCreationScreen> {
 
     if (!mounted) return;
 
+    // AppUserを取得
+    final appUser = await _authService.getUser(widget.userId);
+    if (!mounted) return;
+
+    if (appUser == null) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('ユーザー情報の取得に失敗しました')),
+        );
+      }
+      return;
+    }
+
     // ホーム画面へ遷移（ウェルカムダイアログは表示しない）
     Navigator.of(context).pushAndRemoveUntil(
       MaterialPageRoute(
         builder: (_) => HomeScreen(
-          teamId: teamId,
+          appUser: appUser,
           showWelcomeDialog: false, // 招待案内を表示したのでウェルカムは不要
         ),
       ),

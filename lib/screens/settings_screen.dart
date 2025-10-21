@@ -7,6 +7,7 @@ import 'package:package_info_plus/package_info_plus.dart';
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../models/app_user.dart';
 import '../providers/monthly_requirements_provider.dart';
 import '../providers/shift_provider.dart';
 import '../providers/shift_time_provider.dart';
@@ -21,7 +22,12 @@ import 'shift_time_settings_screen.dart';
 import 'team/team_invite_screen.dart';
 
 class SettingsScreen extends StatefulWidget {
-  const SettingsScreen({super.key});
+  final AppUser appUser;
+
+  const SettingsScreen({
+    super.key,
+    required this.appUser,
+  });
 
   @override
   State<SettingsScreen> createState() => _SettingsScreenState();
@@ -50,53 +56,56 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Widget build(BuildContext context) {
     return ListView(
       children: [
-        const Padding(
-          padding: EdgeInsets.all(16.0),
-          child: Text(
-            '基本設定',
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
+        // 管理者のみ基本設定を表示
+        if (widget.appUser.isAdmin) ...[
+          const Padding(
+            padding: EdgeInsets.all(16.0),
+            child: Text(
+              '基本設定',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+              ),
             ),
           ),
-        ),
-        ListTile(
-          leading: const Icon(Icons.access_time),
-          title: const Text('シフト時間設定'),
-          subtitle: const Text('各シフトタイプの時間を設定'),
-          onTap: () {
-            final shiftTimeProvider = context.read<ShiftTimeProvider>();
-            Navigator.of(context).push(
-              MaterialPageRoute(
-                builder: (context) => ChangeNotifierProvider<ShiftTimeProvider>.value(
-                  value: shiftTimeProvider,
-                  child: const ShiftTimeSettingsScreen(),
+          ListTile(
+            leading: const Icon(Icons.access_time),
+            title: const Text('シフト時間設定'),
+            subtitle: const Text('各シフトタイプの時間を設定'),
+            onTap: () {
+              final shiftTimeProvider = context.read<ShiftTimeProvider>();
+              Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (context) => ChangeNotifierProvider<ShiftTimeProvider>.value(
+                    value: shiftTimeProvider,
+                    child: const ShiftTimeSettingsScreen(),
+                  ),
                 ),
-              ),
-            );
-          },
-        ),
-        ListTile(
-          leading: const Icon(Icons.calendar_today),
-          title: const Text('月間シフト設定'),
-          subtitle: const Text('各シフト時間の必要人数を設定'),
-          onTap: () {
-            final shiftTimeProvider = context.read<ShiftTimeProvider>();
-            final monthlyRequirementsProvider = context.read<MonthlyRequirementsProvider>();
-            Navigator.of(context).push(
-              MaterialPageRoute(
-                builder: (context) => MultiProvider(
-                  providers: [
-                    ChangeNotifierProvider<ShiftTimeProvider>.value(value: shiftTimeProvider),
-                    ChangeNotifierProvider<MonthlyRequirementsProvider>.value(value: monthlyRequirementsProvider),
-                  ],
-                  child: const MonthlyShiftSettingsScreen(),
+              );
+            },
+          ),
+          ListTile(
+            leading: const Icon(Icons.calendar_today),
+            title: const Text('月間シフト設定'),
+            subtitle: const Text('各シフト時間の必要人数を設定'),
+            onTap: () {
+              final shiftTimeProvider = context.read<ShiftTimeProvider>();
+              final monthlyRequirementsProvider = context.read<MonthlyRequirementsProvider>();
+              Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (context) => MultiProvider(
+                    providers: [
+                      ChangeNotifierProvider<ShiftTimeProvider>.value(value: shiftTimeProvider),
+                      ChangeNotifierProvider<MonthlyRequirementsProvider>.value(value: monthlyRequirementsProvider),
+                    ],
+                    child: const MonthlyShiftSettingsScreen(),
+                  ),
                 ),
-              ),
-            );
-          },
-        ),
-        const Divider(),
+              );
+            },
+          ),
+          const Divider(),
+        ],
         // アカウントセクション
         const Padding(
           padding: EdgeInsets.all(16.0),
@@ -117,8 +126,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
             subtitle: Text(FirebaseAuth.instance.currentUser!.email ?? ''),
           ),
 
-        // チーム招待メニュー
-        if (FirebaseAuth.instance.currentUser != null)
+        // チーム招待メニュー（管理者のみ）
+        if (FirebaseAuth.instance.currentUser != null && widget.appUser.isAdmin)
           ListTile(
             leading: const Icon(Icons.group_add),
             title: const Text('チーム招待'),
@@ -138,31 +147,33 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ),
 
         const Divider(),
-        const Padding(
-          padding: EdgeInsets.all(16.0),
-          child: Text(
-            'データ管理',
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
+        // 管理者のみデータ管理を表示
+        if (widget.appUser.isAdmin) ...[
+          const Padding(
+            padding: EdgeInsets.all(16.0),
+            child: Text(
+              'データ管理',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+              ),
             ),
           ),
-        ),
-        ListTile(
-          leading: const Icon(Icons.backup),
-          title: const Text('データバックアップ'),
-          subtitle: const Text('シフトデータをバックアップ'),
-          onTap: () => _showBackupDialog(context),
-        ),
-        ListTile(
-          leading: const Icon(Icons.restore),
-          title: const Text('データ復元'),
-          subtitle: _isRestoring ? const Text('復元中...') : const Text('バックアップからデータを復元'),
-          enabled: !_isRestoring,
-          onTap: _isRestoring ? null : () => _showRestoreDialog(context),
-        ),
-
-        const Divider(),
+          ListTile(
+            leading: const Icon(Icons.backup),
+            title: const Text('データバックアップ'),
+            subtitle: const Text('シフトデータをバックアップ'),
+            onTap: () => _showBackupDialog(context),
+          ),
+          ListTile(
+            leading: const Icon(Icons.restore),
+            title: const Text('データ復元'),
+            subtitle: _isRestoring ? const Text('復元中...') : const Text('バックアップからデータを復元'),
+            enabled: !_isRestoring,
+            onTap: _isRestoring ? null : () => _showRestoreDialog(context),
+          ),
+          const Divider(),
+        ],
         const Padding(
           padding: EdgeInsets.all(16.0),
           child: Text(

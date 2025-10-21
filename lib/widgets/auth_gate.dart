@@ -107,8 +107,8 @@ class AuthGate extends StatelessWidget {
                     }
                   }
 
-                  // チーム所属済みの場合はホーム画面へ（teamIdを渡す）
-                  return HomeScreen(teamId: appUser!.teamId!);
+                  // チーム所属済みの場合はホーム画面へ（AppUser全体を渡す）
+                  return HomeScreen(appUser: appUser!);
                 },
               );
             }

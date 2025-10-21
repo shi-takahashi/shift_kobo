@@ -3,6 +3,7 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:hive_flutter/hive_flutter.dart';
+import 'package:shift_kobo/utils/test_data_helper.dart';
 
 import 'firebase_options.dart';
 import 'models/shift.dart';
@@ -29,7 +30,7 @@ void main() async {
 
   // テスト用データの初期化（初回のみ）
   // TODO: Providerの改修（Firestore対応）が完了したら削除
-  // await TestDataHelper.initializeTestData(); // データ移行テスト用に有効化
+  await TestDataHelper.initializeTestData(); // データ移行テスト用に有効化
 
   // AdMobの初期化
   await AdService.initialize();

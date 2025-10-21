@@ -136,12 +136,27 @@ teams/{teamId}
     - createdAt: timestamp
     - updatedAt: timestamp
 
-  /constraints/{constraintId}  (サブコレクション)
+  /constraints/{constraintId}  (サブコレクション) - 【廃止予定】
     - id: string
     - staffId: string
     - date: timestamp
     - isAvailable: bool
     - reason: string
+    - createdAt: timestamp
+    - updatedAt: timestamp
+
+  /constraint_requests/{requestId}  (サブコレクション) - 🆕 **承認フロー用**
+    - id: string
+    - staffId: string (申請者のスタッフID)
+    - userId: string (申請者のユーザーID)
+    - requestType: string ("specificDay" | "weekday" | "shiftType")
+    - specificDate: timestamp | null (特定日の場合)
+    - weekday: int | null (曜日の場合: 1-7)
+    - shiftType: string | null (シフトタイプの場合)
+    - status: string ("pending" | "approved" | "rejected")
+    - approvedBy: string | null (承認者のユーザーID)
+    - approvedAt: timestamp | null (承認日時)
+    - rejectedReason: string | null (却下理由)
     - createdAt: timestamp
     - updatedAt: timestamp
 
@@ -199,7 +214,7 @@ service cloud.firestore {
         allow write: if request.auth.uid in get(/databases/$(database)/documents/teams/$(teamId)).data.adminIds;
       }
 
-      // 休み希望（自分のものは編集可、締め日後は管理者のみ）
+      // 休み希望（自分のものは編集可、締め日後は管理者のみ）- 【廃止予定】
       match /constraints/{constraintId} {
         allow read: if request.auth.uid in get(/databases/$(database)/documents/teams/$(teamId)).data.memberIds;
         allow create, update: if (request.auth.uid in get(/databases/$(database)/documents/teams/$(teamId)).data.memberIds
@@ -207,6 +222,25 @@ service cloud.firestore {
                                   && request.time < get(/databases/$(database)/documents/teams/$(teamId)).data.shiftDeadline)
                                   || request.auth.uid in get(/databases/$(database)/documents/teams/$(teamId)).data.adminIds;
         allow delete: if request.auth.uid in get(/databases/$(database)/documents/teams/$(teamId)).data.adminIds;
+      }
+
+      // 🆕 休み希望申請（承認フロー）
+      match /constraint_requests/{requestId} {
+        // 全員が閲覧可能（管理者：全件、スタッフ：自分の申請のみ）
+        allow read: if request.auth.uid in get(/databases/$(database)/documents/teams/$(teamId)).data.memberIds;
+
+        // 申請作成：スタッフ自身のみ（締め日前のみ）
+        allow create: if request.auth.uid in get(/databases/$(database)/documents/teams/$(teamId)).data.memberIds
+                         && request.resource.data.userId == request.auth.uid
+                         && request.time < get(/databases/$(database)/documents/teams/$(teamId)).data.shiftDeadline;
+
+        // 申請更新：管理者のみ（承認・却下操作）
+        allow update: if request.auth.uid in get(/databases/$(database)/documents/teams/$(teamId)).data.adminIds
+                         && request.resource.data.keys().hasAny(['status', 'approvedBy', 'approvedAt', 'rejectedReason']);
+
+        // 申請削除：本人または管理者
+        allow delete: if request.resource.data.userId == request.auth.uid
+                         || request.auth.uid in get(/databases/$(database)/documents/teams/$(teamId)).data.adminIds;
       }
 
       // シフト時間設定・月間シフト設定（管理者のみ編集）
@@ -252,13 +286,15 @@ service cloud.firestore {
 |----|---------|-----------|--------|
 | **1週目** | Firebase基盤 | ✅ Firebase初期設定（コンソール・Android/iOS設定）<br>✅ Firebase Auth実装（Email/Password）<br>✅ ログイン/サインアップ画面作成<br>✅ チーム作成画面<br>✅ Firestore基本接続確認 | ⭐⭐⭐ |
 | **2週目** | データ移行 | ✅ **オンボーディング画面実装**（MigrationOnboardingScreen）<br>✅ 既存データ検出ロジック（Hive有無チェック）<br>✅ MigrationService作成<br>✅ Hive→Firestore自動移行機能<br>✅ 移行進捗表示UI<br>✅ 移行テスト（サンプルデータ）<br>✅ Hive削除処理 | ⭐⭐⭐ |
-| **3週目** | 管理者機能 | ・Provider改修（Firestore対応）<br>・カレンダー画面のFirestore連携<br>・シフトCRUD機能（Firestore版）<br>・スタッフ管理のFirestore連携<br>・権限チェック実装（管理者のみ） | ⭐⭐⭐ |
-| **4週目** | **招待機能 + メンバー機能** | 🔥 **チーム招待コード生成機能**<br>🔥 **招待コード入力画面**<br>🔥 **チーム参加処理（Firestore更新）**<br>・マイシフト画面作成<br>・休み希望入力画面作成<br>・カレンダー画面の閲覧モード<br>・自分のシフトハイライト<br>・メンバー用ナビゲーション | ⭐⭐⭐ |
-| **5週目** | 締め日制御 | ・設定画面に締め日設定追加<br>・休み希望入力の締め日制御<br>・Security Rules詳細化<br>・権限別UI制御の最終調整 | ⭐⭐ |
-| **6週目** | FCM・テスト | ・Firebase Cloud Messaging基盤設定<br>・テスト通知送信<br>・既存ユーザーでの移行テスト<br>・新規ユーザーでの動作確認<br>・招待機能テスト<br>・UI調整・バグ修正 | ⭐⭐ |
-| **7週目** | リリース準備 | ・少人数テストチーム検証<br>・Security Rules最終確認<br>・バグ修正<br>・リリースノート作成<br>・ストア申請準備 | ⭐ |
+| **3週目** | Provider改修 | ✅ Provider改修（Firestore対応）<br>✅ カレンダー画面のFirestore連携<br>✅ シフトCRUD機能（Firestore版）<br>✅ スタッフ管理のFirestore連携<br>✅ バックアップ・復元のFirestore対応 | ⭐⭐⭐ |
+| **4週目** | 招待機能 + 自動紐付け | ✅ チーム招待コード生成機能<br>✅ 招待コード入力画面<br>✅ チーム参加処理（Firestore更新）<br>✅ スタッフ-ユーザー自動紐付け（メールアドレス一致）<br>✅ 招待案内UX改善（InviteGuideDialog）<br>✅ 用語統一（「メンバー」→「スタッフ」） | ⭐⭐⭐ |
+| **5週目** | 権限制御 + マイページ | ✅ AppUser.roleによる権限制御実装<br>✅ ホーム画面のタブ構成変更（権限別）<br>✅ カレンダー画面の権限制御（管理者：編集可、スタッフ：閲覧のみ）<br>✅ 設定画面の権限制御（管理者専用機能の非表示）<br>✅ マイページ画面作成（直近の予定・全予定カレンダー・休み希望編集）<br>🔄 マイページUI調整中（スワイプ無効化、チップ固定幅、データ形式統一） | ⭐⭐⭐ |
+| **6週目** | 🔥 **休み希望承認フロー** | 🆕 **ConstraintRequestモデル作成**（status: pending/approved/rejected）<br>🆕 **スタッフ側：休み希望申請機能**（特定日・曜日・シフトタイプ別）<br>🆕 **管理者側：承認画面作成**（申請一覧・承認/却下ボタン）<br>🆕 **申請状態表示**（マイページで承認待ち・承認済み・却下を色分け表示）<br>🆕 **Firestore構造拡張**（teams/{teamId}/constraint_requests コレクション）<br>🆕 **Security Rules更新**（申請は本人のみ作成、承認は管理者のみ）<br>🆕 **FCM基盤準備**（承認通知用）<br>・締め日制御実装 | ⭐⭐⭐ |
+| **7週目** | 締め日制御 + FCM | ・設定画面に締め日設定追加<br>・休み希望入力の締め日制御<br>🆕 **承認通知実装**（FCMで管理者→スタッフへ通知）<br>・テスト通知送信<br>・Security Rules詳細化 | ⭐⭐ |
+| **8週目** | テスト・調整 | ・既存ユーザーでの移行テスト<br>・新規ユーザーでの動作確認<br>・招待機能テスト<br>🆕 **承認フローテスト**（申請→承認→通知の一連フロー）<br>・UI調整・バグ修正 | ⭐⭐ |
+| **9週目** | リリース準備 | ・少人数テストチーム検証<br>・Security Rules最終確認<br>・バグ修正<br>・リリースノート作成<br>・ストア申請準備 | ⭐ |
 
-**合計**: 7週間（約49日）
+**合計**: 9週間（約63日）← 承認フロー機能追加により7週間→9週間に延長
 
 ### 実装優先順位まとめ
 

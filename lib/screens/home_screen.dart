@@ -3,8 +3,10 @@ import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'calendar_screen.dart';
 import 'help_screen.dart';
+import 'my_page_screen.dart';
 import 'staff_list_screen.dart';
 import 'settings_screen.dart';
+import '../models/app_user.dart';
 import '../widgets/auto_assignment_dialog.dart';
 import '../widgets/banner_ad_widget.dart';
 import '../providers/staff_provider.dart';
@@ -13,12 +15,12 @@ import '../providers/shift_time_provider.dart';
 import '../providers/monthly_requirements_provider.dart';
 
 class HomeScreen extends StatefulWidget {
-  final String teamId;
+  final AppUser appUser;
   final bool showWelcomeDialog;
 
   const HomeScreen({
     super.key,
-    required this.teamId,
+    required this.appUser,
     this.showWelcomeDialog = false,
   });
 
@@ -30,17 +32,73 @@ class _HomeScreenState extends State<HomeScreen> {
   int _selectedIndex = 0;
   bool _hasShownFirstTimeHelp = false;
 
-  final List<Widget> _screens = [
-    const CalendarScreen(),
-    const StaffListScreen(),
-    const SettingsScreen(),
-  ];
+  /// 権限に応じてタブ画面を取得
+  List<Widget> get _screens {
+    if (widget.appUser.isAdmin) {
+      // 管理者: マイページ、シフト、スタッフ、設定
+      return [
+        MyPageScreen(appUser: widget.appUser),
+        CalendarScreen(appUser: widget.appUser),
+        const StaffListScreen(),
+        SettingsScreen(appUser: widget.appUser),
+      ];
+    } else {
+      // スタッフ: マイページ、シフト、設定
+      return [
+        MyPageScreen(appUser: widget.appUser),
+        CalendarScreen(appUser: widget.appUser),
+        SettingsScreen(appUser: widget.appUser),
+      ];
+    }
+  }
 
-  final List<String> _titles = [
-    'シフト表',
-    'スタッフ管理',
-    '設定',
-  ];
+  /// 権限に応じてタブタイトルを取得
+  List<String> get _titles {
+    if (widget.appUser.isAdmin) {
+      return ['マイページ', 'シフト', 'スタッフ', '設定'];
+    } else {
+      return ['マイページ', 'シフト', '設定'];
+    }
+  }
+
+  /// 権限に応じてナビゲーション項目を取得
+  List<NavigationDestination> get _navigationDestinations {
+    if (widget.appUser.isAdmin) {
+      return const [
+        NavigationDestination(
+          icon: Icon(Icons.person, size: 22),
+          label: 'マイページ',
+        ),
+        NavigationDestination(
+          icon: Icon(Icons.calendar_month, size: 22),
+          label: 'シフト',
+        ),
+        NavigationDestination(
+          icon: Icon(Icons.people, size: 22),
+          label: 'スタッフ',
+        ),
+        NavigationDestination(
+          icon: Icon(Icons.settings, size: 22),
+          label: '設定',
+        ),
+      ];
+    } else {
+      return const [
+        NavigationDestination(
+          icon: Icon(Icons.person, size: 22),
+          label: 'マイページ',
+        ),
+        NavigationDestination(
+          icon: Icon(Icons.calendar_month, size: 22),
+          label: 'シフト',
+        ),
+        NavigationDestination(
+          icon: Icon(Icons.settings, size: 22),
+          label: '設定',
+        ),
+      ];
+    }
+  }
 
   @override
   void initState() {
@@ -84,12 +142,13 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final teamId = widget.appUser.teamId!;
     return MultiProvider(
       providers: [
-        ChangeNotifierProvider(create: (_) => StaffProvider(teamId: widget.teamId)),
-        ChangeNotifierProvider(create: (_) => ShiftProvider(teamId: widget.teamId)),
-        ChangeNotifierProvider(create: (_) => ShiftTimeProvider(teamId: widget.teamId)),
-        ChangeNotifierProvider(create: (_) => MonthlyRequirementsProvider(teamId: widget.teamId)),
+        ChangeNotifierProvider(create: (_) => StaffProvider(teamId: teamId)),
+        ChangeNotifierProvider(create: (_) => ShiftProvider(teamId: teamId)),
+        ChangeNotifierProvider(create: (_) => ShiftTimeProvider(teamId: teamId)),
+        ChangeNotifierProvider(create: (_) => MonthlyRequirementsProvider(teamId: teamId)),
       ],
       child: Consumer4<StaffProvider, ShiftProvider, ShiftTimeProvider, MonthlyRequirementsProvider>(
         builder: (context, staffProvider, shiftProvider, shiftTimeProvider, monthlyProvider, child) {
@@ -150,20 +209,7 @@ class _HomeScreenState extends State<HomeScreen> {
           });
         },
         selectedIndex: _selectedIndex,
-        destinations: const <Widget>[
-          NavigationDestination(
-            icon: Icon(Icons.calendar_month, size: 22),
-            label: 'シフト',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.people, size: 22),
-            label: 'スタッフ',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.settings, size: 22),
-            label: '設定',
-          ),
-        ],
+        destinations: _navigationDestinations,
         ),
         floatingActionButton: _buildFloatingActionButton(),
           );
