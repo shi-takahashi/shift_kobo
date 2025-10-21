@@ -165,7 +165,7 @@ class AuthService {
   }
 
   /// 招待コードでチームに参加
-  Future<void> joinTeamByCode({
+  Future<Team> joinTeamByCode({
     required String inviteCode,
     required String userId,
   }) async {
@@ -183,7 +183,8 @@ class AuthService {
         throw '招待コードが見つかりません';
       }
 
-      final teamId = teamsQuery.docs.first.id;
+      final teamDoc = teamsQuery.docs.first;
+      final teamId = teamDoc.id;
 
       // 2. usersコレクションのteamIdを更新（スタッフとして参加）
       await _firestore.collection('users').doc(userId).update({
@@ -208,6 +209,9 @@ class AuthService {
           email: email,
         );
       }
+
+      // 5. 参加したTeamオブジェクトを返す
+      return Team.fromFirestore(teamDoc);
     } catch (e) {
       if (e.toString().contains('招待コードが見つかりません')) {
         throw e; // カスタムエラーメッセージはそのまま投げる

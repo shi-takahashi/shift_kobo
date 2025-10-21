@@ -154,7 +154,7 @@ class _StaffEditDialogState extends State<StaffEditDialog> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    isLinked ? 'アプリ利用中' : '未参加',
+                    isLinked ? 'アプリ利用中' : 'アプリ未登録',
                     style: TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.bold,

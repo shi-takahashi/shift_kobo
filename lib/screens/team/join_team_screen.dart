@@ -38,21 +38,57 @@ class _JoinTeamScreenState extends State<JoinTeamScreen> {
     try {
       final inviteCode = _inviteCodeController.text.trim().toUpperCase();
 
-      // チーム参加処理
-      await _authService.joinTeamByCode(
+      // チーム参加処理（Teamオブジェクトを取得）
+      final team = await _authService.joinTeamByCode(
         inviteCode: inviteCode,
         userId: widget.userId,
       );
 
       if (!mounted) return;
 
-      // 成功メッセージとホーム画面へ遷移
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('チームに参加しました！'),
-          backgroundColor: Colors.green,
+      // チーム名を含む成功ダイアログを表示
+      await showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => AlertDialog(
+          title: Row(
+            children: [
+              Icon(
+                Icons.check_circle,
+                color: Colors.green,
+              ),
+              const SizedBox(width: 8),
+              const Text('参加完了！'),
+            ],
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                '「${team.name}」に参加しました',
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 16),
+              const Text(
+                'これから管理者がシフトを作成すると、あなたのマイページでシフトを確認できるようになります。',
+                style: TextStyle(fontSize: 14),
+              ),
+            ],
+          ),
+          actions: [
+            FilledButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('始める'),
+            ),
+          ],
         ),
       );
+
+      if (!mounted) return;
 
       // AuthGateへ遷移（全画面をクリア）
       // AuthGateがteamIdを取得してHomeScreenへ遷移する

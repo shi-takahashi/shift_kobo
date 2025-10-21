@@ -209,22 +209,187 @@ class _MyPageScreenState extends State<MyPageScreen> {
         final immediateShifts = _getImmediateShifts(shiftProvider, myStaff);
 
         if (myStaff == null) {
-          return const Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(Icons.person_off, size: 64, color: Colors.grey),
-                SizedBox(height: 16),
-                Text(
-                  'スタッフ情報が見つかりません',
-                  style: TextStyle(fontSize: 18),
+          // 管理者の場合
+          if (widget.appUser.isAdmin) {
+            return Center(
+              child: Padding(
+                padding: const EdgeInsets.all(24),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(
+                      Icons.admin_panel_settings,
+                      size: 64,
+                      color: Colors.grey[400],
+                    ),
+                    const SizedBox(height: 24),
+                    Text(
+                      'マイページはスタッフのシフト確認用です',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.grey[700],
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 16),
+                    Text(
+                      'あなたは管理者のため、現在シフトデータは表示されません。',
+                      style: TextStyle(color: Colors.grey[600]),
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 24),
+                    Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: Colors.blue.shade50,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: Colors.blue.shade200),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Icon(Icons.info_outline, size: 20, color: Colors.blue[700]),
+                              const SizedBox(width: 8),
+                              Text(
+                                'ご自身もシフトに入る場合',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.blue[900],
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 12),
+                          Text(
+                            '1. スタッフ管理画面を開く\n'
+                            '2. ご自身をスタッフとして登録\n'
+                            '3. メールアドレスに以下を設定:\n'
+                            '   ${widget.appUser.email}',
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: Colors.blue[800],
+                              height: 1.5,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
                 ),
-                SizedBox(height: 8),
-                Text(
-                  '管理者にスタッフ登録を依頼してください',
-                  style: TextStyle(color: Colors.grey),
-                ),
-              ],
+              ),
+            );
+          }
+
+          // スタッフの場合
+          return Center(
+            child: Padding(
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(
+                    Icons.person_off,
+                    size: 64,
+                    color: Colors.grey[400],
+                  ),
+                  const SizedBox(height: 24),
+                  Text(
+                    'スタッフ情報が見つかりません',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.grey[700],
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    'あなたのアカウントに紐付けられたスタッフ情報がありません。',
+                    style: TextStyle(color: Colors.grey[600]),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 8),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: Colors.grey[100],
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Text(
+                      widget.appUser.email,
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: Colors.grey[700],
+                        fontFamily: 'monospace',
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: Colors.orange.shade50,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: Colors.orange.shade200),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Icon(Icons.help_outline, size: 20, color: Colors.orange[700]),
+                            const SizedBox(width: 8),
+                            Text(
+                              '考えられる原因',
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                color: Colors.orange[900],
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 12),
+                        Text(
+                          '• 管理者がまだスタッフ登録を行っていない\n'
+                          '• スタッフ登録は済んでいるが、メールアドレスが一致しない',
+                          style: TextStyle(
+                            fontSize: 13,
+                            color: Colors.orange[800],
+                            height: 1.5,
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        Row(
+                          children: [
+                            Icon(Icons.arrow_forward, size: 20, color: Colors.orange[700]),
+                            const SizedBox(width: 8),
+                            Text(
+                              '管理者にご依頼ください',
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                color: Colors.orange[900],
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 12),
+                        Text(
+                          '• スタッフ登録（未登録の場合）\n'
+                          '• スタッフ編集でメールアドレスの確認・修正\n'
+                          '  （登録済みの場合）',
+                          style: TextStyle(
+                            fontSize: 13,
+                            color: Colors.orange[800],
+                            height: 1.5,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
             ),
           );
         }

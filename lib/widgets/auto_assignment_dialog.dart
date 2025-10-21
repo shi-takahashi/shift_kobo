@@ -147,7 +147,7 @@ class _AutoAssignmentDialogState extends State<AutoAssignmentDialog> {
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: Text(
-                        'アクティブなシフトタイプがありません。\n設定画面でシフトタイプを有効にしてください。',
+                        'アクティブなシフトタイプがありません。\n「その他」タブのシフト時間設定でシフトタイプを有効にしてください。',
                         style: TextStyle(color: Colors.orange.shade700),
                         textAlign: TextAlign.center,
                       ),

@@ -191,7 +191,7 @@ class _StaffListScreenState extends State<StaffListScreen> {
                                   ),
                                   const SizedBox(width: 4),
                                   Text(
-                                    staff.userId != null ? 'アプリ利用中' : '未参加',
+                                    staff.userId != null ? 'アプリ利用中' : 'アプリ未登録',
                                     style: TextStyle(
                                       fontSize: 12,
                                       color: staff.userId != null

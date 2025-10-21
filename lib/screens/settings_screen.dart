@@ -8,6 +8,7 @@ import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../models/app_user.dart';
+import '../models/team.dart';
 import '../providers/monthly_requirements_provider.dart';
 import '../providers/shift_provider.dart';
 import '../providers/shift_time_provider.dart';
@@ -56,6 +57,71 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Widget build(BuildContext context) {
     return ListView(
       children: [
+        // アカウントセクション
+        const Padding(
+          padding: EdgeInsets.all(16.0),
+          child: Text(
+            'アカウント',
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ),
+
+        // 所属チーム情報
+        if (widget.appUser.teamId != null)
+          FutureBuilder<Team?>(
+            future: AuthService().getTeam(widget.appUser.teamId!),
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return const ListTile(
+                  leading: Icon(Icons.groups),
+                  title: Text('所属チーム'),
+                  subtitle: Text('読み込み中...'),
+                );
+              }
+
+              final team = snapshot.data;
+              return ListTile(
+                leading: const Icon(Icons.groups),
+                title: const Text('所属チーム'),
+                subtitle: Text(team?.name ?? '不明'),
+              );
+            },
+          ),
+
+        // チーム招待メニュー（管理者のみ）
+        if (FirebaseAuth.instance.currentUser != null && widget.appUser.isAdmin)
+          ListTile(
+            leading: const Icon(Icons.group_add),
+            title: const Text('チーム招待'),
+            subtitle: const Text('スタッフを招待する'),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: _navigateToTeamInvite,
+          ),
+
+        // ログインユーザー情報
+        if (FirebaseAuth.instance.currentUser != null)
+          ListTile(
+            leading: const Icon(Icons.account_circle),
+            title: const Text('ログイン中'),
+            subtitle: Text(FirebaseAuth.instance.currentUser!.email ?? ''),
+          ),
+
+        // ログアウトボタン
+        if (FirebaseAuth.instance.currentUser != null)
+          ListTile(
+            leading: const Icon(Icons.logout, color: Colors.red),
+            title: const Text(
+              'ログアウト',
+              style: TextStyle(color: Colors.red),
+            ),
+            onTap: _handleLogout,
+          ),
+
+        const Divider(),
+
         // 管理者のみ基本設定を表示
         if (widget.appUser.isAdmin) ...[
           const Padding(
@@ -72,6 +138,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             leading: const Icon(Icons.access_time),
             title: const Text('シフト時間設定'),
             subtitle: const Text('各シフトタイプの時間を設定'),
+            trailing: const Icon(Icons.chevron_right),
             onTap: () {
               final shiftTimeProvider = context.read<ShiftTimeProvider>();
               Navigator.of(context).push(
@@ -88,6 +155,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             leading: const Icon(Icons.calendar_today),
             title: const Text('月間シフト設定'),
             subtitle: const Text('各シフト時間の必要人数を設定'),
+            trailing: const Icon(Icons.chevron_right),
             onTap: () {
               final shiftTimeProvider = context.read<ShiftTimeProvider>();
               final monthlyRequirementsProvider = context.read<MonthlyRequirementsProvider>();
@@ -106,47 +174,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ),
           const Divider(),
         ],
-        // アカウントセクション
-        const Padding(
-          padding: EdgeInsets.all(16.0),
-          child: Text(
-            'アカウント',
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-        ),
 
-        // ログインユーザー情報
-        if (FirebaseAuth.instance.currentUser != null)
-          ListTile(
-            leading: const Icon(Icons.account_circle),
-            title: const Text('ログイン中'),
-            subtitle: Text(FirebaseAuth.instance.currentUser!.email ?? ''),
-          ),
-
-        // チーム招待メニュー（管理者のみ）
-        if (FirebaseAuth.instance.currentUser != null && widget.appUser.isAdmin)
-          ListTile(
-            leading: const Icon(Icons.group_add),
-            title: const Text('チーム招待'),
-            subtitle: const Text('スタッフを招待する'),
-            onTap: _navigateToTeamInvite,
-          ),
-
-        // ログアウトボタン
-        if (FirebaseAuth.instance.currentUser != null)
-          ListTile(
-            leading: const Icon(Icons.logout, color: Colors.red),
-            title: const Text(
-              'ログアウト',
-              style: TextStyle(color: Colors.red),
-            ),
-            onTap: _handleLogout,
-          ),
-
-        const Divider(),
         // 管理者のみデータ管理を表示
         if (widget.appUser.isAdmin) ...[
           const Padding(
@@ -177,7 +205,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         const Padding(
           padding: EdgeInsets.all(16.0),
           child: Text(
-            'その他',
+            'ヘルプ・情報',
             style: TextStyle(
               fontSize: 18,
               fontWeight: FontWeight.bold,
@@ -188,6 +216,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           leading: const Icon(Icons.help_outline),
           title: const Text('ヘルプ'),
           subtitle: const Text('使い方・よくある質問'),
+          trailing: const Icon(Icons.chevron_right),
           onTap: () {
             Navigator.of(context).push(
               MaterialPageRoute(builder: (_) => const HelpScreen()),
@@ -225,6 +254,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           leading: const Icon(Icons.privacy_tip),
           title: const Text('プライバシーポリシー'),
           subtitle: const Text('個人情報保護方針'),
+          trailing: const Icon(Icons.chevron_right),
           onTap: () {
             Navigator.of(context).push(
               MaterialPageRoute(

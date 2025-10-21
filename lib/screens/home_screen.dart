@@ -31,6 +31,7 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   int _selectedIndex = 0;
   bool _hasShownFirstTimeHelp = false;
+  bool _hasCheckedInitialTab = false; // 初期タブ選択チェック済みフラグ
 
   /// 権限に応じてタブ画面を取得
   List<Widget> get _screens {
@@ -55,9 +56,9 @@ class _HomeScreenState extends State<HomeScreen> {
   /// 権限に応じてタブタイトルを取得
   List<String> get _titles {
     if (widget.appUser.isAdmin) {
-      return ['マイページ', 'シフト', 'スタッフ', '設定'];
+      return ['マイページ', 'シフト', 'スタッフ', 'その他'];
     } else {
-      return ['マイページ', 'シフト', '設定'];
+      return ['マイページ', 'シフト', 'その他'];
     }
   }
 
@@ -78,8 +79,8 @@ class _HomeScreenState extends State<HomeScreen> {
           label: 'スタッフ',
         ),
         NavigationDestination(
-          icon: Icon(Icons.settings, size: 22),
-          label: '設定',
+          icon: Icon(Icons.more_horiz, size: 22),
+          label: 'その他',
         ),
       ];
     } else {
@@ -93,8 +94,8 @@ class _HomeScreenState extends State<HomeScreen> {
           label: 'シフト',
         ),
         NavigationDestination(
-          icon: Icon(Icons.settings, size: 22),
-          label: '設定',
+          icon: Icon(Icons.more_horiz, size: 22),
+          label: 'その他',
         ),
       ];
     }
@@ -176,6 +177,31 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
               ),
             );
+          }
+
+          // 初期タブ選択（管理者でスタッフ情報がない場合はシフトタブへ）
+          if (!_hasCheckedInitialTab) {
+            _hasCheckedInitialTab = true;
+            if (widget.appUser.isAdmin) {
+              // 管理者の場合、スタッフ情報があるか確認
+              final myUid = widget.appUser.uid;
+              final myStaff = staffProvider.staff
+                  .where((staff) =>
+                      (staff.userId != null && staff.userId == myUid) ||
+                      (staff.email != null && staff.email!.toLowerCase() == widget.appUser.email.toLowerCase()))
+                  .firstOrNull;
+
+              // スタッフ情報がない場合はシフトタブ(index: 1)を初期選択
+              if (myStaff == null) {
+                WidgetsBinding.instance.addPostFrameCallback((_) {
+                  if (mounted) {
+                    setState(() {
+                      _selectedIndex = 1; // シフトタブ
+                    });
+                  }
+                });
+              }
+            }
           }
 
           return Scaffold(
@@ -278,7 +304,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: const Text(
-                    '💡 ヒント：右上の？ボタンや設定画面からいつでも詳しいヘルプを見られます。',
+                    '💡 ヒント：右上の？ボタンや「その他」タブからいつでも詳しいヘルプを見られます。',
                     style: TextStyle(fontSize: 12, color: Colors.blue),
                   ),
                 ),

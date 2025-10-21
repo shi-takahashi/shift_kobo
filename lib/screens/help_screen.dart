@@ -90,7 +90,7 @@ class HelpScreen extends StatelessWidget {
                 _buildStepItem(
                   '1',
                   '招待コードを確認',
-                  '設定 > チーム招待 から8桁の招待コードを確認します',
+                  'その他 > チーム招待 から8桁の招待コードを確認します',
                 ),
                 _buildStepItem(
                   '2',
@@ -198,9 +198,38 @@ class HelpScreen extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  margin: const EdgeInsets.only(bottom: 16),
+                  decoration: BoxDecoration(
+                    color: Colors.blue.shade50,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.blue.shade200),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(Icons.info_outline, color: Colors.blue.shade700, size: 20),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          '管理者1人でも使えます。スタッフ招待は任意です。',
+                          style: TextStyle(
+                            fontSize: 13,
+                            color: Colors.blue.shade900,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
                 _buildHowToItem(
                   'スタッフを追加する',
                   'ホーム画面の「スタッフ」タブ > 「スタッフを追加」ボタンから登録',
+                ),
+                _buildHowToItem(
+                  'スタッフを招待する（任意）',
+                  'チームでシフトを共有したい場合は招待できます\n※ 詳しくは下の「スタッフを招待する方法」を参照',
                 ),
                 _buildHowToItem(
                   'シフトを作成する',
@@ -216,7 +245,7 @@ class HelpScreen extends StatelessWidget {
                 ),
                 _buildHowToItem(
                   'データをバックアップする',
-                  '設定 > データバックアップ > バックアップファイルを保存',
+                  'その他 > データバックアップ > バックアップファイルを保存',
                 ),
               ],
             ),
