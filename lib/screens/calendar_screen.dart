@@ -605,6 +605,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
 
     final shiftProvider = context.read<ShiftProvider>();
     final staffProvider = context.read<StaffProvider>();
+    final shiftTimeProvider = context.read<ShiftTimeProvider>();
 
     showDialog<bool>(
       context: context,
@@ -613,6 +614,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
         providers: [
           ChangeNotifierProvider<ShiftProvider>.value(value: shiftProvider),
           ChangeNotifierProvider<StaffProvider>.value(value: staffProvider),
+          ChangeNotifierProvider<ShiftTimeProvider>.value(value: shiftTimeProvider),
         ],
         child: ShiftEditDialog(selectedDate: _selectedDay!),
       ),
@@ -630,6 +632,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
   void _showEditShiftDialog(BuildContext context, Shift shift) {
     final shiftProvider = context.read<ShiftProvider>();
     final staffProvider = context.read<StaffProvider>();
+    final shiftTimeProvider = context.read<ShiftTimeProvider>();
 
     showDialog<bool>(
       context: context,
@@ -638,6 +641,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
         providers: [
           ChangeNotifierProvider<ShiftProvider>.value(value: shiftProvider),
           ChangeNotifierProvider<StaffProvider>.value(value: staffProvider),
+          ChangeNotifierProvider<ShiftTimeProvider>.value(value: shiftTimeProvider),
         ],
         child: ShiftEditDialog(
           selectedDate: shift.date,
