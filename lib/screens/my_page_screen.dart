@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:table_calendar/table_calendar.dart';
 import 'package:holiday_jp/holiday_jp.dart' as holiday_jp;
+import 'package:intl/intl.dart';
 import '../models/app_user.dart';
 import '../models/staff.dart';
 import '../models/shift.dart';
@@ -821,13 +822,23 @@ class _MyPageScreenState extends State<MyPageScreen> {
                         spacing: 8,
                         runSpacing: 8,
                         children: myStaff.specificDaysOff.map((dateStr) {
-                          final parts = dateStr.split('-');
-                          final displayText = '${parts[1]}/${parts[2]}';
-                          return Chip(
-                            label: Text(displayText),
-                            backgroundColor: Colors.red.shade50,
-                            side: BorderSide(color: Colors.red.shade300),
-                          );
+                          // ISO8601形式をパースしてyyyy/MM/dd(曜日)形式で表示
+                          try {
+                            final date = DateTime.parse(dateStr);
+                            final displayText = DateFormat('yyyy/MM/dd(E)', 'ja').format(date);
+                            return Chip(
+                              label: Text(displayText),
+                              backgroundColor: Colors.red.shade50,
+                              side: BorderSide(color: Colors.red.shade300),
+                            );
+                          } catch (e) {
+                            // パースエラー時は元の文字列を表示
+                            return Chip(
+                              label: Text(dateStr),
+                              backgroundColor: Colors.red.shade50,
+                              side: BorderSide(color: Colors.red.shade300),
+                            );
+                          }
                         }).toList(),
                       ),
                   ],

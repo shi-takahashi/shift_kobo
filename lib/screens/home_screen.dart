@@ -13,6 +13,7 @@ import '../providers/staff_provider.dart';
 import '../providers/shift_provider.dart';
 import '../providers/shift_time_provider.dart';
 import '../providers/monthly_requirements_provider.dart';
+import '../providers/constraint_request_provider.dart';
 
 class HomeScreen extends StatefulWidget {
   final AppUser appUser;
@@ -150,14 +151,18 @@ class _HomeScreenState extends State<HomeScreen> {
         ChangeNotifierProvider(create: (_) => ShiftProvider(teamId: teamId)),
         ChangeNotifierProvider(create: (_) => ShiftTimeProvider(teamId: teamId)),
         ChangeNotifierProvider(create: (_) => MonthlyRequirementsProvider(teamId: teamId)),
+        ChangeNotifierProvider(create: (_) => ConstraintRequestProvider(teamId: teamId)),
       ],
-      child: Consumer4<StaffProvider, ShiftProvider, ShiftTimeProvider, MonthlyRequirementsProvider>(
-        builder: (context, staffProvider, shiftProvider, shiftTimeProvider, monthlyProvider, child) {
-          // すべてのProviderのデータロード完了を待つ
-          final isLoading = staffProvider.isLoading ||
-              shiftProvider.isLoading ||
-              shiftTimeProvider.isLoading ||
-              monthlyProvider.isLoading;
+      child: Consumer<ConstraintRequestProvider>(
+        builder: (context, requestProvider, child) {
+          return Consumer4<StaffProvider, ShiftProvider, ShiftTimeProvider, MonthlyRequirementsProvider>(
+            builder: (context, staffProvider, shiftProvider, shiftTimeProvider, monthlyProvider, child) {
+              // すべてのProviderのデータロード完了を待つ
+              final isLoading = staffProvider.isLoading ||
+                  shiftProvider.isLoading ||
+                  shiftTimeProvider.isLoading ||
+                  monthlyProvider.isLoading ||
+                  requestProvider.isLoading;
 
           if (isLoading) {
             return Scaffold(
@@ -238,6 +243,8 @@ class _HomeScreenState extends State<HomeScreen> {
         destinations: _navigationDestinations,
         ),
         floatingActionButton: _buildFloatingActionButton(),
+          );
+            },
           );
         },
       ),
