@@ -253,40 +253,78 @@ lib/
 
 ---
 
-### Phase 3: 管理者側の承認画面
+### Phase 3: 管理者側の承認画面 ✅ 完了（バナー改善版）
 **目的**: 管理者が申請を承認/却下できるようにする
 
-- [ ] **承認画面作成** (`screens/approval/constraint_approval_screen.dart`)
+- [x] **承認画面作成** (`screens/approval/constraint_approval_screen.dart`)
   - 承認待ちの申請一覧表示
-  - 申請カードに以下を表示：
-    - スタッフ名、申請日時
-    - 申請内容（特定日/曜日/シフトタイプ）
-    - 承認・却下ボタン
+  - 申請日時の新しい順にソート
+  - 承認待ちなしの場合の空状態表示
+  - Consumer2でConstraintRequestProviderとStaffProviderを統合
 
-- [ ] **申請カードウィジェット作成** (`widgets/constraint_request_card.dart`)
+- [x] **申請カードウィジェット作成** (`widgets/constraint_request_card.dart`)
   - 再利用可能なカード形式コンポーネント
+  - スタッフ名、申請日時、申請内容を表示
+  - 申請タイプ別のアイコン表示
+  - 承認・却下ボタン
 
-- [ ] **承認・却下処理実装**
+- [x] **承認・却下処理実装**
   - **承認時**:
-    1. ConstraintRequestのステータスを"approved"に更新
-    2. Staffデータに反映（preferredDaysOff等を更新）
-    3. 承認者情報・承認日時を記録
+    1. ConstraintRequestProviderのapproveRequestを呼び出し
+    2. ConstraintRequestのステータスを"approved"に更新
+    3. Staffデータに反映（preferredDaysOff等を更新）
+    4. 承認者情報・承認日時を記録
+    5. 成功メッセージ表示
 
   - **却下時**:
     1. 却下理由入力ダイアログ表示
-    2. ConstraintRequestのステータスを"rejected"に更新
-    3. 却下理由を記録
-    4. Staffデータには反映しない
+    2. 却下理由の入力必須チェック
+    3. ConstraintRequestProviderのrejectRequestを呼び出し
+    4. ConstraintRequestのステータスを"rejected"に更新
+    5. 却下理由を記録
+    6. Staffデータには反映しない
+    7. 却下メッセージ表示
 
-- [ ] **設定画面にメニュー追加**
-  - 「休み希望承認」項目を追加（管理者のみ表示）
-  - 承認待ち件数のバッジ表示
+- [x] **UI配置の改善（ユーザーフィードバック対応）**
+  - **当初計画**: 「その他」タブに承認メニュー → 「重要機能が埋もれる」と指摘
+  - **第1案**: スタッフタブに承認待ちセクション統合 → 「スタッフ一覧が圧迫される」「レイアウト崩れ」と指摘
+  - **最終判断**: コンパクトなバナー＋タップで専用画面に遷移
 
-- [ ] **動作確認**:
-  - 承認画面が表示されるか（管理者のみ）
-  - 承認処理が正しく動作するか
-  - 却下処理が正しく動作するか
-  - スタッフ側で結果が確認できるか
+- [x] **承認待ちバナー実装** (`screens/staff_list_screen.dart`)
+  - オレンジ背景の目立つバナー（Colors.orange.shade50）
+  - 左：承認アイコン、中央：「承認待ち (X件)」＋「タップして確認」、右：右矢印
+  - InkWellでタップ可能、リップルエフェクト付き
+  - タップでConstraintApprovalScreenに遷移
+  - 承認待ちがない場合は非表示（SizedBox.shrink）
+  - Consumer<ConstraintRequestProvider>でリアルタイム更新
+
+- [x] **スタッフタブにバッジ追加** (`screens/home_screen.dart`)
+  - 承認待ち件数をリアルタイム表示（Badge widget使用）
+  - _navigationDestinationsをメソッド化（動的バッジ生成）
+  - Badge(isLabelVisible: pendingCount > 0)で件数0時は非表示
+
+- [x] **動作確認**:
+  - flutter analyze実行（エラーなし）
+  - ビルド成功確認
+  - レイアウト崩れなし確認
+
+- [x] **エラー修正**:
+  - Providerスコープエラー（ConstraintApprovalScreen遷移時）
+    - Navigator.pushでProviderスコープ外になる問題
+    - MultiProvider + Provider.valueでProviderを引き継ぐ修正
+    - 対象: staff_list_screen.dartのバナータップ処理
+
+**完了日**: 2025-10-22（バナー改善版＋エラー修正）
+
+**Phase 3 完了のポイント（バナー改善版）：**
+- スタッフ一覧が圧迫されず、ファーストビューで複数のスタッフが表示可能
+- 承認待ちバナーはコンパクトで目立つ（オレンジ背景）
+- バッジ（タブ）＋バナー（画面内）の2箇所で承認待ちを通知
+- ワンアクション（タップ）で承認専用画面に遷移
+- 承認待ちがない場合は完全に非表示（スタッフ一覧のみ表示）
+- 承認・却下処理が実装され、Staffデータへの反映も自動化
+- 承認待ち件数がリアルタイムで表示される
+- 却下時は理由入力が必須
 
 ---
 

@@ -41,7 +41,7 @@ class _HomeScreenState extends State<HomeScreen> {
       return [
         MyPageScreen(appUser: widget.appUser),
         CalendarScreen(appUser: widget.appUser),
-        const StaffListScreen(),
+        StaffListScreen(appUser: widget.appUser),
         SettingsScreen(appUser: widget.appUser),
       ];
     } else {
@@ -64,22 +64,26 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   /// 権限に応じてナビゲーション項目を取得
-  List<NavigationDestination> get _navigationDestinations {
+  List<NavigationDestination> _navigationDestinations(int pendingCount) {
     if (widget.appUser.isAdmin) {
-      return const [
-        NavigationDestination(
+      return [
+        const NavigationDestination(
           icon: Icon(Icons.person, size: 22),
           label: 'マイページ',
         ),
-        NavigationDestination(
+        const NavigationDestination(
           icon: Icon(Icons.calendar_month, size: 22),
           label: 'シフト',
         ),
         NavigationDestination(
-          icon: Icon(Icons.people, size: 22),
+          icon: Badge(
+            label: Text('$pendingCount'),
+            isLabelVisible: pendingCount > 0,
+            child: const Icon(Icons.people, size: 22),
+          ),
           label: 'スタッフ',
         ),
-        NavigationDestination(
+        const NavigationDestination(
           icon: Icon(Icons.more_horiz, size: 22),
           label: 'その他',
         ),
@@ -240,7 +244,7 @@ class _HomeScreenState extends State<HomeScreen> {
           });
         },
         selectedIndex: _selectedIndex,
-        destinations: _navigationDestinations,
+        destinations: _navigationDestinations(requestProvider.pendingRequests.length),
         ),
         floatingActionButton: _buildFloatingActionButton(),
           );

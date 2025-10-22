@@ -26,6 +26,9 @@ class ConstraintRequest {
   /// 申請ステータス（"pending" | "approved" | "rejected"）
   final String status;
 
+  /// 削除申請フラグ（true: 削除申請、false: 追加申請）
+  final bool isDelete;
+
   /// 承認者のユーザーID（AppUser.uid）
   final String? approvedBy;
 
@@ -60,6 +63,7 @@ class ConstraintRequest {
     this.weekday,
     this.shiftType,
     required this.status,
+    this.isDelete = false,
     this.approvedBy,
     this.approvedAt,
     this.rejectedReason,
@@ -79,6 +83,7 @@ class ConstraintRequest {
       'weekday': weekday,
       'shiftType': shiftType,
       'status': status,
+      'isDelete': isDelete,
       'approvedBy': approvedBy,
       'approvedAt': approvedAt?.toIso8601String(),
       'rejectedReason': rejectedReason,
@@ -100,6 +105,7 @@ class ConstraintRequest {
       weekday: json['weekday'] as int?,
       shiftType: json['shiftType'] as String?,
       status: json['status'] as String,
+      isDelete: json['isDelete'] as bool? ?? false,
       approvedBy: json['approvedBy'] as String?,
       approvedAt: json['approvedAt'] != null
           ? DateTime.parse(json['approvedAt'] as String)
@@ -120,6 +126,7 @@ class ConstraintRequest {
     int? weekday,
     String? shiftType,
     String? status,
+    bool? isDelete,
     String? approvedBy,
     DateTime? approvedAt,
     String? rejectedReason,
@@ -135,6 +142,7 @@ class ConstraintRequest {
       weekday: weekday ?? this.weekday,
       shiftType: shiftType ?? this.shiftType,
       status: status ?? this.status,
+      isDelete: isDelete ?? this.isDelete,
       approvedBy: approvedBy ?? this.approvedBy,
       approvedAt: approvedAt ?? this.approvedAt,
       rejectedReason: rejectedReason ?? this.rejectedReason,
@@ -145,6 +153,6 @@ class ConstraintRequest {
 
   @override
   String toString() {
-    return 'ConstraintRequest(id: $id, staffId: $staffId, requestType: $requestType, status: $status)';
+    return 'ConstraintRequest(id: $id, staffId: $staffId, requestType: $requestType, status: $status, isDelete: $isDelete)';
   }
 }

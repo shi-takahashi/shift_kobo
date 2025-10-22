@@ -2,11 +2,19 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/staff_provider.dart';
 import '../providers/shift_time_provider.dart';
+import '../providers/constraint_request_provider.dart';
 import '../models/staff.dart';
+import '../models/app_user.dart';
 import '../widgets/staff_edit_dialog.dart';
+import 'approval/constraint_approval_screen.dart';
 
 class StaffListScreen extends StatefulWidget {
-  const StaffListScreen({super.key});
+  final AppUser appUser;
+
+  const StaffListScreen({
+    super.key,
+    required this.appUser,
+  });
 
   @override
   State<StaffListScreen> createState() => _StaffListScreenState();
@@ -83,6 +91,82 @@ class _StaffListScreenState extends State<StaffListScreen> {
               });
             },
           ),
+        ),
+        // 承認待ちバナー
+        Consumer<ConstraintRequestProvider>(
+          builder: (context, requestProvider, child) {
+            final pendingCount = requestProvider.pendingRequests.length;
+
+            if (pendingCount == 0) {
+              return const SizedBox.shrink();
+            }
+
+            return Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+              child: Material(
+                color: Colors.orange.shade50,
+                borderRadius: BorderRadius.circular(8),
+                child: InkWell(
+                  onTap: () {
+                    final constraintRequestProvider = context.read<ConstraintRequestProvider>();
+                    final staffProvider = context.read<StaffProvider>();
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (newContext) => MultiProvider(
+                          providers: [
+                            ChangeNotifierProvider<ConstraintRequestProvider>.value(value: constraintRequestProvider),
+                            ChangeNotifierProvider<StaffProvider>.value(value: staffProvider),
+                          ],
+                          child: ConstraintApprovalScreen(appUser: widget.appUser),
+                        ),
+                      ),
+                    );
+                  },
+                  borderRadius: BorderRadius.circular(8),
+                  child: Container(
+                    padding: const EdgeInsets.all(12),
+                    child: Row(
+                      children: [
+                        Icon(
+                          Icons.approval,
+                          color: Colors.orange.shade700,
+                          size: 24,
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                '承認待ち ($pendingCount件)',
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.orange.shade900,
+                                ),
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                'タップして確認',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: Colors.orange.shade700,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        Icon(
+                          Icons.chevron_right,
+                          color: Colors.orange.shade700,
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            );
+          },
         ),
         Expanded(
           child: Padding(
