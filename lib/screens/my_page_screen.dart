@@ -3,13 +3,16 @@ import 'package:provider/provider.dart';
 import 'package:table_calendar/table_calendar.dart';
 import 'package:holiday_jp/holiday_jp.dart' as holiday_jp;
 import 'package:intl/intl.dart';
+import 'package:uuid/uuid.dart';
 import '../models/app_user.dart';
 import '../models/staff.dart';
 import '../models/shift.dart';
 import '../models/shift_time_setting.dart';
+import '../models/constraint_request.dart';
 import '../providers/staff_provider.dart';
 import '../providers/shift_provider.dart';
 import '../providers/shift_time_provider.dart';
+import '../providers/constraint_request_provider.dart';
 import '../models/shift_type.dart' as old_shift_type;
 import '../utils/japanese_calendar_utils.dart';
 
@@ -142,6 +145,74 @@ class _MyPageScreenState extends State<MyPageScreen> {
     return upcomingShifts;
   }
 
+  /// 曜日の申請状態を取得
+  ConstraintRequest? _getWeekdayRequest(int weekday, List<ConstraintRequest> requests) {
+    return requests
+        .where((r) =>
+            r.requestType == ConstraintRequest.typeWeekday &&
+            r.weekday == weekday)
+        .firstOrNull;
+  }
+
+  /// 特定日の申請状態を取得
+  ConstraintRequest? _getSpecificDayRequest(DateTime date, List<ConstraintRequest> requests) {
+    return requests
+        .where((r) =>
+            r.requestType == ConstraintRequest.typeSpecificDay &&
+            r.specificDate != null &&
+            r.specificDate!.year == date.year &&
+            r.specificDate!.month == date.month &&
+            r.specificDate!.day == date.day)
+        .firstOrNull;
+  }
+
+  /// シフトタイプの申請状態を取得
+  ConstraintRequest? _getShiftTypeRequest(String shiftType, List<ConstraintRequest> requests) {
+    return requests
+        .where((r) =>
+            r.requestType == ConstraintRequest.typeShiftType &&
+            r.shiftType == shiftType)
+        .firstOrNull;
+  }
+
+  /// 申請状態バッジを表示（スタッフのみ、管理者は表示しない）
+  Widget? _buildStatusBadge(ConstraintRequest? request) {
+    // 管理者の場合はバッジを表示しない（即時反映のため）
+    if (widget.appUser.isAdmin) {
+      return null;
+    }
+
+    // スタッフの場合
+    if (request == null) {
+      // 申請なし = バッジなし（承認済みデータはStaffに保存されている）
+      return null;
+    }
+
+    // 申請あり
+    if (request.status == ConstraintRequest.statusPending) {
+      // 承認待ち
+      return const Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          SizedBox(width: 4),
+          Icon(Icons.schedule, size: 14, color: Colors.orange),
+        ],
+      );
+    } else if (request.status == ConstraintRequest.statusRejected) {
+      // 却下
+      return const Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          SizedBox(width: 4),
+          Icon(Icons.cancel, size: 14, color: Colors.grey),
+        ],
+      );
+    }
+
+    // 承認済み（approved）の場合はStaffデータに反映されているはずなのでバッジなし
+    return null;
+  }
+
   /// 直近のシフトを取得（今日 + 次の勤務予定）
   List<Shift> _getImmediateShifts(ShiftProvider shiftProvider, Staff? myStaff) {
     if (myStaff == null) {
@@ -204,10 +275,15 @@ class _MyPageScreenState extends State<MyPageScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Consumer3<StaffProvider, ShiftProvider, ShiftTimeProvider>(
-      builder: (context, staffProvider, shiftProvider, shiftTimeProvider, child) {
+    return Consumer4<StaffProvider, ShiftProvider, ShiftTimeProvider, ConstraintRequestProvider>(
+      builder: (context, staffProvider, shiftProvider, shiftTimeProvider, requestProvider, child) {
         final myStaff = _getMyStaff(staffProvider);
         final immediateShifts = _getImmediateShifts(shiftProvider, myStaff);
+
+        // 自分の申請を取得
+        final myRequests = myStaff != null
+            ? requestProvider.getRequestsByStaffId(myStaff.id)
+            : <ConstraintRequest>[];
 
         if (myStaff == null) {
           // 管理者の場合
@@ -803,44 +879,77 @@ class _MyPageScreenState extends State<MyPageScreen> {
                         ),
                         IconButton(
                           icon: const Icon(Icons.edit),
-                          onPressed: () => _showEditConstraintsDialog(myStaff, shiftTimeProvider),
+                          onPressed: () => _showEditConstraintsDialog(myStaff, shiftTimeProvider, myRequests),
                           tooltip: '編集',
                         ),
                       ],
                     ),
                     const SizedBox(height: 12),
-                    if (myStaff.specificDaysOff.isEmpty)
-                      const Padding(
-                        padding: EdgeInsets.all(8),
-                        child: Text(
-                          '特定日の休み希望はありません\n右上の編集ボタンから追加できます',
-                          style: TextStyle(color: Colors.grey),
-                        ),
-                      )
-                    else
-                      Wrap(
+                    () {
+                      // 今月の初日を計算
+                      final now = DateTime.now();
+                      final firstDayOfCurrentMonth = DateTime(now.year, now.month, 1);
+
+                      // Staffデータの特定日（承認済み、今月以降のみ）
+                      final approvedDates = myStaff.specificDaysOff.map((dateStr) {
+                        try {
+                          return DateTime.parse(dateStr);
+                        } catch (e) {
+                          return null;
+                        }
+                      }).whereType<DateTime>()
+                          .where((date) => date.isAfter(firstDayOfCurrentMonth.subtract(const Duration(days: 1))))
+                          .toList();
+
+                      // 承認待ち・却下の特定日申請（今月以降のみ）
+                      final pendingRequests = myRequests
+                          .where((r) =>
+                              r.requestType == ConstraintRequest.typeSpecificDay &&
+                              r.specificDate != null &&
+                              r.specificDate!.isAfter(firstDayOfCurrentMonth.subtract(const Duration(days: 1))) &&
+                              (r.status == ConstraintRequest.statusPending ||
+                                  r.status == ConstraintRequest.statusRejected))
+                          .toList();
+
+                      // マージしてユニークな日付リストを作成
+                      final allDates = <DateTime>{};
+                      allDates.addAll(approvedDates);
+                      allDates.addAll(pendingRequests.map((r) => r.specificDate!));
+
+                      // 日付順にソート
+                      final sortedDates = allDates.toList()..sort();
+
+                      if (sortedDates.isEmpty) {
+                        return const Padding(
+                          padding: EdgeInsets.all(8),
+                          child: Text(
+                            '特定日の休み希望はありません\n右上の編集ボタンから追加できます',
+                            style: TextStyle(color: Colors.grey),
+                          ),
+                        );
+                      }
+
+                      return Wrap(
                         spacing: 8,
                         runSpacing: 8,
-                        children: myStaff.specificDaysOff.map((dateStr) {
-                          // ISO8601形式をパースしてyyyy/MM/dd(曜日)形式で表示
-                          try {
-                            final date = DateTime.parse(dateStr);
-                            final displayText = DateFormat('yyyy/MM/dd(E)', 'ja').format(date);
-                            return Chip(
-                              label: Text(displayText),
-                              backgroundColor: Colors.red.shade50,
-                              side: BorderSide(color: Colors.red.shade300),
-                            );
-                          } catch (e) {
-                            // パースエラー時は元の文字列を表示
-                            return Chip(
-                              label: Text(dateStr),
-                              backgroundColor: Colors.red.shade50,
-                              side: BorderSide(color: Colors.red.shade300),
-                            );
-                          }
+                        children: sortedDates.map((date) {
+                          final displayText = DateFormat('yyyy/MM/dd(E)', 'ja').format(date);
+                          final request = _getSpecificDayRequest(date, myRequests);
+                          return Chip(
+                            label: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text(displayText),
+                                if (_buildStatusBadge(request) != null)
+                                  _buildStatusBadge(request)!,
+                              ],
+                            ),
+                            backgroundColor: Colors.red.shade50,
+                            side: BorderSide(color: Colors.red.shade300),
+                          );
                         }).toList(),
-                      ),
+                      );
+                    }(),
                   ],
                 ),
               ),
@@ -872,7 +981,7 @@ class _MyPageScreenState extends State<MyPageScreen> {
                         ),
                         IconButton(
                           icon: const Icon(Icons.edit),
-                          onPressed: () => _showEditConstraintsDialog(myStaff, shiftTimeProvider),
+                          onPressed: () => _showEditConstraintsDialog(myStaff, shiftTimeProvider, myRequests),
                           tooltip: '編集',
                         ),
                       ],
@@ -890,12 +999,31 @@ class _MyPageScreenState extends State<MyPageScreen> {
                     ),
                     const SizedBox(height: 8),
                     () {
-                      // 1-7の範囲内の値のみ表示
-                      final validDays = myStaff.preferredDaysOff
+                      // Staffデータの曜日（承認済み、1-7の範囲内）
+                      final approvedDays = myStaff.preferredDaysOff
                           .where((dayNumber) => dayNumber >= 1 && dayNumber <= 7)
+                          .toSet();
+
+                      // 承認待ち・却下の曜日申請
+                      final pendingRequests = myRequests
+                          .where((r) =>
+                              r.requestType == ConstraintRequest.typeWeekday &&
+                              r.weekday != null &&
+                              r.weekday! >= 1 &&
+                              r.weekday! <= 7 &&
+                              (r.status == ConstraintRequest.statusPending ||
+                                  r.status == ConstraintRequest.statusRejected))
                           .toList();
 
-                      if (validDays.isEmpty) {
+                      // マージしてユニークな曜日リストを作成
+                      final allDays = <int>{};
+                      allDays.addAll(approvedDays);
+                      allDays.addAll(pendingRequests.map((r) => r.weekday!));
+
+                      // 曜日順にソート
+                      final sortedDays = allDays.toList()..sort();
+
+                      if (sortedDays.isEmpty) {
                         return const Text(
                           'なし',
                           style: TextStyle(color: Colors.grey),
@@ -905,17 +1033,24 @@ class _MyPageScreenState extends State<MyPageScreen> {
                       return Wrap(
                         spacing: 8,
                         runSpacing: 8,
-                        children: validDays.map((dayNumber) {
+                        children: sortedDays.map((dayNumber) {
                           final dayNames = ['月', '火', '水', '木', '金', '土', '日'];
-                          // dayNumberは1-7なので、配列アクセス用に0-6に変換
                           final dayName = dayNames[dayNumber - 1];
+                          final request = _getWeekdayRequest(dayNumber, myRequests);
                           return SizedBox(
-                            width: 80, // 全てのチップを同じ幅に統一
+                            width: 80, // 固定幅
                             child: Chip(
                               label: Center(
-                                child: Text(
-                                  dayName,
-                                  style: const TextStyle(fontSize: 12),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Text(
+                                      dayName,
+                                      style: const TextStyle(fontSize: 12),
+                                    ),
+                                    if (_buildStatusBadge(request) != null)
+                                      _buildStatusBadge(request)!,
+                                  ],
                                 ),
                               ),
                               backgroundColor: Colors.blue.withOpacity(0.1),
@@ -938,33 +1073,65 @@ class _MyPageScreenState extends State<MyPageScreen> {
                       ),
                     ),
                     const SizedBox(height: 8),
-                    if (myStaff.unavailableShiftTypes.isEmpty)
-                      const Text(
-                        'なし',
-                        style: TextStyle(color: Colors.grey),
-                      )
-                    else
-                      Wrap(
+                    () {
+                      // Staffデータのシフトタイプ（承認済み）
+                      final approvedTypes = myStaff.unavailableShiftTypes.toSet();
+
+                      // 承認待ち・却下のシフトタイプ申請
+                      final pendingRequests = myRequests
+                          .where((r) =>
+                              r.requestType == ConstraintRequest.typeShiftType &&
+                              r.shiftType != null &&
+                              (r.status == ConstraintRequest.statusPending ||
+                                  r.status == ConstraintRequest.statusRejected))
+                          .toList();
+
+                      // マージしてユニークなシフトタイプリストを作成
+                      final allTypes = <String>{};
+                      allTypes.addAll(approvedTypes);
+                      allTypes.addAll(pendingRequests.map((r) => r.shiftType!));
+
+                      if (allTypes.isEmpty) {
+                        return const Text(
+                          'なし',
+                          style: TextStyle(color: Colors.grey),
+                        );
+                      }
+
+                      // 時間順にソート（shiftTimeProviderのsettings順序に従う）
+                      final sortedTypes = <String>[];
+                      for (final setting in shiftTimeProvider.settings) {
+                        if (setting.isActive && allTypes.contains(setting.displayName)) {
+                          sortedTypes.add(setting.displayName);
+                        }
+                      }
+
+                      return Wrap(
                         spacing: 8,
                         runSpacing: 8,
-                        children: myStaff.unavailableShiftTypes.map((shiftTypeName) {
+                        children: sortedTypes.map((shiftTypeName) {
                           final color = _getShiftTypeColor(shiftTypeName, shiftTimeProvider);
-                          return SizedBox(
-                            width: 100, // 固定幅
-                            child: Chip(
-                              label: Center(
-                                child: Text(
+                          final request = _getShiftTypeRequest(shiftTypeName, myRequests);
+                          return Chip(
+                            label: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text(
                                   shiftTypeName,
                                   style: const TextStyle(fontSize: 12),
-                                  overflow: TextOverflow.ellipsis,
                                 ),
-                              ),
-                              backgroundColor: color.withOpacity(0.1),
-                              side: BorderSide(color: color, width: 1),
+                                if (_buildStatusBadge(request) != null) ...[
+                                  const SizedBox(width: 4),
+                                  _buildStatusBadge(request)!,
+                                ],
+                              ],
                             ),
+                            backgroundColor: color.withOpacity(0.1),
+                            side: BorderSide(color: color, width: 1),
                           );
                         }).toList(),
-                      ),
+                      );
+                    }(),
                   ],
                 ),
               ),
@@ -976,12 +1143,15 @@ class _MyPageScreenState extends State<MyPageScreen> {
   }
 
   /// 休み希望・制約編集ダイアログ
-  void _showEditConstraintsDialog(Staff myStaff, ShiftTimeProvider shiftTimeProvider) {
-    final selectedDays = List<int>.from(myStaff.preferredDaysOff);
-    final selectedShiftTypes = List<String>.from(myStaff.unavailableShiftTypes);
-
-    // ISO8601文字列からDateTimeに変換（スタッフ編集と同じ処理）
-    final selectedSpecificDays = myStaff.specificDaysOff
+  void _showEditConstraintsDialog(
+    Staff myStaff,
+    ShiftTimeProvider shiftTimeProvider,
+    List<ConstraintRequest> myRequests,
+  ) {
+    // Staffデータ（承認済み）を初期値として取得
+    final approvedDays = List<int>.from(myStaff.preferredDaysOff);
+    final approvedShiftTypes = List<String>.from(myStaff.unavailableShiftTypes);
+    final approvedSpecificDays = myStaff.specificDaysOff
         .map((dateStr) {
           try {
             final parsed = DateTime.parse(dateStr);
@@ -997,6 +1167,41 @@ class _MyPageScreenState extends State<MyPageScreen> {
           }
         })
         .toList();
+
+    // 承認待ち・却下の申請も含める
+    final selectedDays = approvedDays.toSet();
+    final selectedShiftTypes = approvedShiftTypes.toSet();
+    final selectedSpecificDays = approvedSpecificDays.toSet();
+
+    // 承認待ち・却下の曜日申請を追加
+    for (final request in myRequests) {
+      if (request.requestType == ConstraintRequest.typeWeekday &&
+          request.weekday != null &&
+          (request.status == ConstraintRequest.statusPending ||
+              request.status == ConstraintRequest.statusRejected)) {
+        selectedDays.add(request.weekday!);
+      }
+    }
+
+    // 承認待ち・却下のシフトタイプ申請を追加
+    for (final request in myRequests) {
+      if (request.requestType == ConstraintRequest.typeShiftType &&
+          request.shiftType != null &&
+          (request.status == ConstraintRequest.statusPending ||
+              request.status == ConstraintRequest.statusRejected)) {
+        selectedShiftTypes.add(request.shiftType!);
+      }
+    }
+
+    // 承認待ち・却下の特定日申請を追加
+    for (final request in myRequests) {
+      if (request.requestType == ConstraintRequest.typeSpecificDay &&
+          request.specificDate != null &&
+          (request.status == ConstraintRequest.statusPending ||
+              request.status == ConstraintRequest.statusRejected)) {
+        selectedSpecificDays.add(request.specificDate!);
+      }
+    }
 
     // 外側のcontextを保存
     final outerContext = context;
@@ -1041,7 +1246,7 @@ class _MyPageScreenState extends State<MyPageScreen> {
                                     d.month == selectedDate.month &&
                                     d.day == selectedDate.day)) {
                                   selectedSpecificDays.add(selectedDate);
-                                  selectedSpecificDays.sort((a, b) => a.compareTo(b));
+                                  // Set doesn't need sorting - will sort when converting to List
                                 }
                               });
                             }
@@ -1057,15 +1262,11 @@ class _MyPageScreenState extends State<MyPageScreen> {
                       final now = DateTime.now();
                       final firstDayOfCurrentMonth = DateTime(now.year, now.month, 1);
 
-                      // 今月以降の休み希望日のみ表示
+                      // 今月以降の休み希望日のみ表示（日付順にソート）
                       final visibleDays = selectedSpecificDays
                           .where((date) => date.isAfter(firstDayOfCurrentMonth.subtract(const Duration(days: 1))))
-                          .toList();
-
-                      // 過去の休み希望日の件数
-                      final pastCount = selectedSpecificDays
-                          .where((date) => date.isBefore(firstDayOfCurrentMonth))
-                          .length;
+                          .toList()
+                          ..sort((a, b) => a.compareTo(b));
 
                       if (visibleDays.isEmpty) {
                         return const Padding(
@@ -1077,41 +1278,26 @@ class _MyPageScreenState extends State<MyPageScreen> {
                         );
                       }
 
-                      return Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Wrap(
-                            spacing: 8,
-                            runSpacing: 8,
-                            children: visibleDays.map((date) {
-                              final displayText = '${date.month}/${date.day}';
-                              return Chip(
-                                label: Text(displayText),
-                                deleteIcon: const Icon(Icons.close, size: 18),
-                                onDeleted: () {
-                                  setDialogState(() {
-                                    selectedSpecificDays.removeWhere((d) =>
-                                        d.year == date.year &&
-                                        d.month == date.month &&
-                                        d.day == date.day);
-                                  });
-                                },
-                                backgroundColor: Colors.red.shade50,
-                                side: BorderSide(color: Colors.red.shade300),
-                              );
-                            }).toList(),
-                          ),
-                          if (pastCount > 0) ...[
-                            const SizedBox(height: 8),
-                            Text(
-                              '過去の休み希望: $pastCount件（非表示）',
-                              style: const TextStyle(
-                                fontSize: 12,
-                                color: Colors.grey,
-                              ),
-                            ),
-                          ],
-                        ],
+                      return Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: visibleDays.map((date) {
+                          final displayText = '${date.month}/${date.day}';
+                          return Chip(
+                            label: Text(displayText),
+                            deleteIcon: const Icon(Icons.close, size: 18),
+                            onDeleted: () {
+                              setDialogState(() {
+                                selectedSpecificDays.removeWhere((d) =>
+                                    d.year == date.year &&
+                                    d.month == date.month &&
+                                    d.day == date.day);
+                              });
+                            },
+                            backgroundColor: Colors.red.shade50,
+                            side: BorderSide(color: Colors.red.shade300),
+                          );
+                        }).toList(),
                       );
                     }(),
 
@@ -1217,37 +1403,27 @@ class _MyPageScreenState extends State<MyPageScreen> {
                 ),
                 FilledButton(
                   onPressed: () async {
-                    // DateTimeのリストをISO8601文字列のリストに変換（スタッフ編集と同じ形式）
-                    final specificDaysOffStrings = selectedSpecificDays
-                        .map((date) => DateTime(date.year, date.month, date.day).toIso8601String())
-                        .toList();
-
-                    // Firestore更新（外側のcontextを使用）
-                    final staffProvider = outerContext.read<StaffProvider>();
-                    final updatedStaff = Staff(
-                      id: myStaff.id,
-                      name: myStaff.name,
-                      phoneNumber: myStaff.phoneNumber,
-                      email: myStaff.email,
-                      maxShiftsPerMonth: myStaff.maxShiftsPerMonth,
-                      preferredDaysOff: List.from(selectedDays), // Listコピー
-                      isActive: myStaff.isActive,
-                      createdAt: myStaff.createdAt,
-                      updatedAt: DateTime.now(),
-                      constraints: myStaff.constraints,
-                      unavailableShiftTypes: List.from(selectedShiftTypes), // Listコピー
-                      specificDaysOff: specificDaysOffStrings, // ISO8601形式
-                      userId: myStaff.userId,
-                    );
-
-                    await staffProvider.updateStaff(updatedStaff);
-
-                    if (outerContext.mounted) {
-                      Navigator.pop(dialogContext);
-                      // UI更新（外側のsetStateを使用）
-                      if (mounted) {
-                        setState(() {});
-                      }
+                    // 管理者かスタッフかで処理を分岐
+                    if (widget.appUser.isAdmin) {
+                      // 【管理者】即時反映（従来通り）
+                      await _saveAsAdmin(
+                        outerContext,
+                        dialogContext,
+                        myStaff,
+                        selectedDays.toList(),
+                        (selectedSpecificDays.toList()..sort((a, b) => a.compareTo(b))),
+                        selectedShiftTypes.toList(),
+                      );
+                    } else {
+                      // 【スタッフ】申請作成
+                      await _saveAsStaff(
+                        outerContext,
+                        dialogContext,
+                        myStaff,
+                        selectedDays.toList(),
+                        (selectedSpecificDays.toList()..sort((a, b) => a.compareTo(b))),
+                        selectedShiftTypes.toList(),
+                      );
                     }
                   },
                   child: const Text('保存'),
@@ -1258,5 +1434,150 @@ class _MyPageScreenState extends State<MyPageScreen> {
         );
       },
     );
+  }
+
+  /// 【管理者】即時反映（従来通り）
+  Future<void> _saveAsAdmin(
+    BuildContext outerContext,
+    BuildContext dialogContext,
+    Staff myStaff,
+    List<int> selectedDays,
+    List<DateTime> selectedSpecificDays,
+    List<String> selectedShiftTypes,
+  ) async {
+    // DateTimeのリストをISO8601文字列のリストに変換
+    final specificDaysOffStrings = selectedSpecificDays
+        .map((date) => DateTime(date.year, date.month, date.day).toIso8601String())
+        .toList();
+
+    // Firestore更新（外側のcontextを使用）
+    final staffProvider = outerContext.read<StaffProvider>();
+    final updatedStaff = Staff(
+      id: myStaff.id,
+      name: myStaff.name,
+      phoneNumber: myStaff.phoneNumber,
+      email: myStaff.email,
+      maxShiftsPerMonth: myStaff.maxShiftsPerMonth,
+      preferredDaysOff: List.from(selectedDays),
+      isActive: myStaff.isActive,
+      createdAt: myStaff.createdAt,
+      updatedAt: DateTime.now(),
+      constraints: myStaff.constraints,
+      unavailableShiftTypes: List.from(selectedShiftTypes),
+      specificDaysOff: specificDaysOffStrings,
+      userId: myStaff.userId,
+    );
+
+    await staffProvider.updateStaff(updatedStaff);
+
+    if (outerContext.mounted) {
+      Navigator.pop(dialogContext);
+      if (mounted) {
+        setState(() {});
+      }
+    }
+  }
+
+  /// 【スタッフ】申請作成
+  Future<void> _saveAsStaff(
+    BuildContext outerContext,
+    BuildContext dialogContext,
+    Staff myStaff,
+    List<int> selectedDays,
+    List<DateTime> selectedSpecificDays,
+    List<String> selectedShiftTypes,
+  ) async {
+    final requestProvider = outerContext.read<ConstraintRequestProvider>();
+    final uuid = const Uuid();
+
+    // 既存の制約を取得（承認済みのデータ）
+    final existingDays = myStaff.preferredDaysOff;
+    final existingSpecificDays = myStaff.specificDaysOff
+        .map((dateStr) => DateTime.parse(dateStr))
+        .toList();
+    final existingShiftTypes = myStaff.unavailableShiftTypes;
+
+    // 【重要】既存のpending/rejected申請をすべて削除してから、新しい内容で再作成
+    final myRequests = requestProvider.getRequestsByUserId(widget.appUser.uid);
+    for (final request in myRequests) {
+      if (request.status == ConstraintRequest.statusPending ||
+          request.status == ConstraintRequest.statusRejected) {
+        await requestProvider.deleteRequest(request.id);
+      }
+    }
+
+    // 編集後の内容で新規申請を作成（既存のStaffデータと重複しないものだけ）
+    int newRequestCount = 0;
+
+    // 1. 曜日の休み希望
+    for (final day in selectedDays) {
+      if (!existingDays.contains(day)) {
+        final request = ConstraintRequest(
+          id: uuid.v4(),
+          staffId: myStaff.id,
+          userId: widget.appUser.uid,
+          requestType: ConstraintRequest.typeWeekday,
+          weekday: day,
+          status: ConstraintRequest.statusPending,
+        );
+        await requestProvider.createRequest(request);
+        newRequestCount++;
+      }
+    }
+
+    // 2. 特定日の休み希望
+    for (final date in selectedSpecificDays) {
+      final normalizedDate = DateTime(date.year, date.month, date.day);
+      final isNew = !existingSpecificDays.any((existing) =>
+          existing.year == normalizedDate.year &&
+          existing.month == normalizedDate.month &&
+          existing.day == normalizedDate.day);
+
+      if (isNew) {
+        final request = ConstraintRequest(
+          id: uuid.v4(),
+          staffId: myStaff.id,
+          userId: widget.appUser.uid,
+          requestType: ConstraintRequest.typeSpecificDay,
+          specificDate: normalizedDate,
+          status: ConstraintRequest.statusPending,
+        );
+        await requestProvider.createRequest(request);
+        newRequestCount++;
+      }
+    }
+
+    // 3. シフトタイプの勤務不可
+    for (final shiftType in selectedShiftTypes) {
+      if (!existingShiftTypes.contains(shiftType)) {
+        final request = ConstraintRequest(
+          id: uuid.v4(),
+          staffId: myStaff.id,
+          userId: widget.appUser.uid,
+          requestType: ConstraintRequest.typeShiftType,
+          shiftType: shiftType,
+          status: ConstraintRequest.statusPending,
+        );
+        await requestProvider.createRequest(request);
+        newRequestCount++;
+      }
+    }
+
+    if (outerContext.mounted) {
+      Navigator.pop(dialogContext);
+      if (mounted) {
+        setState(() {});
+      }
+      // メッセージの内容を申請件数によって変更
+      final message = newRequestCount > 0
+          ? '休み希望を申請しました。管理者の承認をお待ちください。'
+          : '変更を保存しました。';
+      ScaffoldMessenger.of(outerContext).showSnackBar(
+        SnackBar(
+          content: Text(message),
+          duration: const Duration(seconds: 3),
+        ),
+      );
+    }
   }
 }

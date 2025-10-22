@@ -67,8 +67,12 @@ class ConstraintRequestProvider extends ChangeNotifier {
               ? (data['approvedAt'] as Timestamp).toDate()
               : null,
           rejectedReason: data['rejectedReason'] as String?,
-          createdAt: (data['createdAt'] as Timestamp).toDate(),
-          updatedAt: (data['updatedAt'] as Timestamp).toDate(),
+          createdAt: data['createdAt'] != null
+              ? (data['createdAt'] as Timestamp).toDate()
+              : DateTime.now(),
+          updatedAt: data['updatedAt'] != null
+              ? (data['updatedAt'] as Timestamp).toDate()
+              : DateTime.now(),
         );
       }).toList();
 
