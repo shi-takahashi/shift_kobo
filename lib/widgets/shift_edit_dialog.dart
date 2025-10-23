@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:intl/intl.dart';
 import '../models/shift.dart';
+import '../models/staff.dart';
 import '../models/shift_type.dart' as old_shift_type;
 import '../models/shift_time_setting.dart';
 import '../providers/staff_provider.dart';
@@ -401,11 +403,11 @@ class _ShiftEditDialogState extends State<ShiftEditDialog> {
     }
   }
 
-  void _saveShift() {
+  Future<void> _saveShift() async {
     if (_formKey.currentState!.validate()) {
       final shiftProvider = context.read<ShiftProvider>();
       final staffProvider = context.read<StaffProvider>();
-      
+
       final startDateTime = DateTime(
         _selectedDate.year,
         _selectedDate.month,
@@ -413,7 +415,7 @@ class _ShiftEditDialogState extends State<ShiftEditDialog> {
         _startTime.hour,
         _startTime.minute,
       );
-      
+
       final endDateTime = DateTime(
         _selectedDate.year,
         _selectedDate.month,
@@ -421,7 +423,18 @@ class _ShiftEditDialogState extends State<ShiftEditDialog> {
         _endTime.hour,
         _endTime.minute,
       );
-      
+
+      // 制約チェック
+      final staff = staffProvider.staffList.firstWhere((s) => s.id == _selectedStaffId!);
+      final constraintViolations = _checkConstraintViolations(staff);
+
+      if (constraintViolations.isNotEmpty) {
+        final shouldContinue = await _showConstraintWarningDialog(staff, constraintViolations);
+        if (!shouldContinue) {
+          return;
+        }
+      }
+
       // 時間重複チェック
       final conflictingShift = _checkTimeConflict(
         staffId: _selectedStaffId!,
@@ -430,9 +443,8 @@ class _ShiftEditDialogState extends State<ShiftEditDialog> {
         excludeShiftId: widget.existingShift?.id,
         shiftProvider: shiftProvider,
       );
-      
+
       if (conflictingShift != null) {
-        final staff = staffProvider.staffList.firstWhere((s) => s.id == _selectedStaffId!);
         _showConflictDialog(conflictingShift, staff.name);
         return;
       }
@@ -531,7 +543,7 @@ class _ShiftEditDialogState extends State<ShiftEditDialog> {
   void _showConflictDialog(Shift conflictingShift, String staffName) {
     final conflictStart = TimeOfDay.fromDateTime(conflictingShift.startTime);
     final conflictEnd = TimeOfDay.fromDateTime(conflictingShift.endTime);
-    
+
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -585,5 +597,118 @@ class _ShiftEditDialogState extends State<ShiftEditDialog> {
         ],
       ),
     );
+  }
+
+  /// 制約違反をチェック
+  List<String> _checkConstraintViolations(Staff staff) {
+    final violations = <String>[];
+
+    // シフトタイプ名を取得（カスタム名を使用）
+    String shiftTypeForCheck = _selectedShiftType;
+    if (_selectedShiftTimeSetting != null) {
+      shiftTypeForCheck = _selectedShiftTimeSetting!.displayName;
+    }
+
+    // 1. 曜日の休み希望チェック
+    final weekday = _selectedDate.weekday; // 1-7 (月-日)
+    if (staff.preferredDaysOff.contains(weekday)) {
+      final dayNames = ['月曜日', '火曜日', '水曜日', '木曜日', '金曜日', '土曜日', '日曜日'];
+      violations.add('${dayNames[weekday - 1]}は休み希望になっています');
+    }
+
+    // 2. 特定日の休み希望チェック
+    final dateString = DateFormat('yyyy-MM-dd').format(_selectedDate);
+    if (staff.specificDaysOff.contains(dateString)) {
+      final dateStr = DateFormat('yyyy/MM/dd(E)', 'ja').format(_selectedDate);
+      violations.add('$dateStrは休み希望日になっています');
+    }
+
+    // 3. 勤務不可シフトタイプチェック
+    if (staff.unavailableShiftTypes.contains(shiftTypeForCheck)) {
+      violations.add('$shiftTypeForCheckは勤務不可になっています');
+    }
+
+    return violations;
+  }
+
+  /// 制約違反警告ダイアログ
+  Future<bool> _showConstraintWarningDialog(Staff staff, List<String> violations) async {
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Row(
+          children: [
+            Icon(Icons.warning_amber_rounded, color: Colors.orange),
+            SizedBox(width: 8),
+            Text('制約に該当しています'),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              '${staff.name}さんは以下の制約があります：',
+              style: const TextStyle(fontWeight: FontWeight.w500),
+            ),
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.orange.shade50,
+                border: Border.all(color: Colors.orange.shade300),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: violations.map((violation) {
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 4),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          '• ',
+                          style: TextStyle(
+                            color: Colors.orange.shade700,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        Expanded(
+                          child: Text(
+                            violation,
+                            style: TextStyle(
+                              color: Colors.orange.shade900,
+                              height: 1.4,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                }).toList(),
+              ),
+            ),
+            const SizedBox(height: 12),
+            const Text(
+              'それでもこのシフトを保存しますか？',
+              style: TextStyle(fontWeight: FontWeight.w500),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('キャンセル'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('保存する'),
+          ),
+        ],
+      ),
+    );
+
+    return result ?? false;
   }
 }
