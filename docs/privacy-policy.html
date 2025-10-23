@@ -196,7 +196,7 @@
         </header>
 
         <div class="update-date">
-            <strong>最終更新日:</strong> 2025年9月27日
+            <strong>最終更新日:</strong> 2025年10月23日
         </div>
 
         <div class="app-info">
@@ -211,7 +211,7 @@
             <ul>
                 <li><strong>プライバシー・バイ・デザイン</strong>: 開発段階からプライバシー保護を考慮</li>
                 <li><strong>データ最小化</strong>: 必要最小限の情報のみ収集・処理</li>
-                <li><strong>ローカルファースト</strong>: 可能な限りデバイス内でデータを処理</li>
+                <li><strong>セキュアなクラウド保存</strong>: Google Firebaseを使用した安全なデータ保管</li>
                 <li><strong>透明性</strong>: データの取り扱いについて明確に説明</li>
                 <li><strong>ユーザーコントロール</strong>: ユーザーが自身のデータを完全にコントロール</li>
             </ul>
@@ -219,9 +219,23 @@
 
         <div class="section">
             <h2>2. 収集する情報の詳細</h2>
-            
-            <h3>2.1 ユーザーが入力する情報</h3>
-            <p>本アプリでは、以下の情報をユーザーが任意で入力し、デバイス内にのみ保存します：</p>
+
+            <h3>2.1 アカウント情報（Firebase Authentication）</h3>
+            <p>本アプリを利用するには、Firebase Authenticationによる認証が必要です：</p>
+            <ul>
+                <li><strong>必須情報</strong>
+                    <ul>
+                        <li>メールアドレス（ログイン用）</li>
+                        <li>パスワード（暗号化して保存）</li>
+                        <li>表示名</li>
+                    </ul>
+                </li>
+                <li><strong>保存場所</strong>: Google Firebase（米国・日本のデータセンター）</li>
+                <li><strong>利用目的</strong>: ユーザー認証、データへのアクセス制御</li>
+            </ul>
+
+            <h3>2.2 ユーザーが入力する情報</h3>
+            <p>本アプリでは、以下の情報をユーザーが任意で入力し、Firebaseクラウドに保存します：</p>
             <ul>
                 <li><strong>スタッフ基本情報</strong>
                     <ul>
@@ -254,7 +268,7 @@
                 </li>
             </ul>
 
-            <h3>2.2 自動的に収集される情報</h3>
+            <h3>2.3 自動的に収集される情報</h3>
             <p>本アプリは、以下の技術的情報を自動的に収集する場合があります：</p>
             <ul>
                 <li><strong>使用統計情報</strong>（匿名化済み）
@@ -308,17 +322,36 @@
 
         <div class="section">
             <h2>4. データの保存・管理・セキュリティ</h2>
-            
-            <h3>4.1 ローカルストレージ</h3>
-            <p>すべてのユーザーデータは、ユーザーのデバイス内にのみ保存されます：</p>
+
+            <h3>4.1 クラウドストレージ（Firebase Firestore）</h3>
+            <p>ユーザーデータは、Google Firebase Firestoreに安全に保存されます：</p>
             <ul>
-                <li><strong>Hive データベース</strong>: 構造化データ（スタッフ情報、シフトデータ等）</li>
-                <li><strong>SharedPreferences</strong>: アプリ設定・ユーザー設定</li>
-                <li><strong>ローカルファイル</strong>: バックアップファイル（ユーザーが作成した場合）</li>
-                <li><strong>シフト表共有</strong>: PNG画像・Excelファイルの一時生成（共有後に削除）</li>
+                <li><strong>保存場所</strong>: Google Cloud Platform（米国・日本のデータセンター）</li>
+                <li><strong>保存データ</strong>: スタッフ情報、シフトデータ、休み希望、制約条件、アプリ設定</li>
+                <li><strong>アクセス制御</strong>: Firebase Authenticationによる認証済みユーザーのみアクセス可能</li>
+                <li><strong>チーム分離</strong>: 各チームのデータは完全に分離され、所属チームのデータのみアクセス可能</li>
+                <li><strong>リアルタイム同期</strong>: 複数デバイス間でのデータ自動同期</li>
             </ul>
-            
-            <h3>4.2 データ共有機能</h3>
+
+            <h3>4.2 セキュリティ対策</h3>
+            <ul>
+                <li><strong>通信の暗号化</strong>: すべての通信はTLS/HTTPS（256bit暗号化）で保護</li>
+                <li><strong>認証保護</strong>: Firebase Authenticationによる厳格なユーザー認証</li>
+                <li><strong>Security Rules</strong>: Firestoreセキュリティルールによるアクセス制御（認証済みユーザーのみ読み書き可能）</li>
+                <li><strong>データ分離</strong>: アプリ側でチームIDによるフィルタリング実装</li>
+                <li><strong>Googleインフラ</strong>: Google Cloud Platformの企業レベルセキュリティを活用</li>
+                <li><strong>定期バックアップ</strong>: Googleによる自動バックアップ・災害復旧対策</li>
+            </ul>
+
+            <h3>4.3 ローカル一時ストレージ</h3>
+            <p>以下の情報はデバイス内に一時的に保存されます：</p>
+            <ul>
+                <li><strong>キャッシュ</strong>: パフォーマンス向上のための一時データ</li>
+                <li><strong>バックアップファイル</strong>: ユーザーが作成したJSON形式のエクスポートファイル（任意）</li>
+                <li><strong>シフト表共有</strong>: PNG画像・Excelファイルの一時生成（共有後に自動削除）</li>
+            </ul>
+
+            <h3>4.4 データ共有機能</h3>
             <p>シフト表共有機能について：</p>
             <ul>
                 <li><strong>PNG形式</strong>: カレンダー画像として生成・ユーザー選択アプリに送信</li>
@@ -328,22 +361,16 @@
                 <li><strong>セキュリティ</strong>: 個人を特定できる連絡先情報は除外可能</li>
             </ul>
 
-            <h3>4.3 セキュリティ対策</h3>
+            <h3>4.5 データの保持期間</h3>
             <ul>
-                <li><strong>デバイスレベル保護</strong>: OS標準の暗号化・アクセス制御に依存</li>
-                <li><strong>アプリレベル保護</strong>: 不正アクセス防止、データ整合性チェック</li>
-                <li><strong>ネットワーク分離</strong>: 個人情報の外部送信なし</li>
-            </ul>
-
-            <h3>4.4 データの保持期間</h3>
-            <ul>
-                <li><strong>通常データ</strong>: ユーザーが削除するまで、またはアプリをアンインストールするまで</li>
-                <li><strong>バックアップファイル</strong>: ユーザーが手動で削除するまで</li>
+                <li><strong>Firestoreデータ</strong>: ユーザーが削除するまで、またはアカウントを削除するまで永続保存</li>
+                <li><strong>認証情報</strong>: アカウント削除時に自動削除</li>
+                <li><strong>バックアップファイル</strong>: ユーザーが手動で削除するまで（デバイス内保存）</li>
                 <li><strong>使用統計</strong>: 匿名化された状態で最大12ヶ月</li>
             </ul>
 
             <div class="warning">
-                <strong>注意:</strong> アプリを削除すると、すべてのデータが失われます。重要なデータは事前にバックアップ機能を使用して保存してください。
+                <strong>注意:</strong> アカウントを削除すると、Firestore上のすべてのチームデータが削除されます。重要なデータは事前にバックアップ機能を使用してエクスポートしてください。
             </div>
         </div>
 
@@ -361,10 +388,26 @@
                 <li>緊急時の生命・身体の安全確保</li>
             </ul>
 
-            <h3>5.3 広告・分析サービス</h3>
-            <p>本アプリではGoogle AdMobによる広告配信を実装しています：</p>
-            
-            <h4>5.3.1 Google AdMob</h4>
+            <h3>5.3 第三者サービスの利用</h3>
+            <p>本アプリでは以下の第三者サービスを利用しています：</p>
+
+            <h4>5.3.1 Google Firebase</h4>
+            <ul>
+                <li><strong>提供者</strong>: Google LLC（米国）</li>
+                <li><strong>利用サービス</strong>:
+                    <ul>
+                        <li>Firebase Authentication（ユーザー認証）</li>
+                        <li>Cloud Firestore（データベース）</li>
+                    </ul>
+                </li>
+                <li><strong>収集情報</strong>: メールアドレス、パスワード（暗号化）、ユーザーID、アプリ使用統計</li>
+                <li><strong>目的</strong>: ユーザー認証、データ保存・同期、サービス提供</li>
+                <li><strong>法的根拠</strong>: 契約履行（サービス提供に必要）</li>
+                <li><strong>データ保存場所</strong>: Google Cloud Platform（米国・日本）</li>
+                <li><strong>プライバシーポリシー</strong>: <a href="https://firebase.google.com/support/privacy" target="_blank">Firebase プライバシーポリシー</a></li>
+            </ul>
+
+            <h4>5.3.2 Google AdMob</h4>
             <ul>
                 <li><strong>提供者</strong>: Google LLC（米国）</li>
                 <li><strong>収集情報</strong>: 広告識別子、デバイス情報、広告表示・クリック統計</li>
@@ -372,15 +415,15 @@
                 <li><strong>法的根拠</strong>: 正当な利益（サービス提供・維持のため）</li>
                 <li><strong>プライバシーポリシー</strong>: <a href="https://policies.google.com/privacy" target="_blank">Google プライバシーポリシー</a></li>
             </ul>
-            
-            <h4>5.3.2 広告の種類</h4>
+
+            <h4>5.3.3 広告の種類</h4>
             <ul>
                 <li><strong>バナー広告</strong>: アプリ下部に常時表示</li>
                 <li><strong>インタースティシャル広告</strong>: シフト自動生成完了時に表示</li>
                 <li><strong>個人情報</strong>: 広告表示に個人を特定できる情報は使用されません</li>
             </ul>
-            
-            <h4>5.3.3 ユーザーの選択</h4>
+
+            <h4>5.3.4 ユーザーの選択</h4>
             <ul>
                 <li><strong>広告設定</strong>: <a href="https://adssettings.google.com/" target="_blank">Google 広告設定</a>で管理可能</li>
                 <li><strong>オプトアウト</strong>: デバイス設定で広告追跡を制限可能</li>
@@ -403,9 +446,15 @@
                 </li>
                 <li><strong>インターネット通信</strong>
                     <ul>
-                        <li>目的: 広告表示・アプリ更新情報取得</li>
-                        <li>使用場面: Google AdMob広告配信</li>
-                        <li>データ送信: 匿名化された広告統計のみ</li>
+                        <li>目的: データ同期、ユーザー認証、広告表示、アプリ更新情報取得</li>
+                        <li>使用場面:
+                            <ul>
+                                <li>Firebase Authentication（ログイン・サインアップ）</li>
+                                <li>Cloud Firestore（データの読み込み・保存・リアルタイム同期）</li>
+                                <li>Google AdMob（広告配信）</li>
+                            </ul>
+                        </li>
+                        <li>データ送信: ユーザーデータ（暗号化）、匿名化された広告統計</li>
                     </ul>
                 </li>
                 <li><strong>他アプリとの連携</strong>
@@ -472,8 +521,8 @@
             <h3>8.1 使用技術</h3>
             <ul>
                 <li><strong>Flutter</strong>: アプリケーションフレームワーク</li>
-                <li><strong>Hive</strong>: ローカルデータベース</li>
-                <li><strong>SharedPreferences</strong>: 設定管理</li>
+                <li><strong>Firebase Authentication</strong>: ユーザー認証システム</li>
+                <li><strong>Cloud Firestore</strong>: クラウドデータベース（NoSQL）</li>
                 <li><strong>Provider</strong>: 状態管理</li>
                 <li><strong>Google Mobile Ads</strong>: 広告SDK（AdMob統合）</li>
                 <li><strong>Excel・Screenshot・Share Plus</strong>: データ共有機能</li>
@@ -481,16 +530,18 @@
 
             <h3>8.2 データ形式</h3>
             <ul>
-                <li><strong>内部形式</strong>: バイナリ（Hive）</li>
+                <li><strong>内部形式</strong>: JSON形式（Firestore NoSQLドキュメント）</li>
                 <li><strong>エクスポート形式</strong>: JSON（人間が読める形式）</li>
                 <li><strong>共有形式</strong>: PNG画像・Excel（.xlsx）</li>
-                <li><strong>設定形式</strong>: キー・バリュー型</li>
+                <li><strong>通信形式</strong>: JSON over HTTPS（TLS暗号化）</li>
             </ul>
 
             <h3>8.3 暗号化</h3>
             <ul>
+                <li><strong>通信レベル</strong>: TLS/HTTPS（256bit暗号化）によるすべての通信の保護</li>
+                <li><strong>保存レベル</strong>: Google Cloud Platformの標準暗号化（AES-256）</li>
+                <li><strong>認証レベル</strong>: Firebase Authenticationによるパスワードのハッシュ化（bcrypt）</li>
                 <li><strong>端末レベル</strong>: OS標準の暗号化（iOS: FileProtection, Android: FDE/FBE）</li>
-                <li><strong>アプリレベル</strong>: 現在は平文保存（将来的な暗号化を検討）</li>
             </ul>
         </div>
 
@@ -539,6 +590,15 @@
 
             <h3>11.2 変更履歴</h3>
             <ul>
+                <li><strong>2025年10月23日</strong>: Firebase導入に伴う大幅更新
+                    <ul>
+                        <li>データ保存方式を端末内ローカルストレージからFirebase Firestoreクラウドストレージに変更</li>
+                        <li>Firebase Authenticationによるユーザー認証システム追加</li>
+                        <li>セキュリティ対策の詳細更新（TLS暗号化、Firestore Security Rules等）</li>
+                        <li>第三者サービスにGoogle Firebaseの利用を追加</li>
+                        <li>データ同期・複数デバイス対応に関する記載追加</li>
+                    </ul>
+                </li>
                 <li><strong>2025年9月27日</strong>: 初版作成・公開</li>
             </ul>
         </div>
