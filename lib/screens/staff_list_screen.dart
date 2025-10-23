@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/staff_provider.dart';
+import '../providers/shift_provider.dart';
 import '../providers/shift_time_provider.dart';
 import '../providers/constraint_request_provider.dart';
 import '../models/staff.dart';
@@ -110,12 +111,16 @@ class _StaffListScreenState extends State<StaffListScreen> {
                   onTap: () {
                     final constraintRequestProvider = context.read<ConstraintRequestProvider>();
                     final staffProvider = context.read<StaffProvider>();
+                    final shiftProvider = context.read<ShiftProvider>();
+                    final shiftTimeProvider = context.read<ShiftTimeProvider>();
                     Navigator.of(context).push(
                       MaterialPageRoute(
                         builder: (newContext) => MultiProvider(
                           providers: [
                             ChangeNotifierProvider<ConstraintRequestProvider>.value(value: constraintRequestProvider),
                             ChangeNotifierProvider<StaffProvider>.value(value: staffProvider),
+                            ChangeNotifierProvider<ShiftProvider>.value(value: shiftProvider),
+                            ChangeNotifierProvider<ShiftTimeProvider>.value(value: shiftTimeProvider),
                           ],
                           child: ConstraintApprovalScreen(appUser: widget.appUser),
                         ),
