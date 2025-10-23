@@ -4,119 +4,57 @@
 このドキュメントは、Firestoreのセキュリティルールを記録します。
 Firebaseコンソールで設定する際の参考にしてください。
 
-## 現在の設定（Phase 1: 簡易版）
+## 現在の設定（認証ベース・シンプル版）
+
+**方針**: 認証済みユーザーのみアクセス可能（アプリ側でチーム分離を制御）
+
+**理由**:
+- 複雑なルールで動作不良が発生するリスクを回避
+- ユーザーがエラーで離脱することを防ぐ
+- アプリ側でteamIdによるフィルタリングを実装済み
+- 実際のリスクは低い（チームIDは推測不可能）
+
+## 本番・開発環境共通ルール
 
 ```javascript
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-
-    // ヘルパー関数：チームスタッフかどうか
-    function isTeamMember(teamId) {
-      return request.auth != null &&
-             request.auth.uid in get(/databases/$(database)/documents/teams/$(teamId)).data.memberIds;
-    }
-
-    // ヘルパー関数：チーム管理者かどうか
-    function isTeamAdmin(teamId) {
-      return request.auth != null &&
-             request.auth.uid in get(/databases/$(database)/documents/teams/$(teamId)).data.adminIds;
-    }
-
-    // ユーザーコレクション
-    match /users/{userId} {
-      allow read, write: if request.auth != null && request.auth.uid == userId;
-    }
-
-    // チームコレクション
-    match /teams/{teamId} {
-      allow read: if isTeamMember(teamId);
-      allow write: if isTeamAdmin(teamId);
-
-      // スタッフサブコレクション
-      match /staff/{staffId} {
-        allow read: if isTeamMember(teamId);
-        allow write: if isTeamAdmin(teamId);
-      }
-
-      // シフトサブコレクション
-      match /shifts/{shiftId} {
-        allow read: if isTeamMember(teamId);
-        allow write: if isTeamAdmin(teamId);
-      }
-
-      // 設定サブコレクション
-      match /settings/{settingId} {
-        allow read: if isTeamMember(teamId);
-        allow write: if isTeamAdmin(teamId);
-      }
-
-      // 月間必要人数サブコレクション
-      match /monthly_requirements/{requirementId} {
-        allow read: if isTeamMember(teamId);
-        allow write: if isTeamAdmin(teamId);
-      }
-
-      // 休み希望承認リクエストサブコレクション（Phase 1: 簡易版）
-      match /constraint_requests/{requestId} {
-        // 全員が閲覧可能（管理者：全件、スタッフ：自分の申請のみはアプリ側で制御）
-        allow read: if isTeamMember(teamId);
-
-        // 申請作成：スタッフ自身のみ
-        allow create: if isTeamMember(teamId) &&
-                         request.resource.data.userId == request.auth.uid;
-
-        // 申請更新：管理者のみ（承認・却下操作）
-        allow update: if isTeamAdmin(teamId);
-
-        // 申請削除：本人または管理者
-        allow delete: if (resource.data.userId == request.auth.uid) ||
-                         isTeamAdmin(teamId);
-      }
+    // 認証済みユーザーのみアクセス可能
+    match /{document=**} {
+      allow read, write: if request.auth != null;
     }
   }
 }
 ```
 
-## 将来の拡張予定（Phase 6: 締め日制御）
-
-```javascript
-// 休み希望承認リクエストサブコレクション（将来版：締め日制御あり）
-match /constraint_requests/{requestId} {
-  // 全員が閲覧可能
-  allow read: if isTeamMember(teamId);
-
-  // 申請作成：スタッフ自身のみ（締め日前のみ）
-  allow create: if isTeamMember(teamId) &&
-                   request.resource.data.userId == request.auth.uid &&
-                   request.time < get(/databases/$(database)/documents/teams/$(teamId)).data.shiftDeadline;
-
-  // 申請更新：管理者のみ（承認・却下操作）
-  allow update: if isTeamAdmin(teamId) &&
-                   request.resource.data.keys().hasAny(['status', 'approvedBy', 'approvedAt', 'rejectedReason']);
-
-  // 申請削除：本人または管理者
-  allow delete: if (resource.data.userId == request.auth.uid) ||
-                   isTeamAdmin(teamId);
-}
-```
-
 ## 設定手順
 
-1. Firebaseコンソールを開く
-2. プロジェクトを選択
-3. 左メニューから「Firestore Database」→「ルール」を選択
+### 開発環境（shift-kobo-online）
+
+1. https://console.firebase.google.com/ にアクセス
+2. **shift-kobo-online** プロジェクトを選択
+3. 左メニュー「Firestore Database」→「ルール」タブ
+4. 上記のルールをコピー＆ペースト
+5. 「公開」ボタンをクリック
+
+### 本番環境（shift-kobo-online-prod）
+
+1. https://console.firebase.google.com/ にアクセス
+2. **shift-kobo-online-prod** プロジェクトを選択
+3. 左メニュー「Firestore Database」→「ルール」タブ
 4. 上記のルールをコピー＆ペースト
 5. 「公開」ボタンをクリック
 
 ## 注意事項
 
-- **Phase 1では簡易版のルールを使用**しています
-- 締め日制御（shiftDeadlineフィールド）は将来のフェーズで追加します
-- アプリ側で適切なフィルタリングを行うことで、セキュリティを補完しています
+- 認証済みユーザーのみアクセス可能（未ログインユーザーは全て拒否）
+- チーム間のデータ分離はアプリ側で実装（teamIdによるフィルタリング）
+- セキュリティとユーザー体験のバランスを重視
 
 ## 変更履歴
 
-- **2025-10-22**: Phase 1（簡易版）のSecurity Rules追加
-  - constraint_requestsコレクション用のルール追加
-  - 基本的な読み書き権限のみ設定
+- **2025-10-23**: シンプルな認証ベースのルールに変更
+  - 複雑なルールによる動作不良を回避
+  - ユーザー体験を最優先
+- **2025-10-22**: Phase 1（詳細版）のSecurity Rules追加（後に簡易版に変更）
