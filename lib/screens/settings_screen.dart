@@ -18,7 +18,6 @@ import '../services/backup_service.dart';
 import '../widgets/auth_gate.dart';
 import 'help_screen.dart';
 import 'monthly_shift_settings_screen.dart';
-import 'privacy_policy_screen.dart';
 import 'shift_time_settings_screen.dart';
 import 'team/team_invite_screen.dart';
 
@@ -254,14 +253,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
           leading: const Icon(Icons.privacy_tip),
           title: const Text('プライバシーポリシー'),
           subtitle: const Text('個人情報保護方針'),
-          trailing: const Icon(Icons.chevron_right),
-          onTap: () {
-            Navigator.of(context).push(
-              MaterialPageRoute(
-                builder: (context) => const PrivacyPolicyScreen(),
-              ),
-            );
-          },
+          trailing: const Icon(Icons.open_in_new),
+          onTap: () => _launchPrivacyPolicy(),
         ),
         ListTile(
           leading: const Icon(Icons.email),
@@ -709,6 +702,30 @@ class _SettingsScreenState extends State<SettingsScreen> {
         setState(() {
           _isRestoring = false;
         });
+      }
+    }
+  }
+
+  /// プライバシーポリシーを外部ブラウザで開く
+  Future<void> _launchPrivacyPolicy() async {
+    const String privacyPolicyUrl = 'https://shi-takahashi.github.io/shift_kobo/privacy-policy.html';
+    final Uri uri = Uri.parse(privacyPolicyUrl);
+
+    try {
+      if (await canLaunchUrl(uri)) {
+        await launchUrl(uri, mode: LaunchMode.externalApplication);
+      } else {
+        throw 'Could not launch $privacyPolicyUrl';
+      }
+    } catch (e) {
+      debugPrint('Error launching privacy policy URL: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('ブラウザで開けませんでした'),
+            backgroundColor: Colors.red,
+          ),
+        );
       }
     }
   }
