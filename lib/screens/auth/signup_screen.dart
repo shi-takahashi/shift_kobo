@@ -19,7 +19,6 @@ class SignupScreen extends StatefulWidget {
 
 class _SignupScreenState extends State<SignupScreen> {
   final _formKey = GlobalKey<FormState>();
-  final _displayNameController = TextEditingController();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   final _passwordConfirmController = TextEditingController();
@@ -31,7 +30,6 @@ class _SignupScreenState extends State<SignupScreen> {
 
   @override
   void dispose() {
-    _displayNameController.dispose();
     _emailController.dispose();
     _passwordController.dispose();
     _passwordConfirmController.dispose();
@@ -45,10 +43,14 @@ class _SignupScreenState extends State<SignupScreen> {
     setState(() => _isLoading = true);
 
     try {
+      // メールアドレスから表示名を生成（@の前の部分）
+      final email = _emailController.text.trim();
+      final displayName = email.split('@').first;
+
       final user = await _authService.signUp(
-        email: _emailController.text.trim(),
+        email: email,
         password: _passwordController.text,
-        displayName: _displayNameController.text.trim(),
+        displayName: displayName,
       );
 
       if (user == null) {
@@ -125,23 +127,6 @@ class _SignupScreenState extends State<SignupScreen> {
                   textAlign: TextAlign.center,
                 ),
                 const SizedBox(height: 48),
-
-                // 表示名入力
-                TextFormField(
-                  controller: _displayNameController,
-                  decoration: const InputDecoration(
-                    labelText: '表示名',
-                    prefixIcon: Icon(Icons.person),
-                    border: OutlineInputBorder(),
-                  ),
-                  validator: (value) {
-                    if (value == null || value.isEmpty) {
-                      return '表示名を入力してください';
-                    }
-                    return null;
-                  },
-                ),
-                const SizedBox(height: 16),
 
                 // メールアドレス入力
                 TextFormField(
