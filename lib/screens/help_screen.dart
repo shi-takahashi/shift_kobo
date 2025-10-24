@@ -24,6 +24,10 @@ class HelpScreen extends StatelessWidget {
           _buildSectionTitle('スタッフ向け（アプリ参加者）'),
           const SizedBox(height: 8),
           _buildMemberGuideCard(),
+          const SizedBox(height: 24),
+          _buildSectionTitle('アカウント・データ管理'),
+          const SizedBox(height: 8),
+          _buildAccountDeletionCard(),
         ],
       ),
     );
@@ -367,6 +371,162 @@ class HelpScreen extends StatelessWidget {
                 fontSize: 12,
                 color: Colors.grey.shade600,
               ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildAccountDeletionCard() {
+    return Card(
+      elevation: 2,
+      child: ExpansionTile(
+        leading: const Icon(Icons.delete_forever, color: Colors.red),
+        title: const Text(
+          'アカウント削除について',
+          style: TextStyle(fontWeight: FontWeight.bold),
+        ),
+        children: [
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // 共通説明
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.red.shade50,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.red.shade200),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(Icons.warning_amber, color: Colors.red.shade700, size: 20),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          'アカウント削除は取り消せません。削除されたアカウント・データは復元できません。',
+                          style: TextStyle(
+                            fontSize: 13,
+                            color: Colors.red.shade900,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 16),
+
+                // スタッフ向け説明
+                const Text(
+                  'スタッフがアカウント削除する場合',
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                _buildHowToItem(
+                  '削除方法',
+                  'その他 > アカウント削除 > パスワード入力 > 削除実行',
+                ),
+                _buildHowToItem(
+                  '削除されるデータ',
+                  '• 自分のアカウント情報（メールアドレス、パスワード等）\n'
+                      '• 自分が申請した休み希望データ\n'
+                      '• スタッフ情報との紐付け（スタッフ情報自体は残る）',
+                ),
+                _buildHowToItem(
+                  '削除されないデータ',
+                  '• チームのシフトデータ\n'
+                      '• スタッフ情報（管理者が登録したデータ）\n'
+                      '• 他のメンバーのデータ',
+                ),
+                const SizedBox(height: 16),
+
+                // 管理者向け説明
+                const Text(
+                  '管理者がアカウント削除する場合',
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.orange.shade50,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.orange.shade200),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Icon(Icons.info_outline, color: Colors.orange.shade700, size: 20),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              '管理者が削除する場合の動作',
+                              style: TextStyle(
+                                fontSize: 13,
+                                color: Colors.orange.shade900,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        '• 唯一の管理者の場合: チーム全体が削除されます\n'
+                        '• 複数管理者がいる場合: 自分のアカウントのみ削除されます',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Colors.orange.shade900,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 12),
+                _buildHowToItem(
+                  '削除前の確認',
+                  '• 他に管理者がいるか確認（スタッフ一覧で確認可能）\n'
+                      '• 他に管理者がいない場合は、スタッフ編集画面で、アプリ利用中のスタッフを管理者に昇格させることで、チームを継続可能',
+                ),
+                const SizedBox(height: 16),
+
+                // 管理者がスタッフを削除する場合
+                const Text(
+                  '管理者が他のスタッフを削除する場合',
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                _buildHowToItem(
+                  '削除方法',
+                  'スタッフ一覧 > 該当スタッフのメニュー > スタッフを削除',
+                ),
+                _buildHowToItem(
+                  '削除されるデータ',
+                  '• 該当スタッフのアカウント（アプリ利用中の場合）\n'
+                      '• 該当スタッフの休み希望データ\n'
+                      '• スタッフ情報（名前、連絡先等）',
+                ),
+                _buildHowToItem(
+                  '削除されないデータ',
+                  '• 過去のシフトデータ（「不明なスタッフ」と表示されます）\n'
+                      '• 他のスタッフのデータ',
+                ),
+              ],
             ),
           ),
         ],
