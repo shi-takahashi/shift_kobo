@@ -5,7 +5,8 @@ import 'package:intl/intl.dart';
 import '../providers/staff_provider.dart';
 import '../providers/shift_time_provider.dart';
 import '../models/staff.dart';
-import '../models/shift_type.dart';
+import '../models/app_user.dart';
+import '../services/auth_service.dart';
 
 class StaffEditDialog extends StatefulWidget {
   final Staff? existingStaff;
@@ -25,11 +26,16 @@ class _StaffEditDialogState extends State<StaffEditDialog> {
   late TextEditingController _phoneController;
   late TextEditingController _emailController;
   late TextEditingController _maxShiftsController;
-  
+
   late List<int> _selectedDaysOff;
   late List<String> _unavailableShiftTypes;
   late List<DateTime> _specificDaysOff;
   bool _showPastDaysOff = false; // 過去の休み希望日を表示するか
+
+  // ロール管理用
+  AppUser? _linkedUser;
+  UserRole? _selectedRole;
+  bool _isLastAdmin = false;
 
   @override
   void initState() {
@@ -46,6 +52,9 @@ class _StaffEditDialogState extends State<StaffEditDialog> {
       _specificDaysOff = widget.existingStaff!.specificDaysOff
           .map((dateStr) => DateTime.parse(dateStr))
           .toList();
+
+      // 紐付け済みの場合、ユーザー情報とロールを取得
+      _loadUserRoleInfo();
     } else {
       // 追加モード
       _nameController = TextEditingController();
@@ -55,6 +64,39 @@ class _StaffEditDialogState extends State<StaffEditDialog> {
       _selectedDaysOff = [];
       _unavailableShiftTypes = [];
       _specificDaysOff = [];
+    }
+  }
+
+  Future<void> _loadUserRoleInfo() async {
+    final userId = widget.existingStaff?.userId;
+    if (userId == null) return;
+
+    try {
+      final authService = AuthService();
+
+      // ユーザー情報を取得
+      final user = await authService.getUser(userId);
+      if (user == null) return;
+
+      // 管理者数を取得
+      final teamId = user.teamId;
+      if (teamId == null) {
+        setState(() {
+          _linkedUser = user;
+          _selectedRole = user.role;
+        });
+        return;
+      }
+
+      final adminCount = await authService.getAdminCount(teamId);
+
+      setState(() {
+        _linkedUser = user;
+        _selectedRole = user.role;
+        _isLastAdmin = (adminCount == 1 && user.role == UserRole.admin);
+      });
+    } catch (e) {
+      // エラーハンドリング（本番環境ではログ記録等を検討）
     }
   }
   
@@ -100,6 +142,12 @@ class _StaffEditDialogState extends State<StaffEditDialog> {
                         if (widget.existingStaff != null)
                           ...[
                             _buildLinkStatusCard(),
+                            const SizedBox(height: 16),
+                          ],
+                        // 紐付け済みの場合のみロール選択を表示
+                        if (_linkedUser != null && _selectedRole != null)
+                          ...[
+                            _buildRoleSelectionSection(),
                             const SizedBox(height: 16),
                           ],
                         _buildBasicInfoSection(),
@@ -174,6 +222,122 @@ class _StaffEditDialogState extends State<StaffEditDialog> {
                 ],
               ),
             ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildRoleSelectionSection() {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              '権限設定',
+              style: Theme.of(context).textTheme.titleMedium,
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'このスタッフの権限を選択してください',
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+            const SizedBox(height: 16),
+            SegmentedButton<UserRole>(
+              segments: const [
+                ButtonSegment(
+                  value: UserRole.admin,
+                  label: Text('管理者'),
+                  icon: Icon(Icons.admin_panel_settings),
+                ),
+                ButtonSegment(
+                  value: UserRole.member,
+                  label: Text('スタッフ'),
+                  icon: Icon(Icons.person),
+                ),
+              ],
+              selected: {_selectedRole!},
+              onSelectionChanged: (Set<UserRole> newSelection) {
+                setState(() {
+                  _selectedRole = newSelection.first;
+                });
+              },
+            ),
+            // 唯一の管理者を降格させようとした場合の警告
+            if (_isLastAdmin && _selectedRole == UserRole.member) ...[
+              const SizedBox(height: 12),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.red.shade50,
+                  border: Border.all(color: Colors.red.shade300),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Row(
+                  children: [
+                    Icon(Icons.warning, color: Colors.red.shade700, size: 20),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        '唯一の管理者を降格させることはできません。先に他のスタッフを管理者に昇格させてください。',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Colors.red.shade900,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+            // ロール変更の説明
+            if (_linkedUser?.role != _selectedRole) ...[
+              const SizedBox(height: 12),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.blue.shade50,
+                  border: Border.all(color: Colors.blue.shade300),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    if (_selectedRole == UserRole.admin) ...[
+                      Text(
+                        '管理者に昇格',
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.blue.shade900,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        '• シフト編集・自動生成が可能になります\n• スタッフ管理が可能になります\n• 設定変更が可能になります',
+                        style: TextStyle(fontSize: 11, color: Colors.blue.shade800),
+                      ),
+                    ] else ...[
+                      Text(
+                        'スタッフに降格',
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.blue.shade900,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        '• シフト閲覧のみになります\n• スタッフ管理ができなくなります\n• 設定変更ができなくなります',
+                        style: TextStyle(fontSize: 11, color: Colors.blue.shade800),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ],
           ],
         ),
       ),
@@ -273,11 +437,19 @@ class _StaffEditDialogState extends State<StaffEditDialog> {
                   return '月間最大シフト数を入力してください';
                 }
                 final num = int.tryParse(value);
-                if (num == null || num < 1 || num > 31) {
-                  return '1〜31の範囲で入力してください';
+                if (num == null || num < 0 || num > 31) {
+                  return '0〜31の範囲で入力してください';
                 }
                 return null;
               },
+            ),
+            const SizedBox(height: 8),
+            Padding(
+              padding: const EdgeInsets.only(left: 8.0),
+              child: Text(
+                '※ 0にすると自動割り当ての対象外（手動では追加可能）',
+                style: TextStyle(fontSize: 12, color: Colors.grey.shade700),
+              ),
             ),
           ],
         ),
@@ -570,65 +742,187 @@ class _StaffEditDialogState extends State<StaffEditDialog> {
     );
   }
 
-  void _handleSave() {
-    if (_formKey.currentState!.validate()) {
-      final staffProvider = context.read<StaffProvider>();
-      
-      if (widget.existingStaff != null) {
-        // 編集モード
-        final updatedStaff = Staff(
-          id: widget.existingStaff!.id,
-          name: _nameController.text.trim(),
-          phoneNumber: _phoneController.text.isNotEmpty ? _phoneController.text : null,
-          email: _emailController.text.isNotEmpty ? _emailController.text : null,
-          maxShiftsPerMonth: int.parse(_maxShiftsController.text),
-          preferredDaysOff: List.from(_selectedDaysOff),
-          unavailableShiftTypes: List.from(_unavailableShiftTypes),
-          specificDaysOff: _specificDaysOff.map((date) =>
-            DateTime(date.year, date.month, date.day).toIso8601String()
-          ).toList(),
-          isActive: widget.existingStaff!.isActive,
-          createdAt: widget.existingStaff!.createdAt,
-        );
-        
-        staffProvider.updateStaff(updatedStaff);
-        
-        Navigator.pop(context);
-        
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('${updatedStaff.name}の情報を更新しました'),
-            backgroundColor: Colors.green,
-          ),
-        );
-      } else {
-        // 追加モード
-        final staff = Staff(
-          id: DateTime.now().millisecondsSinceEpoch.toString(),
-          name: _nameController.text.trim(),
-          phoneNumber: _phoneController.text.isNotEmpty ? _phoneController.text : null,
-          email: _emailController.text.isNotEmpty ? _emailController.text : null,
-          maxShiftsPerMonth: int.parse(_maxShiftsController.text),
-          preferredDaysOff: List.from(_selectedDaysOff),
-          unavailableShiftTypes: List.from(_unavailableShiftTypes),
-          specificDaysOff: _specificDaysOff.map((date) =>
-            DateTime(date.year, date.month, date.day).toIso8601String()
-          ).toList(),
-          isActive: true,
-          createdAt: DateTime.now(),
-        );
-        
-        staffProvider.addStaff(staff);
-        
-        Navigator.pop(context);
-        
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('${staff.name}を追加しました'),
-            backgroundColor: Colors.green,
-          ),
-        );
-      }
+  Future<void> _handleSave() async {
+    if (!_formKey.currentState!.validate()) return;
+
+    // 唯一の管理者を降格させようとした場合はエラー
+    if (_isLastAdmin && _selectedRole == UserRole.member) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('唯一の管理者を降格させることはできません'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
     }
+
+    final staffProvider = context.read<StaffProvider>();
+
+    if (widget.existingStaff != null) {
+      // 編集モード
+      final updatedStaff = Staff(
+        id: widget.existingStaff!.id,
+        name: _nameController.text.trim(),
+        phoneNumber: _phoneController.text.isNotEmpty ? _phoneController.text : null,
+        email: _emailController.text.isNotEmpty ? _emailController.text : null,
+        maxShiftsPerMonth: int.parse(_maxShiftsController.text),
+        preferredDaysOff: List.from(_selectedDaysOff),
+        unavailableShiftTypes: List.from(_unavailableShiftTypes),
+        specificDaysOff: _specificDaysOff.map((date) =>
+          DateTime(date.year, date.month, date.day).toIso8601String()
+        ).toList(),
+        isActive: widget.existingStaff!.isActive,
+        createdAt: widget.existingStaff!.createdAt,
+        userId: widget.existingStaff!.userId,
+      );
+
+      // ロール変更がある場合、確認ダイアログを表示
+      if (_linkedUser != null && _selectedRole != null && _linkedUser!.role != _selectedRole) {
+        final confirmed = await _showRoleChangeConfirmationDialog();
+        if (!confirmed) return;
+      }
+
+      // スタッフ情報を更新
+      await staffProvider.updateStaff(updatedStaff);
+
+      // ロール変更がある場合、AuthServiceで更新
+      if (_linkedUser != null && _selectedRole != null && _linkedUser!.role != _selectedRole) {
+        try {
+          final authService = AuthService();
+          await authService.updateUserRole(
+            userId: _linkedUser!.uid,
+            teamId: _linkedUser!.teamId!,
+            newRole: _selectedRole!,
+          );
+        } catch (e) {
+          if (!mounted) return;
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('ロール変更に失敗しました: $e'),
+              backgroundColor: Colors.red,
+            ),
+          );
+          return;
+        }
+      }
+
+      if (!mounted) return;
+      Navigator.pop(context);
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('${updatedStaff.name}の情報を更新しました'),
+          backgroundColor: Colors.green,
+        ),
+      );
+    } else {
+      // 追加モード
+      final staff = Staff(
+        id: DateTime.now().millisecondsSinceEpoch.toString(),
+        name: _nameController.text.trim(),
+        phoneNumber: _phoneController.text.isNotEmpty ? _phoneController.text : null,
+        email: _emailController.text.isNotEmpty ? _emailController.text : null,
+        maxShiftsPerMonth: int.parse(_maxShiftsController.text),
+        preferredDaysOff: List.from(_selectedDaysOff),
+        unavailableShiftTypes: List.from(_unavailableShiftTypes),
+        specificDaysOff: _specificDaysOff.map((date) =>
+          DateTime(date.year, date.month, date.day).toIso8601String()
+        ).toList(),
+        isActive: true,
+        createdAt: DateTime.now(),
+      );
+
+      await staffProvider.addStaff(staff);
+
+      if (!mounted) return;
+      Navigator.pop(context);
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('${staff.name}を追加しました'),
+          backgroundColor: Colors.green,
+        ),
+      );
+    }
+  }
+
+  /// ロール変更確認ダイアログ
+  Future<bool> _showRoleChangeConfirmationDialog() async {
+    final isUpgrading = _selectedRole == UserRole.admin;
+    final staffName = widget.existingStaff?.name ?? 'このスタッフ';
+
+    return await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AlertDialog(
+        title: Row(
+          children: [
+            Icon(
+              isUpgrading ? Icons.arrow_upward : Icons.arrow_downward,
+              color: isUpgrading ? Colors.green : Colors.orange,
+            ),
+            const SizedBox(width: 8),
+            Text(isUpgrading ? '管理者に昇格' : 'スタッフに降格'),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              '$staffName の権限を変更します。',
+              style: const TextStyle(fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 16),
+            if (isUpgrading) ...[
+              const Text('管理者になると以下の操作が可能になります：'),
+              const SizedBox(height: 8),
+              _buildPermissionItem(Icons.edit_calendar, 'シフトの編集・自動生成'),
+              _buildPermissionItem(Icons.group, 'スタッフ管理'),
+              _buildPermissionItem(Icons.settings, '各種設定の変更'),
+            ] else ...[
+              const Text('スタッフになると以下の操作ができなくなります：'),
+              const SizedBox(height: 8),
+              _buildPermissionItem(Icons.edit_calendar, 'シフトの編集・自動生成'),
+              _buildPermissionItem(Icons.group, 'スタッフ管理'),
+              _buildPermissionItem(Icons.settings, '各種設定の変更'),
+              const SizedBox(height: 12),
+              const Text(
+                'シフトの閲覧と自分の休み希望入力のみ可能になります。',
+                style: TextStyle(fontSize: 12, color: Colors.grey),
+              ),
+            ],
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('キャンセル'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: Text(isUpgrading ? '昇格する' : '降格する'),
+          ),
+        ],
+      ),
+    ) ?? false;
+  }
+
+  Widget _buildPermissionItem(IconData icon, String text) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        children: [
+          Icon(icon, size: 16, color: Colors.grey.shade700),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              text,
+              style: TextStyle(fontSize: 13, color: Colors.grey.shade700),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }

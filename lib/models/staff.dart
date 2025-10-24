@@ -49,7 +49,7 @@ class Staff extends HiveObject {
     required this.name,
     this.phoneNumber,
     this.email,
-    required this.maxShiftsPerMonth,
+    required this.maxShiftsPerMonth, // 0にすると自動割り当て対象外（手動では追加可能）
     List<int>? preferredDaysOff,
     this.isActive = true,
     DateTime? createdAt,

@@ -67,12 +67,7 @@ class StaffProvider extends ChangeNotifier {
   Future<void> addStaff(Staff staff) async {
     if (teamId == null) return;
 
-    await _firestore
-        .collection('teams')
-        .doc(teamId)
-        .collection('staff')
-        .doc(staff.id)
-        .set({
+    final data = <String, dynamic>{
       'name': staff.name,
       'phoneNumber': staff.phoneNumber,
       'email': staff.email,
@@ -81,20 +76,26 @@ class StaffProvider extends ChangeNotifier {
       'preferredDaysOff': staff.preferredDaysOff,
       'unavailableShiftTypes': staff.unavailableShiftTypes,
       'specificDaysOff': staff.specificDaysOff,
-      'userId': staff.userId,
       'createdAt': FieldValue.serverTimestamp(),
-    });
+    };
+
+    // userIdがnullでない場合のみ設定（nullの場合はフィールド自体を設定しない）
+    if (staff.userId != null) {
+      data['userId'] = staff.userId;
+    }
+
+    await _firestore
+        .collection('teams')
+        .doc(teamId)
+        .collection('staff')
+        .doc(staff.id)
+        .set(data);
   }
 
   Future<void> updateStaff(Staff staff) async {
     if (teamId == null) return;
 
-    await _firestore
-        .collection('teams')
-        .doc(teamId)
-        .collection('staff')
-        .doc(staff.id)
-        .update({
+    final data = <String, dynamic>{
       'name': staff.name,
       'phoneNumber': staff.phoneNumber,
       'email': staff.email,
@@ -103,9 +104,20 @@ class StaffProvider extends ChangeNotifier {
       'preferredDaysOff': staff.preferredDaysOff,
       'unavailableShiftTypes': staff.unavailableShiftTypes,
       'specificDaysOff': staff.specificDaysOff,
-      'userId': staff.userId,
       'updatedAt': FieldValue.serverTimestamp(),
-    });
+    };
+
+    // userIdがnullでない場合のみ設定
+    if (staff.userId != null) {
+      data['userId'] = staff.userId;
+    }
+
+    await _firestore
+        .collection('teams')
+        .doc(teamId)
+        .collection('staff')
+        .doc(staff.id)
+        .update(data);
 
     // メールアドレスが設定されている場合、自動紐付けを試行
     if (staff.email != null && staff.email!.isNotEmpty) {

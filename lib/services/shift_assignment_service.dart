@@ -82,6 +82,7 @@ class ShiftAssignmentService {
     Map<String, int> dailyShiftRequirements,
   ) async {
     List<Shift> assignedShifts = [];
+    // 有効なスタッフのみ使用（月間最大シフト数0のスタッフは自動的に除外される）
     List<Staff> availableStaff = staffProvider.activeStaffList;
     int shiftIdCounter = 0;
     
@@ -161,6 +162,7 @@ class ShiftAssignmentService {
         return false;
       }
 
+      // 月間最大シフト数チェック（0の場合は自動的に除外される）
       if (staffShiftCounts[staff.id]! >= staff.maxShiftsPerMonth) {
         return false;
       }

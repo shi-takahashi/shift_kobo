@@ -260,6 +260,51 @@ class AuthService {
     }
   }
 
+  /// チーム内の管理者数を取得
+  Future<int> getAdminCount(String teamId) async {
+    try {
+      final teamDoc = await _firestore.collection('teams').doc(teamId).get();
+      if (!teamDoc.exists) return 0;
+
+      final adminIds = teamDoc.data()?['adminIds'] as List<dynamic>?;
+      return adminIds?.length ?? 0;
+    } catch (e) {
+      throw '❌ 管理者数の取得に失敗しました: $e';
+    }
+  }
+
+  /// ユーザーのロールを変更
+  Future<void> updateUserRole({
+    required String userId,
+    required String teamId,
+    required UserRole newRole,
+  }) async {
+    try {
+      // usersコレクションのroleを更新
+      await _firestore.collection('users').doc(userId).update({
+        'role': newRole.name,
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+
+      // teamsコレクションのadminIds配列を更新
+      if (newRole == UserRole.admin) {
+        // 管理者に昇格 → adminIdsに追加
+        await _firestore.collection('teams').doc(teamId).update({
+          'adminIds': FieldValue.arrayUnion([userId]),
+          'updatedAt': FieldValue.serverTimestamp(),
+        });
+      } else {
+        // スタッフに降格 → adminIdsから削除
+        await _firestore.collection('teams').doc(teamId).update({
+          'adminIds': FieldValue.arrayRemove([userId]),
+          'updatedAt': FieldValue.serverTimestamp(),
+        });
+      }
+    } catch (e) {
+      throw '❌ ロール変更に失敗しました: $e';
+    }
+  }
+
   /// 認証エラーの処理
   String _handleAuthException(FirebaseAuthException e) {
     switch (e.code) {

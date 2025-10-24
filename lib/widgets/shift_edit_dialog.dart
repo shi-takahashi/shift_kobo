@@ -426,7 +426,7 @@ class _ShiftEditDialogState extends State<ShiftEditDialog> {
 
       // 制約チェック
       final staff = staffProvider.staffList.firstWhere((s) => s.id == _selectedStaffId!);
-      final constraintViolations = _checkConstraintViolations(staff);
+      final constraintViolations = _checkConstraintViolations(staff, shiftProvider);
 
       if (constraintViolations.isNotEmpty) {
         final shouldContinue = await _showConstraintWarningDialog(staff, constraintViolations);
@@ -600,7 +600,7 @@ class _ShiftEditDialogState extends State<ShiftEditDialog> {
   }
 
   /// 制約違反をチェック
-  List<String> _checkConstraintViolations(Staff staff) {
+  List<String> _checkConstraintViolations(Staff staff, ShiftProvider shiftProvider) {
     final violations = <String>[];
 
     // シフトタイプ名を取得（カスタム名を使用）
@@ -626,6 +626,30 @@ class _ShiftEditDialogState extends State<ShiftEditDialog> {
     // 3. 勤務不可シフトタイプチェック
     if (staff.unavailableShiftTypes.contains(shiftTypeForCheck)) {
       violations.add('$shiftTypeForCheckは勤務不可になっています');
+    }
+
+    // 4. 月間最大シフト数チェック
+    final targetMonth = DateTime(_selectedDate.year, _selectedDate.month);
+    final monthlyShifts = shiftProvider.getShiftsForMonth(targetMonth.year, targetMonth.month)
+        .where((shift) => shift.staffId == staff.id);
+
+    // 既存シフトの編集の場合は、そのシフト自体を除外してカウント
+    int currentMonthlyCount = monthlyShifts.where((shift) {
+      if (widget.existingShift != null) {
+        return shift.id != widget.existingShift!.id;
+      }
+      return true;
+    }).length;
+
+    // 新規追加の場合は+1、編集の場合は現在のカウントのまま
+    int futureCount = widget.existingShift != null ? currentMonthlyCount : currentMonthlyCount + 1;
+
+    if (staff.maxShiftsPerMonth == 0) {
+      // 月間最大シフト数が0の場合（自動割り当て対象外）
+      violations.add('月間最大シフト数が0に設定されています（自動割り当て対象外）');
+    } else if (futureCount > staff.maxShiftsPerMonth) {
+      // 上限を超える場合
+      violations.add('月間最大シフト数（${staff.maxShiftsPerMonth}回）を超えます（現在: ${currentMonthlyCount}回）');
     }
 
     return violations;
