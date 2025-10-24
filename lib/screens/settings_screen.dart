@@ -443,6 +443,225 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   /// アカウント削除確認ダイアログ
   Future<void> _showDeleteAccountDialog() async {
+    // 管理者かどうかをチェック
+    final isAdmin = widget.appUser.isAdmin;
+
+    if (isAdmin) {
+      // 管理者の場合、管理者数をチェック
+      try {
+        final authService = AuthService();
+        final adminCount = await authService.getAdminCount(widget.appUser.teamId!);
+
+        if (adminCount == 1) {
+          // 唯一の管理者の場合 → 特別な警告ダイアログ
+          await _showLastAdminDeleteDialog();
+        } else {
+          // 複数管理者の場合 → 通常のダイアログ（管理者向け）
+          await _showAdminDeleteDialog();
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('エラー: $e'), backgroundColor: Colors.red),
+          );
+        }
+      }
+    } else {
+      // スタッフの場合 → 通常のダイアログ
+      await _showStaffDeleteDialog();
+    }
+  }
+
+  /// 唯一の管理者向けの削除ダイアログ
+  Future<void> _showLastAdminDeleteDialog() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Row(
+          children: [
+            Icon(Icons.warning_amber, color: Colors.red.shade700),
+            const SizedBox(width: 8),
+            const Expanded(child: Text('チームが解散されます')),
+          ],
+        ),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                '⚠️ あなたは唯一の管理者です',
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  color: Colors.red.shade900,
+                  fontSize: 15,
+                ),
+              ),
+              const SizedBox(height: 12),
+              const Text(
+                'アカウントを削除すると、チームが管理不能になります。\n'
+                '他のスタッフもアプリを使用できなくなります。',
+                style: TextStyle(fontSize: 14),
+              ),
+              const SizedBox(height: 16),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.blue.shade50,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.blue.shade200),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Icon(Icons.info_outline, color: Colors.blue.shade900, size: 20),
+                        const SizedBox(width: 8),
+                        Text(
+                          'チームを継続したい場合',
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            color: Colors.blue.shade900,
+                            fontSize: 14,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'スタッフ画面から、アプリ利用中のユーザー\n'
+                      '（アプリ利用中のスタッフ）を\n'
+                      '次の管理者に指定してください。',
+                      style: TextStyle(
+                        color: Colors.blue.shade900,
+                        fontSize: 13,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
+              const Text(
+                '本当に削除しますか？',
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  color: Colors.red,
+                ),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('キャンセル'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            style: FilledButton.styleFrom(
+              backgroundColor: Colors.red,
+            ),
+            child: const Text('削除する'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true && mounted) {
+      await _performDeleteTeamAndAccount();
+    }
+  }
+
+  /// 管理者（複数いる場合）向けの削除ダイアログ
+  Future<void> _showAdminDeleteDialog() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('アカウント削除'),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'アカウントを削除すると以下が削除されます：',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 12),
+              const Text('• ログイン情報（メールアドレス・パスワード）'),
+              const Text('• 休み希望の申請データ'),
+              const SizedBox(height: 16),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.orange.shade50,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.orange.shade200),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Icon(Icons.warning_amber, color: Colors.orange.shade900, size: 20),
+                        const SizedBox(width: 8),
+                        Text(
+                          '注意',
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            color: Colors.orange.shade900,
+                            fontSize: 14,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      '他の管理者がログインできない場合、\n'
+                      'チームが管理不能になる可能性があります。',
+                      style: TextStyle(
+                        color: Colors.orange.shade900,
+                        fontSize: 13,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
+              const Text(
+                '本当に削除しますか？',
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  color: Colors.red,
+                ),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('キャンセル'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            style: FilledButton.styleFrom(
+              backgroundColor: Colors.red,
+            ),
+            child: const Text('削除する'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true && mounted) {
+      await _performDeleteAccount();
+    }
+  }
+
+  /// スタッフ向けの削除ダイアログ
+  Future<void> _showStaffDeleteDialog() async {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
@@ -517,53 +736,98 @@ class _SettingsScreenState extends State<SettingsScreen> {
         throw 'ログインしていません';
       }
 
-      // 現在のユーザー情報を取得
-      final userDoc = await FirebaseFirestore.instance
-          .collection('users')
-          .doc(user.uid)
-          .get();
+      // セキュリティのため、必ず再認証を要求
+      if (!isRetry) {
+        // アカウント削除処理を先に実行
+        final userDoc = await FirebaseFirestore.instance
+            .collection('users')
+            .doc(user.uid)
+            .get();
 
-      if (!userDoc.exists) {
-        throw 'ユーザー情報が見つかりません';
-      }
+        if (!userDoc.exists) {
+          throw 'ユーザー情報が見つかりません';
+        }
 
-      final teamId = userDoc.data()?['teamId'] as String?;
-      if (teamId == null) {
-        throw 'チーム情報が見つかりません';
-      }
+        final teamId = userDoc.data()?['teamId'] as String?;
+        if (teamId == null) {
+          throw 'チーム情報が見つかりません';
+        }
 
-      // 紐付けられたstaffIdを検索
-      final staffQuery = await FirebaseFirestore.instance
-          .collection('teams')
-          .doc(teamId)
-          .collection('staff')
-          .where('userId', isEqualTo: user.uid)
-          .limit(1)
-          .get();
+        // 紐付けられたstaffIdを検索
+        final staffQuery = await FirebaseFirestore.instance
+            .collection('teams')
+            .doc(teamId)
+            .collection('staff')
+            .where('userId', isEqualTo: user.uid)
+            .limit(1)
+            .get();
 
-      final staffId = staffQuery.docs.isNotEmpty ? staffQuery.docs.first.id : null;
+        final staffId = staffQuery.docs.isNotEmpty ? staffQuery.docs.first.id : null;
 
-      // 1. constraint_requests削除（staffIdがある場合のみ）
-      if (staffId != null && mounted) {
-        final constraintRequestProvider = Provider.of<ConstraintRequestProvider>(
-          context,
-          listen: false,
+        // 1. constraint_requests削除（staffIdがある場合のみ）
+        if (staffId != null && mounted) {
+          final constraintRequestProvider = Provider.of<ConstraintRequestProvider>(
+            context,
+            listen: false,
+          );
+          await constraintRequestProvider.deleteRequestsByStaffId(staffId);
+        }
+
+        // 2. Staff紐付け解除（staffIdがある場合のみ）
+        if (staffId != null && mounted) {
+          final staffProvider = Provider.of<StaffProvider>(context, listen: false);
+          await staffProvider.unlinkStaffUser(staffId);
+        }
+
+        // 3. users/{userId} 削除
+        await FirebaseFirestore.instance.collection('users').doc(user.uid).delete();
+
+        // セキュリティのため、必ず再認証を要求
+        throw FirebaseAuthException(
+          code: 'requires-recent-login',
+          message: 'アカウント削除にはパスワードの確認が必要です',
         );
-        await constraintRequestProvider.deleteRequestsByStaffId(staffId);
       }
 
-      // 2. Staff紐付け解除（staffIdがある場合のみ）
-      if (staffId != null && mounted) {
-        final staffProvider = Provider.of<StaffProvider>(context, listen: false);
-        await staffProvider.unlinkStaffUser(staffId);
+      if (isRetry) {
+        // 再認証後の再試行：Authenticationのみ削除
+        // （Firestore削除処理は既に完了しているため）
+        await user.delete();
+        print('✅ Authenticationアカウント削除成功（再試行）');
       }
-
-      // 3. users/{userId} 削除 + Authentication削除
-      await authService.deleteAccount();
 
       // ローディング非表示
       if (mounted) {
         Navigator.of(context).pop();
+      }
+
+      // 削除完了メッセージを表示
+      if (mounted) {
+        await showDialog(
+          context: context,
+          barrierDismissible: false,
+          builder: (context) => AlertDialog(
+            title: Row(
+              children: [
+                Icon(Icons.check_circle, color: Colors.green.shade700),
+                const SizedBox(width: 8),
+                const Text('アカウントを削除しました'),
+              ],
+            ),
+            content: const Text(
+              'アカウントの削除が完了しました。\n'
+              'ご利用ありがとうございました。',
+            ),
+            actions: [
+              FilledButton(
+                onPressed: () {
+                  Navigator.of(context).pop();
+                },
+                child: const Text('閉じる'),
+              ),
+            ],
+          ),
+        );
       }
 
       // 削除成功後、AuthGateに遷移（全画面をクリア）
@@ -591,6 +855,167 @@ class _SettingsScreenState extends State<SettingsScreen> {
           if (reauthenticated == true && mounted) {
             // 再認証成功後、削除を再試行（isRetry=trueで再帰防止）
             await _performDeleteAccount(isRetry: true);
+          }
+        }
+      } else {
+        // その他のFirebaseAuthエラー
+        if (mounted) {
+          showDialog(
+            context: context,
+            builder: (context) => AlertDialog(
+              title: const Text('エラー'),
+              content: Text(e.message ?? e.toString()),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  child: const Text('閉じる'),
+                ),
+              ],
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      // ローディング非表示
+      if (mounted) {
+        try {
+          Navigator.of(context).pop();
+        } catch (_) {
+          // ローディングが既に閉じられている場合は無視
+        }
+      }
+
+      // エラーメッセージ表示
+      if (mounted) {
+        showDialog(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Text('エラー'),
+            content: Text(e.toString()),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(),
+                child: const Text('閉じる'),
+              ),
+            ],
+          ),
+        );
+      }
+    }
+  }
+
+  /// チーム解散とアカウント削除（唯一の管理者専用）
+  Future<void> _performDeleteTeamAndAccount({bool isRetry = false}) async {
+    try {
+      // ローディング表示
+      if (mounted) {
+        showDialog(
+          context: context,
+          barrierDismissible: false,
+          builder: (context) => const Center(
+            child: CircularProgressIndicator(),
+          ),
+        );
+      }
+
+      final authService = AuthService();
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) {
+        throw 'ログインしていません';
+      }
+
+      if (!isRetry) {
+        // セキュリティのため、まず再認証を要求
+        throw FirebaseAuthException(
+          code: 'requires-recent-login',
+          message: 'チーム解散にはパスワードの確認が必要です',
+        );
+      }
+
+      if (isRetry) {
+        // 再認証後の処理
+        final userDoc = await FirebaseFirestore.instance
+            .collection('users')
+            .doc(user.uid)
+            .get();
+
+        if (!userDoc.exists) {
+          throw 'ユーザー情報が見つかりません';
+        }
+
+        final teamId = userDoc.data()?['teamId'] as String?;
+        if (teamId == null) {
+          throw 'チーム情報が見つかりません';
+        }
+
+        // 1. Cloud Functionsでチーム解散（他のメンバーのAuthenticationを削除）
+        await authService.deleteTeamAndAccount(teamId);
+        print('✅ チーム解散完了（Cloud Functions）');
+
+        // 2. 自分のAuthenticationを削除
+        await user.delete();
+        print('✅ 自分のAuthenticationアカウント削除成功');
+      }
+
+      // ローディング非表示
+      if (mounted) {
+        Navigator.of(context).pop();
+      }
+
+      // 削除完了メッセージを表示
+      if (mounted) {
+        await showDialog(
+          context: context,
+          barrierDismissible: false,
+          builder: (context) => AlertDialog(
+            title: Row(
+              children: [
+                Icon(Icons.check_circle, color: Colors.green.shade700),
+                const SizedBox(width: 8),
+                const Text('チームを解散しました'),
+              ],
+            ),
+            content: const Text(
+              'チームとアカウントの削除が完了しました。\n'
+              'ご利用ありがとうございました。',
+            ),
+            actions: [
+              FilledButton(
+                onPressed: () {
+                  Navigator.of(context).pop();
+                },
+                child: const Text('閉じる'),
+              ),
+            ],
+          ),
+        );
+      }
+
+      // 削除成功後、AuthGateに遷移（全画面をクリア）
+      // アカウント削除によりauthStateChangesが発火し、AuthGateがウェルカム画面に遷移する
+      if (mounted) {
+        Navigator.of(context).pushAndRemoveUntil(
+          MaterialPageRoute(builder: (_) => const AuthGate()),
+          (route) => false,
+        );
+      }
+    } on FirebaseAuthException catch (e) {
+      // ローディング非表示
+      if (mounted) {
+        try {
+          Navigator.of(context).pop();
+        } catch (_) {
+          // ローディングが既に閉じられている場合は無視
+        }
+      }
+
+      // 再認証が必要な場合
+      if (e.code == 'requires-recent-login' && !isRetry) {
+        if (mounted) {
+          final reauthenticated = await _showReauthenticationDialog();
+          if (reauthenticated == true && mounted) {
+            // 再認証成功後、削除を再試行（isRetry=trueで再帰防止）
+            await _performDeleteTeamAndAccount(isRetry: true);
           }
         }
       } else {

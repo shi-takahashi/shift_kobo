@@ -63,36 +63,54 @@ class ShiftTimeProvider extends ChangeNotifier {
         .doc(teamId)
         .collection('shift_time_settings')
         .snapshots()
-        .listen((snapshot) async {
-      if (snapshot.docs.isEmpty) {
-        // デフォルト設定を作成
-        await _createDefaultSettings();
-      } else {
-        _settings = snapshot.docs.map((doc) {
-          final data = doc.data();
-          final shiftType = ShiftType.values[data['shiftType'] as int];
-          _docIds[shiftType] = doc.id;
-          return ShiftTimeSetting(
-            shiftType: shiftType,
-            customName: data['customName'] ?? '',
-            startTime: data['startTime'] ?? '',
-            endTime: data['endTime'] ?? '',
-            isActive: data['isActive'] ?? true,
-          );
-        }).toList();
+        .listen(
+      (snapshot) async {
+        if (snapshot.docs.isEmpty) {
+          // デフォルト設定を作成
+          await _createDefaultSettings();
+        } else {
+          _settings = snapshot.docs.map((doc) {
+            final data = doc.data();
+            final shiftType = ShiftType.values[data['shiftType'] as int];
+            _docIds[shiftType] = doc.id;
+            return ShiftTimeSetting(
+              shiftType: shiftType,
+              customName: data['customName'] ?? '',
+              startTime: data['startTime'] ?? '',
+              endTime: data['endTime'] ?? '',
+              isActive: data['isActive'] ?? true,
+            );
+          }).toList();
 
-        // 初回ロード完了
-        if (_isLoading) {
-          _isLoading = false;
+          // 初回ロード完了
+          if (_isLoading) {
+            _isLoading = false;
+          }
+
+          notifyListeners();
         }
-
-        notifyListeners();
-      }
-    });
+      },
+      onError: (error) {
+        // チーム削除後の権限エラーを無視
+        if (error.toString().contains('permission-denied')) {
+          print('⚠️ ShiftTimeProvider: チーム削除後のアクセスエラーを無視');
+          return;
+        }
+        print('❌ ShiftTimeProvider エラー: $error');
+      },
+    );
   }
 
   Future<void> _createDefaultSettings() async {
     if (teamId == null) return;
+
+    // チームドキュメントが存在するか確認
+    // 削除処理中の場合、チームドキュメントは存在しないため自動作成しない
+    final teamDoc = await _firestore.collection('teams').doc(teamId).get();
+    if (!teamDoc.exists) {
+      print('⚠️ チームドキュメントが存在しないため、デフォルト設定を作成しません');
+      return;
+    }
 
     final defaultSettings = ShiftTimeSetting.getDefaultSettings();
     final batch = _firestore.batch();

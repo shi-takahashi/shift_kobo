@@ -1,5 +1,6 @@
 import 'dart:math';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:cloud_functions/cloud_functions.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../models/app_user.dart';
 import '../models/team.dart';
@@ -378,6 +379,71 @@ class AuthService {
     } catch (e) {
       throw '❌ アカウント削除に失敗しました: $e';
     }
+  }
+
+  /// チーム解散とアカウント削除（唯一の管理者専用）
+  ///
+  /// 唯一の管理者がアカウント削除する場合、チーム全体を解散します。
+  ///
+  /// Cloud Functionsを使用して、以下を削除します：
+  /// - チームの全サブコレクション（staff, shifts, constraintRequests, settings, shift_time_settings）
+  /// - チームドキュメント
+  /// - チームメンバー全員のusersドキュメント
+  /// - チームメンバー全員のAuthentication（Admin SDK使用）
+  ///
+  /// GDPR対応：
+  /// - 個人情報保護のため、全メンバーのAuthenticationアカウントを削除します
+  /// - Admin SDKを使用して、他のメンバーのAuthenticationも削除します
+  Future<void> deleteTeamAndAccount(String teamId) async {
+    try {
+      final user = _auth.currentUser;
+      if (user == null) {
+        throw '❌ ログインしていません';
+      }
+
+      print('🗑️ チーム解散開始（Cloud Functions使用）: $teamId');
+
+      // Cloud Functionsを呼び出してチーム全体を削除
+      // サーバー側で全メンバーのAuthenticationを削除
+      final callable = FirebaseFunctions.instance.httpsCallable(
+        'deleteTeamAndAllAccounts',
+      );
+
+      final result = await callable.call({
+        'teamId': teamId,
+      });
+
+      final data = result.data as Map<String, dynamic>;
+      print('✅ チーム解散完了: ${data['message']} (削除ユーザー数: ${data['deletedUsers']})');
+    } on FirebaseFunctionsException catch (e) {
+      if (e.code == 'unauthenticated') {
+        throw '❌ 認証が必要です';
+      } else if (e.code == 'permission-denied') {
+        throw '❌ 権限がありません: ${e.message}';
+      } else if (e.code == 'invalid-argument') {
+        throw '❌ 無効なパラメータです: ${e.message}';
+      } else {
+        throw '❌ チーム解散に失敗しました: ${e.message}';
+      }
+    } catch (e) {
+      throw '❌ チーム解散に失敗しました: $e';
+    }
+  }
+
+  /// サブコレクションを削除
+  Future<void> _deleteSubcollection(String teamId, String subcollection) async {
+    final snapshot = await _firestore
+        .collection('teams')
+        .doc(teamId)
+        .collection(subcollection)
+        .get();
+
+    final batch = _firestore.batch();
+    for (final doc in snapshot.docs) {
+      batch.delete(doc.reference);
+    }
+    await batch.commit();
+    print('✅ サブコレクション削除成功: $subcollection (${snapshot.docs.length}件)');
   }
 
   /// 認証エラーの処理

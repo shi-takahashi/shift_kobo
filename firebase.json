@@ -1,1 +1,44 @@
-{"flutter":{"platforms":{"android":{"default":{"projectId":"shift-kobo-online","appId":"1:342148343099:android:6a56d7a980a4807966831e","fileOutput":"android/app/google-services.json"}},"ios":{"default":{"projectId":"shift-kobo-online","appId":"1:342148343099:ios:c57d21ecbfc413b966831e","uploadDebugSymbols":false,"fileOutput":"ios/Runner/GoogleService-Info.plist"}},"macos":{"default":{"projectId":"shift-kobo-online","appId":"1:342148343099:ios:ad9243e72ac9164966831e","uploadDebugSymbols":false,"fileOutput":"macos/Runner/GoogleService-Info.plist"}},"dart":{"lib/firebase_options.dart":{"projectId":"shift-kobo-online","configurations":{"android":"1:342148343099:android:6a56d7a980a4807966831e","ios":"1:342148343099:ios:c57d21ecbfc413b966831e","macos":"1:342148343099:ios:ad9243e72ac9164966831e","web":"1:342148343099:web:9742e25079fdbbdf66831e","windows":"1:342148343099:web:bcc1be119b00bd4b66831e"}}}}}}
+{
+  "functions": {
+    "source": "functions"
+  },
+  "flutter": {
+    "platforms": {
+      "android": {
+        "default": {
+          "projectId": "shift-kobo-online",
+          "appId": "1:342148343099:android:6a56d7a980a4807966831e",
+          "fileOutput": "android/app/google-services.json"
+        }
+      },
+      "ios": {
+        "default": {
+          "projectId": "shift-kobo-online",
+          "appId": "1:342148343099:ios:c57d21ecbfc413b966831e",
+          "uploadDebugSymbols": false,
+          "fileOutput": "ios/Runner/GoogleService-Info.plist"
+        }
+      },
+      "macos": {
+        "default": {
+          "projectId": "shift-kobo-online",
+          "appId": "1:342148343099:ios:ad9243e72ac9164966831e",
+          "uploadDebugSymbols": false,
+          "fileOutput": "macos/Runner/GoogleService-Info.plist"
+        }
+      },
+      "dart": {
+        "lib/firebase_options.dart": {
+          "projectId": "shift-kobo-online",
+          "configurations": {
+            "android": "1:342148343099:android:6a56d7a980a4807966831e",
+            "ios": "1:342148343099:ios:c57d21ecbfc413b966831e",
+            "macos": "1:342148343099:ios:ad9243e72ac9164966831e",
+            "web": "1:342148343099:web:9742e25079fdbbdf66831e",
+            "windows": "1:342148343099:web:bcc1be119b00bd4b66831e"
+          }
+        }
+      }
+    }
+  }
+}
