@@ -187,11 +187,12 @@ class AuthService {
       final teamId = teamDoc.id;
 
       // 2. usersコレクションのteamIdを更新（スタッフとして参加）
-      await _firestore.collection('users').doc(userId).update({
+      // set(merge: true)を使用して、ドキュメントが存在しない場合でも作成する
+      await _firestore.collection('users').doc(userId).set({
         'teamId': teamId,
         'role': 'member', // スタッフとして参加
         'updatedAt': FieldValue.serverTimestamp(),
-      });
+      }, SetOptions(merge: true));
 
       // 3. teamsコレクションのmemberIdsに追加
       await _firestore.collection('teams').doc(teamId).update({
@@ -210,7 +211,13 @@ class AuthService {
         );
       }
 
-      // 5. 参加したTeamオブジェクトを返す
+      // 5. usersドキュメントが正しく更新されたことを確認（書き込み完了待ち）
+      await Future.delayed(const Duration(milliseconds: 500));
+      final updatedUserDoc = await _firestore.collection('users').doc(userId).get();
+      final updatedTeamId = updatedUserDoc.data()?['teamId'];
+      print('✅ [joinTeamByCode] teamId更新確認: $updatedTeamId');
+
+      // 6. 参加したTeamオブジェクトを返す
       return Team.fromFirestore(teamDoc);
     } catch (e) {
       if (e.toString().contains('招待コードが見つかりません')) {
@@ -227,19 +234,23 @@ class AuthService {
     required String email,
   }) async {
     try {
-      // メールアドレスが一致する未紐付けスタッフを検索
+      // メールアドレスが一致するスタッフを検索（全件取得してアプリ側でフィルタ）
       final staffQuery = await _firestore
           .collection('teams')
           .doc(teamId)
           .collection('staff')
           .where('email', isEqualTo: email)
-          .where('userId', isNull: true)
-          .limit(1)
           .get();
 
-      if (staffQuery.docs.isNotEmpty) {
+      // userIdが未設定のスタッフを探す
+      final unmatchedStaff = staffQuery.docs.where((doc) {
+        final data = doc.data();
+        return data['userId'] == null || !(data.containsKey('userId'));
+      }).toList();
+
+      if (unmatchedStaff.isNotEmpty) {
         // 一致するスタッフが見つかった場合、userIdを設定
-        final staffDoc = staffQuery.docs.first;
+        final staffDoc = unmatchedStaff.first;
         await _firestore
             .collection('teams')
             .doc(teamId)
@@ -250,7 +261,7 @@ class AuthService {
           'updatedAt': FieldValue.serverTimestamp(),
         });
 
-        print('✅ スタッフ自動紐付け成功: ${staffDoc.data()['name']} <-> $email');
+        print('✅ スタッフ自動紐付け成功: ${staffDoc.data()['name']} <-> $email (userId: $userId)');
       } else {
         print('ℹ️ スタッフ自動紐付けスキップ: メールアドレス $email に一致する未紐付けスタッフが見つかりません');
       }
@@ -305,6 +316,70 @@ class AuthService {
     }
   }
 
+  /// パスワードで再認証
+  Future<void> reauthenticateWithPassword(String password) async {
+    try {
+      final user = _auth.currentUser;
+      if (user == null) {
+        throw '❌ ログインしていません';
+      }
+
+      final email = user.email;
+      if (email == null) {
+        throw '❌ メールアドレスが取得できません';
+      }
+
+      // EmailAuthProviderで再認証
+      final credential = EmailAuthProvider.credential(
+        email: email,
+        password: password,
+      );
+      await user.reauthenticateWithCredential(credential);
+      print('✅ 再認証成功');
+    } on FirebaseAuthException catch (e) {
+      throw _handleAuthException(e);
+    } catch (e) {
+      throw '❌ 再認証に失敗しました: $e';
+    }
+  }
+
+  /// アカウント削除（Firebase Authentication + Firestore users/）
+  ///
+  /// 注意: この関数は以下のみを削除します：
+  /// - Firebase Authentication アカウント
+  /// - Firestore users/{userId} ドキュメント
+  ///
+  /// 以下は呼び出し側で削除してください：
+  /// - constraint_requests/ サブコレクション（ConstraintRequestProvider.deleteRequestsByStaffId()）
+  /// - Staff.userId（StaffProvider.unlinkStaffUser()）
+  Future<void> deleteAccount() async {
+    try {
+      final user = _auth.currentUser;
+      if (user == null) {
+        throw '❌ ログインしていません';
+      }
+
+      final userId = user.uid;
+
+      // 1. Firestoreのusersドキュメント削除
+      await _firestore.collection('users').doc(userId).delete();
+      print('✅ usersドキュメント削除成功: $userId');
+
+      // 2. Firebase Authenticationのアカウント削除
+      await user.delete();
+      print('✅ Authenticationアカウント削除成功: $userId');
+    } on FirebaseAuthException catch (e) {
+      if (e.code == 'requires-recent-login') {
+        // 再認証が必要（このエラーは呼び出し側で処理）
+        rethrow;
+      } else {
+        throw '❌ アカウント削除に失敗しました: ${_handleAuthException(e)}';
+      }
+    } catch (e) {
+      throw '❌ アカウント削除に失敗しました: $e';
+    }
+  }
+
   /// 認証エラーの処理
   String _handleAuthException(FirebaseAuthException e) {
     switch (e.code) {
@@ -324,6 +399,8 @@ class AuthService {
         return 'パスワードが間違っています';
       case 'invalid-credential':
         return 'メールアドレスまたはパスワードが間違っています';
+      case 'requires-recent-login':
+        return '最近ログインしていないため、この操作を実行できません';
       default:
         return '❌ 認証エラー: ${e.message}';
     }

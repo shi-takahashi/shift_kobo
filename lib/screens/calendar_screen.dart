@@ -9,6 +9,7 @@ import '../providers/staff_provider.dart';
 import '../providers/shift_time_provider.dart';
 import '../providers/monthly_requirements_provider.dart';
 import '../models/shift.dart';
+import '../models/staff.dart';
 import '../models/shift_type.dart' as old_shift_type;
 import '../models/shift_time_setting.dart';
 import '../widgets/shift_edit_dialog.dart';
@@ -663,13 +664,13 @@ class _CalendarScreenState extends State<CalendarScreen> {
     final staffProvider = context.read<StaffProvider>();
     final shiftProvider = context.read<ShiftProvider>();
     final staff = staffProvider.getStaffById(shift.staffId);
-    
+
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('シフト削除'),
         content: Text(
-          '${staff?.name ?? 'スタッフ名不明'}の'
+          '${_getStaffDisplayName(staff, shift.staffId)}の'
           '${shift.date.month}/${shift.date.day}（${shift.shiftType}）'
           'のシフトを削除しますか？',
         ),
@@ -852,6 +853,14 @@ class _CalendarScreenState extends State<CalendarScreen> {
       ),
     );
   }
+
+  /// スタッフ名を取得（削除済みスタッフの場合は匿名化表示）
+  String _getStaffDisplayName(Staff? staff, String staffId) {
+    if (staff == null) {
+      return '不明なスタッフ (ID: ${staffId.substring(0, 8)})';
+    }
+    return staff.name;
+  }
 }
 
 class _ShiftTile extends StatelessWidget {
@@ -901,7 +910,7 @@ class _ShiftTile extends StatelessWidget {
             radius: 18,
             backgroundColor: shiftColor.withOpacity(0.2),
             child: Text(
-              staff?.name.substring(0, 1) ?? '?',
+              staff != null ? staff.name.substring(0, 1) : '?',
               style: TextStyle(
                 color: shiftColor,
                 fontWeight: FontWeight.bold,
@@ -910,7 +919,9 @@ class _ShiftTile extends StatelessWidget {
             ),
           ),
           title: Text(
-            staff?.name ?? 'スタッフ名不明',
+            staff != null
+                ? staff.name
+                : '不明なスタッフ (ID: ${shift.staffId.substring(0, 8)})',
             style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 15),
           ),
           subtitle: Row(

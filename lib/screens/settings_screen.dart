@@ -1,5 +1,6 @@
 import 'dart:io' show Platform;
 
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -9,6 +10,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../models/app_user.dart';
 import '../models/team.dart';
+import '../providers/constraint_request_provider.dart';
 import '../providers/monthly_requirements_provider.dart';
 import '../providers/shift_provider.dart';
 import '../providers/shift_time_provider.dart';
@@ -262,6 +264,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
           subtitle: const Text('不具合報告や改善要望はこちら'),
           onTap: _sendContactEmail,
         ),
+        const SizedBox(height: 24),
+        const Divider(thickness: 2, height: 1),
+        const SizedBox(height: 24),
+        ListTile(
+          leading: const Icon(Icons.delete_forever, color: Colors.red),
+          title: const Text(
+            'アカウント削除',
+            style: TextStyle(color: Colors.red),
+          ),
+          onTap: _showDeleteAccountDialog,
+        ),
       ],
     );
   }
@@ -422,6 +435,302 @@ class _SettingsScreenState extends State<SettingsScreen> {
           TextButton(
             onPressed: () => Navigator.of(context).pop(),
             child: const Text('閉じる'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// アカウント削除確認ダイアログ
+  Future<void> _showDeleteAccountDialog() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('アカウント削除'),
+        content: const SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'アカウントを削除すると以下が削除されます：',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
+              SizedBox(height: 12),
+              Text('• ログイン情報（メールアドレス・パスワード）'),
+              Text('• 休み希望の申請データ'),
+              SizedBox(height: 16),
+              Text(
+                'スタッフ登録データは管理者側に残ります。\n'
+                '再度同じメールアドレスで登録・紐付けできます。',
+                style: TextStyle(fontSize: 13),
+              ),
+              SizedBox(height: 16),
+              Text(
+                '本当に削除しますか？',
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  color: Colors.red,
+                ),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('キャンセル'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            style: FilledButton.styleFrom(
+              backgroundColor: Colors.red,
+            ),
+            child: const Text('削除する'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true && mounted) {
+      await _performDeleteAccount();
+    }
+  }
+
+  /// アカウント削除処理
+  Future<void> _performDeleteAccount({bool isRetry = false}) async {
+    try {
+      // ローディング表示
+      if (mounted) {
+        showDialog(
+          context: context,
+          barrierDismissible: false,
+          builder: (context) => const Center(
+            child: CircularProgressIndicator(),
+          ),
+        );
+      }
+
+      final authService = AuthService();
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) {
+        throw 'ログインしていません';
+      }
+
+      // 現在のユーザー情報を取得
+      final userDoc = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(user.uid)
+          .get();
+
+      if (!userDoc.exists) {
+        throw 'ユーザー情報が見つかりません';
+      }
+
+      final teamId = userDoc.data()?['teamId'] as String?;
+      if (teamId == null) {
+        throw 'チーム情報が見つかりません';
+      }
+
+      // 紐付けられたstaffIdを検索
+      final staffQuery = await FirebaseFirestore.instance
+          .collection('teams')
+          .doc(teamId)
+          .collection('staff')
+          .where('userId', isEqualTo: user.uid)
+          .limit(1)
+          .get();
+
+      final staffId = staffQuery.docs.isNotEmpty ? staffQuery.docs.first.id : null;
+
+      // 1. constraint_requests削除（staffIdがある場合のみ）
+      if (staffId != null && mounted) {
+        final constraintRequestProvider = Provider.of<ConstraintRequestProvider>(
+          context,
+          listen: false,
+        );
+        await constraintRequestProvider.deleteRequestsByStaffId(staffId);
+      }
+
+      // 2. Staff紐付け解除（staffIdがある場合のみ）
+      if (staffId != null && mounted) {
+        final staffProvider = Provider.of<StaffProvider>(context, listen: false);
+        await staffProvider.unlinkStaffUser(staffId);
+      }
+
+      // 3. users/{userId} 削除 + Authentication削除
+      await authService.deleteAccount();
+
+      // ローディング非表示
+      if (mounted) {
+        Navigator.of(context).pop();
+      }
+
+      // 削除成功後、AuthGateに遷移（全画面をクリア）
+      // アカウント削除によりauthStateChangesが発火し、AuthGateがウェルカム画面に遷移する
+      if (mounted) {
+        Navigator.of(context).pushAndRemoveUntil(
+          MaterialPageRoute(builder: (_) => const AuthGate()),
+          (route) => false,
+        );
+      }
+    } on FirebaseAuthException catch (e) {
+      // ローディング非表示
+      if (mounted) {
+        try {
+          Navigator.of(context).pop();
+        } catch (_) {
+          // ローディングが既に閉じられている場合は無視
+        }
+      }
+
+      // 再認証が必要な場合
+      if (e.code == 'requires-recent-login' && !isRetry) {
+        if (mounted) {
+          final reauthenticated = await _showReauthenticationDialog();
+          if (reauthenticated == true && mounted) {
+            // 再認証成功後、削除を再試行（isRetry=trueで再帰防止）
+            await _performDeleteAccount(isRetry: true);
+          }
+        }
+      } else {
+        // その他のFirebaseAuthエラー
+        if (mounted) {
+          showDialog(
+            context: context,
+            builder: (context) => AlertDialog(
+              title: const Text('エラー'),
+              content: Text(e.message ?? e.toString()),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  child: const Text('閉じる'),
+                ),
+              ],
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      // ローディング非表示
+      if (mounted) {
+        try {
+          Navigator.of(context).pop();
+        } catch (_) {
+          // ローディングが既に閉じられている場合は無視
+        }
+      }
+
+      // エラーメッセージ表示
+      if (mounted) {
+        showDialog(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Text('エラー'),
+            content: Text(e.toString()),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(),
+                child: const Text('閉じる'),
+              ),
+            ],
+          ),
+        );
+      }
+    }
+  }
+
+  /// 再認証ダイアログ
+  Future<bool?> _showReauthenticationDialog() async {
+    final passwordController = TextEditingController();
+    final formKey = GlobalKey<FormState>();
+
+    return showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AlertDialog(
+        title: const Text('パスワードの確認'),
+        content: Form(
+          key: formKey,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'セキュリティ保護のため、パスワードを再入力してください。',
+                style: TextStyle(fontSize: 14),
+              ),
+              const SizedBox(height: 16),
+              TextFormField(
+                controller: passwordController,
+                obscureText: true,
+                autofocus: true,
+                decoration: const InputDecoration(
+                  labelText: 'パスワード',
+                  border: OutlineInputBorder(),
+                  prefixIcon: Icon(Icons.lock),
+                ),
+                validator: (value) {
+                  if (value == null || value.isEmpty) {
+                    return 'パスワードを入力してください';
+                  }
+                  return null;
+                },
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('キャンセル'),
+          ),
+          FilledButton(
+            onPressed: () async {
+              if (!formKey.currentState!.validate()) {
+                return;
+              }
+
+              // ローディング表示
+              showDialog(
+                context: context,
+                barrierDismissible: false,
+                builder: (context) => const Center(
+                  child: CircularProgressIndicator(),
+                ),
+              );
+
+              try {
+                final authService = AuthService();
+                await authService.reauthenticateWithPassword(passwordController.text);
+
+                // ローディング非表示
+                if (context.mounted) {
+                  Navigator.of(context).pop();
+                }
+
+                // 再認証ダイアログを閉じる（成功）
+                if (context.mounted) {
+                  Navigator.of(context).pop(true);
+                }
+              } catch (e) {
+                // ローディング非表示
+                if (context.mounted) {
+                  Navigator.of(context).pop();
+                }
+
+                // エラーメッセージ表示
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('再認証に失敗しました: $e'),
+                      backgroundColor: Colors.red,
+                    ),
+                  );
+                }
+              }
+            },
+            child: const Text('確認'),
           ),
         ],
       ),

@@ -201,6 +201,28 @@ class StaffProvider extends ChangeNotifier {
     }).toList();
   }
 
+  /// スタッフのユーザー紐付けを解除（アカウント削除時に使用）
+  Future<void> unlinkStaffUser(String staffId) async {
+    if (teamId == null) return;
+
+    try {
+      await _firestore
+          .collection('teams')
+          .doc(teamId)
+          .collection('staff')
+          .doc(staffId)
+          .update({
+        'userId': FieldValue.delete(),  // フィールド自体を削除
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+
+      print('✅ スタッフ紐付け解除成功: $staffId');
+    } catch (e) {
+      print('⚠️ スタッフ紐付け解除エラー: $e');
+      rethrow;
+    }
+  }
+
   /// データの再読み込み（バックアップ復元後などに使用）
   void reload() {
     _subscribeToStaff();

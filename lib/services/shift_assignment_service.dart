@@ -85,7 +85,7 @@ class ShiftAssignmentService {
     // 有効なスタッフのみ使用（月間最大シフト数0のスタッフは自動的に除外される）
     List<Staff> availableStaff = staffProvider.activeStaffList;
     int shiftIdCounter = 0;
-    
+
     // デバッグ: スタッフ数を確認
     print('利用可能なスタッフ数: ${availableStaff.length}');
     for (var staff in availableStaff) {

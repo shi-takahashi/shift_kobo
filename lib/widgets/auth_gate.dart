@@ -91,6 +91,9 @@ class AuthGate extends StatelessWidget {
                   }
 
                   final appUser = userSnapshot.data;
+                  debugPrint('🔍 [AuthGate] appUser: $appUser');
+                  debugPrint('🔍 [AuthGate] teamId: ${appUser?.teamId}');
+
                   if (appUser?.teamId == null) {
                     // チーム未所属の場合
                     if (hasExistingData) {

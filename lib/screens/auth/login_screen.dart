@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../services/auth_service.dart';
-import 'signup_screen.dart';
 import '../team/team_creation_screen.dart';
+import '../../widgets/auth_gate.dart';
 
 /// ログイン画面
 class LoginScreen extends StatefulWidget {
@@ -45,23 +45,12 @@ class _LoginScreenState extends State<LoginScreen> {
 
       if (!mounted) return;
 
-      // ユーザー情報を取得してチーム所属を確認
-      final appUser = await _authService.getUser(user.uid);
-
-      if (appUser?.teamId == null) {
-        // チーム未所属の場合はチーム作成画面へ
-        Navigator.of(context).pushReplacement(
-          MaterialPageRoute(
-            builder: (_) => TeamCreationScreen(userId: user.uid),
-          ),
-        );
-      } else {
-        // チーム所属済みの場合はホーム画面へ
-        // TODO: ホーム画面への遷移を実装（後で実装）
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('✅ ログインに成功しました')),
-        );
-      }
+      // AuthGateに遷移（全画面をクリア）
+      // AuthGateがチーム所属状態を判定して適切な画面に遷移する
+      Navigator.of(context).pushAndRemoveUntil(
+        MaterialPageRoute(builder: (_) => const AuthGate()),
+        (route) => false,
+      );
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(

@@ -271,6 +271,39 @@ class ConstraintRequestProvider extends ChangeNotifier {
     debugPrint('✅ [ConstraintRequestProvider] リクエスト削除: $requestId');
   }
 
+  /// 特定スタッフの全リクエストを削除（アカウント削除時に使用）
+  Future<void> deleteRequestsByStaffId(String staffId) async {
+    if (teamId == null) return;
+
+    try {
+      // staffIdで検索
+      final snapshot = await _firestore
+          .collection('teams')
+          .doc(teamId)
+          .collection('constraint_requests')
+          .where('staffId', isEqualTo: staffId)
+          .get();
+
+      if (snapshot.docs.isEmpty) {
+        debugPrint('ℹ️ [ConstraintRequestProvider] スタッフ $staffId のリクエストはありません');
+        return;
+      }
+
+      // バッチで削除（最大500件）
+      final batch = _firestore.batch();
+      for (var doc in snapshot.docs) {
+        batch.delete(doc.reference);
+      }
+
+      await batch.commit();
+
+      debugPrint('✅ [ConstraintRequestProvider] スタッフ $staffId の全リクエスト削除完了（${snapshot.docs.length}件）');
+    } catch (e) {
+      debugPrint('⚠️ [ConstraintRequestProvider] スタッフリクエスト削除エラー: $e');
+      rethrow;
+    }
+  }
+
   @override
   void dispose() {
     _requestSubscription?.cancel();

@@ -374,19 +374,20 @@ class _ExportScreenState extends State<ExportScreen> {
         headers.add(excel.TextCellValue('${day}日($weekday)'));
       }
       sheet.appendRow(headers);
-      
+
       // スタッフ行
       final staffWithShifts = _getStaffWithShifts(shifts, staffProvider);
       for (final staff in staffWithShifts) {
+        final staffData = staffProvider.getStaffById(staff.id);
         final row = <excel.CellValue?>[
-          excel.TextCellValue(staff.name)
+          excel.TextCellValue(_getStaffDisplayName(staffData, staff.id))
         ];
-        
+
         for (int day = 1; day <= daysInMonth; day++) {
           final date = DateTime(_selectedMonth.year, _selectedMonth.month, day);
           final dayShifts = shifts[date] ?? [];
           final staffShift = dayShifts.where((s) => s.staffId == staff.id).firstOrNull;
-          
+
           String cellValue = '';
           if (staffShift != null) {
             // シフトタイプは文字列で保存されている（displayName）
@@ -396,12 +397,12 @@ class _ExportScreenState extends State<ExportScreen> {
                 .firstOrNull;
             if (setting != null) {
               final shiftChar = setting.displayName.isNotEmpty ? setting.displayName[0] : '?';
-              
+
               // 標準時間と異なるかチェック
               final actualStartTime = DateFormat('HH:mm').format(staffShift.startTime);
               final actualEndTime = DateFormat('HH:mm').format(staffShift.endTime);
               final isDifferentTime = actualStartTime != setting.startTime || actualEndTime != setting.endTime;
-              
+
               if (isDifferentTime) {
                 cellValue = '$shiftChar ($actualStartTime-$actualEndTime)';
               } else {
@@ -413,7 +414,7 @@ class _ExportScreenState extends State<ExportScreen> {
           }
           row.add(excel.TextCellValue(cellValue));
         }
-        
+
         sheet.appendRow(row);
       }
 
@@ -770,19 +771,20 @@ class _ExportScreenState extends State<ExportScreen> {
         headers.add(excel.TextCellValue('${day}日($weekday)'));
       }
       sheet.appendRow(headers);
-      
+
       // スタッフ行
       final staffWithShifts = _getStaffWithShifts(shifts, staffProvider);
       for (final staff in staffWithShifts) {
+        final staffData = staffProvider.getStaffById(staff.id);
         final row = <excel.CellValue?>[
-          excel.TextCellValue(staff.name)
+          excel.TextCellValue(_getStaffDisplayName(staffData, staff.id))
         ];
-        
+
         for (int day = 1; day <= daysInMonth; day++) {
           final date = DateTime(_selectedMonth.year, _selectedMonth.month, day);
           final dayShifts = shifts[date] ?? [];
           final staffShift = dayShifts.where((s) => s.staffId == staff.id).firstOrNull;
-          
+
           String cellValue = '';
           if (staffShift != null) {
             // シフトタイプは文字列で保存されている（displayName）
@@ -792,12 +794,12 @@ class _ExportScreenState extends State<ExportScreen> {
                 .firstOrNull;
             if (setting != null) {
               final shiftChar = setting.displayName.isNotEmpty ? setting.displayName[0] : '?';
-              
+
               // 標準時間と異なるかチェック
               final actualStartTime = DateFormat('HH:mm').format(staffShift.startTime);
               final actualEndTime = DateFormat('HH:mm').format(staffShift.endTime);
               final isDifferentTime = actualStartTime != setting.startTime || actualEndTime != setting.endTime;
-              
+
               if (isDifferentTime) {
                 cellValue = '$shiftChar ($actualStartTime-$actualEndTime)';
               } else {
@@ -809,7 +811,7 @@ class _ExportScreenState extends State<ExportScreen> {
           }
           row.add(excel.TextCellValue(cellValue));
         }
-        
+
         sheet.appendRow(row);
       }
 
@@ -900,14 +902,14 @@ class _ExportScreenState extends State<ExportScreen> {
   // その月にシフトがあるスタッフを抽出（スタッフID順）
   List<Staff> _getStaffWithShifts(Map<DateTime, List<Shift>> shifts, StaffProvider staffProvider) {
     final staffIds = <String>{};
-    
+
     // その月の全シフトからスタッフIDを収集
     for (final dayShifts in shifts.values) {
       for (final shift in dayShifts) {
         staffIds.add(shift.staffId);
       }
     }
-    
+
     // スタッフIDに該当するスタッフを取得（登録順＝ID順で並び替え）
     final staffWithShifts = <Staff>[];
     for (final staff in staffProvider.staffList) {
@@ -915,8 +917,16 @@ class _ExportScreenState extends State<ExportScreen> {
         staffWithShifts.add(staff);
       }
     }
-    
+
     return staffWithShifts;
+  }
+
+  /// スタッフ名を取得（削除済みスタッフの場合は匿名化表示）
+  String _getStaffDisplayName(Staff? staff, String staffId) {
+    if (staff == null) {
+      return '不明なスタッフ (ID: ${staffId.substring(0, 8)})';
+    }
+    return staff.name;
   }
 
   Widget _buildCalendarTable(Map<DateTime, List<Shift>> shifts, List<Staff> staffWithShifts) {
@@ -992,18 +1002,20 @@ class _ExportScreenState extends State<ExportScreen> {
 
   List<DataRow> _buildStaffRows(int daysInMonth, Map<DateTime, List<Shift>> shifts, List<Staff> staffWithShifts) {
     final shiftTimeProvider = Provider.of<ShiftTimeProvider>(context, listen: false);
+    final staffProvider = Provider.of<StaffProvider>(context, listen: false);
     final rows = <DataRow>[];
-    
+
     for (final staff in staffWithShifts) {
+      final staffData = staffProvider.getStaffById(staff.id);
       final cells = <DataCell>[
         DataCell(
           Text(
-            staff.name,
+            _getStaffDisplayName(staffData, staff.id),
             style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
           ),
         ),
       ];
-      
+
       for (int day = 1; day <= daysInMonth; day++) {
         final date = DateTime(_selectedMonth.year, _selectedMonth.month, day);
         final dayShifts = shifts[date] ?? [];

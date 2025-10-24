@@ -128,8 +128,9 @@ class _ShiftEditDialogState extends State<ShiftEditDialog> {
                         
                         Consumer<StaffProvider>(
                           builder: (context, staffProvider, child) {
+                            // アクティブなスタッフのみ
                             final activeStaff = staffProvider.activeStaffList;
-                            
+
                             return DropdownButtonFormField<String>(
                               decoration: const InputDecoration(
                                 labelText: 'スタッフ',
