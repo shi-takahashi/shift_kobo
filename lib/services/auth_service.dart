@@ -381,6 +381,52 @@ class AuthService {
     }
   }
 
+  /// スタッフアカウント削除（管理者専用）
+  ///
+  /// 管理者が指定したスタッフのAuthenticationアカウントを削除します。
+  ///
+  /// Cloud Functionsを使用して、以下を削除します：
+  /// - 指定されたスタッフのAuthentication（Admin SDK使用）
+  ///
+  /// 注意: この関数は以下のみを削除します：
+  /// - Firebase Authentication アカウント
+  ///
+  /// 以下は呼び出し側で削除してください：
+  /// - constraint_requests/ サブコレクション（ConstraintRequestProvider.deleteRequestsByStaffId()）
+  /// - users/{userId} ドキュメント
+  /// - staffs/{staffId} ドキュメント（StaffProvider.deleteStaff()）
+  Future<void> deleteStaffAccount(String userId) async {
+    try {
+      print('🗑️ スタッフアカウント削除開始（Cloud Functions使用）: $userId');
+
+      // Cloud Functionsを呼び出してスタッフのAuthenticationを削除
+      final callable = FirebaseFunctions.instance.httpsCallable(
+        'deleteStaffAccount',
+      );
+
+      final result = await callable.call({
+        'userId': userId,
+      });
+
+      final data = result.data as Map<String, dynamic>;
+      print('✅ スタッフアカウント削除完了: ${data['message']}');
+    } on FirebaseFunctionsException catch (e) {
+      if (e.code == 'unauthenticated') {
+        throw '❌ 認証が必要です';
+      } else if (e.code == 'permission-denied') {
+        throw '❌ 権限がありません: ${e.message}';
+      } else if (e.code == 'invalid-argument') {
+        throw '❌ 無効なパラメータです: ${e.message}';
+      } else if (e.code == 'not-found') {
+        throw '❌ ユーザーが見つかりません: ${e.message}';
+      } else {
+        throw '❌ スタッフアカウント削除に失敗しました: ${e.message}';
+      }
+    } catch (e) {
+      throw '❌ スタッフアカウント削除に失敗しました: $e';
+    }
+  }
+
   /// チーム解散とアカウント削除（唯一の管理者専用）
   ///
   /// 唯一の管理者がアカウント削除する場合、チーム全体を解散します。

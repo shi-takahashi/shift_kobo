@@ -6,6 +6,7 @@ import '../providers/shift_time_provider.dart';
 import '../providers/constraint_request_provider.dart';
 import '../models/staff.dart';
 import '../models/app_user.dart';
+import '../services/auth_service.dart';
 import '../widgets/staff_edit_dialog.dart';
 import 'approval/constraint_approval_screen.dart';
 
@@ -411,30 +412,191 @@ class _StaffListScreenState extends State<StaffListScreen> {
         );
         break;
       case 'delete':
-        showDialog(
-          context: context,
-          builder: (context) => AlertDialog(
-            title: const Text('削除確認'),
-            content: Text('${staff.name}を削除しますか？'),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(context),
-                child: const Text('キャンセル'),
-              ),
-              FilledButton(
-                onPressed: () {
-                  staffProvider.deleteStaff(staff.id);
-                  Navigator.pop(context);
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('${staff.name}を削除しました')),
-                  );
-                },
-                child: const Text('削除'),
+        _showDeleteStaffDialog(staff);
+        break;
+    }
+  }
+
+  /// スタッフ削除ダイアログ
+  void _showDeleteStaffDialog(Staff staff) {
+    // Provider を引き継ぐために、現在のスコープから Provider を取得
+    final staffProvider = Provider.of<StaffProvider>(context, listen: false);
+    final constraintRequestProvider = Provider.of<ConstraintRequestProvider>(context, listen: false);
+
+    showDialog(
+      context: context,
+      builder: (context) => MultiProvider(
+        providers: [
+          ChangeNotifierProvider<StaffProvider>.value(value: staffProvider),
+          ChangeNotifierProvider<ConstraintRequestProvider>.value(value: constraintRequestProvider),
+        ],
+        child: _DeleteStaffDialog(staff: staff),
+      ),
+    );
+  }
+}
+
+/// スタッフ削除確認ダイアログ（StatefulWidget）
+class _DeleteStaffDialog extends StatefulWidget {
+  final Staff staff;
+
+  const _DeleteStaffDialog({required this.staff});
+
+  @override
+  State<_DeleteStaffDialog> createState() => _DeleteStaffDialogState();
+}
+
+class _DeleteStaffDialogState extends State<_DeleteStaffDialog> {
+  @override
+  Widget build(BuildContext context) {
+    final hasAccount = widget.staff.userId != null;
+
+    return AlertDialog(
+      title: const Text('削除確認'),
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('「${widget.staff.name}」を削除しますか？'),
+            const SizedBox(height: 16),
+
+            // 紐付け済みスタッフの場合は警告を表示
+            if (hasAccount) ...[
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.red.shade50,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.red.shade200),
+                ),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Icon(Icons.warning, color: Colors.red.shade700, size: 20),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            '以下のデータが削除されます：',
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              color: Colors.red.shade900,
+                              fontSize: 13,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            '• ログイン情報（メールアドレス・パスワード）\n'
+                            '• 休み希望の申請データ\n'
+                            '• スタッフ登録データ',
+                            style: TextStyle(
+                              color: Colors.red.shade900,
+                              fontSize: 12,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            'このスタッフはアプリにログインできなくなります。',
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              color: Colors.red.shade900,
+                              fontSize: 12,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ],
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('キャンセル'),
+        ),
+        FilledButton(
+          onPressed: () => _performDelete(context),
+          style: FilledButton.styleFrom(
+            backgroundColor: Colors.red,
           ),
+          child: const Text('削除'),
+        ),
+      ],
+    );
+  }
+
+  /// 削除処理を実行
+  Future<void> _performDelete(BuildContext context) async {
+    try {
+      // ローディング表示
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => const Center(
+          child: CircularProgressIndicator(),
+        ),
+      );
+
+      final staffProvider = Provider.of<StaffProvider>(context, listen: false);
+
+      if (widget.staff.userId != null) {
+        // 紐付け済みスタッフの場合：アカウントごと削除
+        final constraintRequestProvider = Provider.of<ConstraintRequestProvider>(context, listen: false);
+        final authService = AuthService();
+
+        await staffProvider.deleteStaffWithAccount(
+          widget.staff.id,
+          deleteRequestsByStaffId: constraintRequestProvider.deleteRequestsByStaffId,
+          deleteStaffAccount: authService.deleteStaffAccount,
         );
-        break;
+      } else {
+        // 紐付けなしスタッフの場合：スタッフデータのみ削除
+        await staffProvider.deleteStaff(widget.staff.id);
+      }
+
+      if (!mounted) return;
+
+      // ローディングを閉じる
+      Navigator.pop(context);
+      // 削除ダイアログを閉じる
+      Navigator.pop(context);
+
+      // 成功メッセージ
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('${widget.staff.name}を削除しました'),
+          backgroundColor: Colors.green,
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+
+      // ローディングを閉じる
+      try {
+        Navigator.pop(context);
+      } catch (_) {}
+
+      // エラーメッセージ
+      showDialog(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('エラー'),
+          content: Text('削除に失敗しました: $e'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('閉じる'),
+            ),
+          ],
+        ),
+      );
     }
   }
 }

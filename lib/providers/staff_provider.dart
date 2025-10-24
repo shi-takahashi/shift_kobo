@@ -223,6 +223,67 @@ class StaffProvider extends ChangeNotifier {
     }
   }
 
+  /// スタッフをアカウントごと削除（管理者専用）
+  ///
+  /// 紐付け済みスタッフの場合、以下を削除します：
+  /// 1. constraint_requests/ サブコレクション（申請データ）
+  /// 2. users/{userId} ドキュメント
+  /// 3. Firebase Authentication（Cloud Functions経由）
+  /// 4. staffs/{staffId} ドキュメント
+  ///
+  /// 紐付けなしスタッフの場合、staffs/{staffId} のみ削除します。
+  Future<void> deleteStaffWithAccount(
+    String staffId, {
+    required Function(String) deleteRequestsByStaffId,
+    required Function(String) deleteStaffAccount,
+  }) async {
+    if (teamId == null) {
+      throw 'チーム情報が見つかりません';
+    }
+
+    try {
+      // スタッフ情報を取得
+      final staff = getStaffById(staffId);
+      if (staff == null) {
+        throw 'スタッフ情報が見つかりません';
+      }
+
+      final userId = staff.userId;
+
+      if (userId != null) {
+        // 紐付け済みスタッフの場合
+        print('🗑️ スタッフアカウント削除開始（アカウント付き）: $staffId, userId: $userId');
+
+        // 1. constraint_requests/ 削除（ConstraintRequestProvider経由）
+        await deleteRequestsByStaffId(staffId);
+        print('✅ constraint_requests削除完了: $staffId');
+
+        // 2. Authentication削除（AuthService経由、Cloud Functions）
+        // 注意: users/{userId} を削除する前に Authentication を削除する
+        await deleteStaffAccount(userId);
+        print('✅ Authentication削除完了: $userId');
+
+        // 3. users/{userId} 削除
+        await _firestore.collection('users').doc(userId).delete();
+        print('✅ usersドキュメント削除完了: $userId');
+
+        // 4. staffs/{staffId} 削除
+        await deleteStaff(staffId);
+        print('✅ staffドキュメント削除完了: $staffId');
+      } else {
+        // 紐付けなしスタッフの場合、スタッフデータのみ削除
+        print('🗑️ スタッフデータ削除開始（アカウントなし）: $staffId');
+        await deleteStaff(staffId);
+        print('✅ staffドキュメント削除完了: $staffId');
+      }
+
+      print('✅ スタッフ削除完了: $staffId');
+    } catch (e) {
+      print('❌ スタッフ削除エラー: $staffId, $e');
+      rethrow;
+    }
+  }
+
   /// データの再読み込み（バックアップ復元後などに使用）
   void reload() {
     _subscribeToStaff();

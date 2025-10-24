@@ -45,6 +45,34 @@ class AuthGate extends StatelessWidget {
     }
   }
 
+  /// ユーザー情報を取得（リトライ機能付き）
+  ///
+  /// 新規登録直後はFirestoreへの書き込みに時間がかかる場合があるため、
+  /// nullの場合は500ms待ってから再度取得を試みる。
+  /// それでもnullの場合は削除されたユーザーと判断する。
+  Future<dynamic> _getUserWithRetry(String uid) async {
+    final authService = AuthService();
+
+    // 1回目の取得
+    var appUser = await authService.getUser(uid);
+
+    if (appUser == null) {
+      debugPrint('⚠️ [AuthGate] usersドキュメント取得失敗（1回目）。500ms後にリトライします。');
+      // 500ms待機
+      await Future.delayed(const Duration(milliseconds: 500));
+      // 2回目の取得
+      appUser = await authService.getUser(uid);
+
+      if (appUser == null) {
+        debugPrint('❌ [AuthGate] usersドキュメント取得失敗（2回目）。削除されたユーザーと判断します。');
+      } else {
+        debugPrint('✅ [AuthGate] usersドキュメント取得成功（2回目）。新規登録直後と判断します。');
+      }
+    }
+
+    return appUser;
+  }
+
   @override
   Widget build(BuildContext context) {
     return FutureBuilder<bool>(
@@ -80,7 +108,7 @@ class AuthGate extends StatelessWidget {
             if (authSnapshot.hasData && authSnapshot.data != null) {
               // チーム所属チェック
               return FutureBuilder(
-                future: AuthService().getUser(authSnapshot.data!.uid),
+                future: _getUserWithRetry(authSnapshot.data!.uid),
                 builder: (context, userSnapshot) {
                   if (userSnapshot.connectionState == ConnectionState.waiting) {
                     return const Scaffold(
@@ -94,7 +122,28 @@ class AuthGate extends StatelessWidget {
                   debugPrint('🔍 [AuthGate] appUser: $appUser');
                   debugPrint('🔍 [AuthGate] teamId: ${appUser?.teamId}');
 
-                  if (appUser?.teamId == null) {
+                  // usersドキュメントが存在しない場合（削除されたユーザー）
+                  // ログアウトして新規ユーザー画面に誘導
+                  if (appUser == null) {
+                    debugPrint('⚠️ [AuthGate] usersドキュメントが存在しません。ログアウトします。');
+                    return FutureBuilder(
+                      future: AuthService().signOut(),
+                      builder: (context, signOutSnapshot) {
+                        // ログアウト完了後、WelcomeScreenを表示
+                        if (signOutSnapshot.connectionState == ConnectionState.done) {
+                          return const WelcomeScreen();
+                        }
+                        // ログアウト中はローディング表示
+                        return const Scaffold(
+                          body: Center(
+                            child: CircularProgressIndicator(),
+                          ),
+                        );
+                      },
+                    );
+                  }
+
+                  if (appUser.teamId == null) {
                     // チーム未所属の場合
                     if (hasExistingData) {
                       // 既存データがある場合はチーム作成画面へ（データ移行フラグ付き）
@@ -111,7 +160,7 @@ class AuthGate extends StatelessWidget {
                   }
 
                   // チーム所属済みの場合はホーム画面へ（AppUser全体を渡す）
-                  return HomeScreen(appUser: appUser!);
+                  return HomeScreen(appUser: appUser);
                 },
               );
             }

@@ -126,6 +126,94 @@ exports.deleteTeamAndAllAccounts = onCall(async (request) => {
 });
 
 /**
+ * スタッフアカウント削除：指定されたスタッフのAuthenticationを削除
+ *
+ * セキュリティ：
+ * - 認証必須（context.auth）
+ * - 呼び出し元が管理者であることを確認
+ * - 削除対象が同じチームのメンバーであることを確認
+ */
+exports.deleteStaffAccount = onCall(async (request) => {
+  // 1. 認証チェック
+  if (!request.auth) {
+    throw new HttpsError(
+        "unauthenticated",
+        "認証が必要です",
+    );
+  }
+
+  const callerId = request.auth.uid;
+  const {userId} = request.data;
+
+  if (!userId) {
+    throw new HttpsError(
+        "invalid-argument",
+        "userIdが必要です",
+    );
+  }
+
+  console.log(`🗑️ スタッフアカウント削除開始: ${userId}, 呼び出し元: ${callerId}`);
+
+  try {
+    // 2. 呼び出し元が管理者であることを確認
+    const callerDoc = await admin.firestore()
+        .collection("users")
+        .doc(callerId)
+        .get();
+
+    if (!callerDoc.exists) {
+      throw new HttpsError(
+          "permission-denied",
+          "ユーザー情報が見つかりません",
+      );
+    }
+
+    const callerData = callerDoc.data();
+    if (callerData.role !== "admin") {
+      throw new HttpsError(
+          "permission-denied",
+          "管理者権限が必要です",
+      );
+    }
+
+    // 3. 自分自身を削除しようとしていないか確認
+    if (callerId === userId) {
+      throw new HttpsError(
+          "invalid-argument",
+          "自分自身は削除できません。アカウント削除機能を使用してください。",
+      );
+    }
+
+    // 4. Authenticationを削除（users ドキュメントの存在チェックは不要）
+    try {
+      await admin.auth().deleteUser(userId);
+      console.log(`✅ Authentication削除成功: ${userId}`);
+    } catch (error) {
+      // ユーザーが既に削除されている場合はエラーを無視
+      if (error.code === "auth/user-not-found") {
+        console.log(`⚠️ ユーザーが既に削除されています: ${userId}`);
+      } else {
+        console.error(`❌ Authentication削除失敗: ${userId}`, error);
+        throw error;
+      }
+    }
+
+    console.log(`✅ スタッフアカウント削除完了: ${userId}`);
+
+    return {
+      success: true,
+      message: "スタッフアカウントの削除が完了しました",
+    };
+  } catch (error) {
+    console.error(`❌ スタッフアカウント削除エラー: ${userId}`, error);
+    throw new HttpsError(
+        "internal",
+        `スタッフアカウント削除に失敗しました: ${error.message}`,
+    );
+  }
+});
+
+/**
  * サブコレクションを削除
  * @param {string} teamId チームID
  * @param {string} subcollection サブコレクション名
