@@ -42,6 +42,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   PackageInfo? _packageInfo;
   Map<String, bool> _notificationSettings = {};
   bool _isLoadingNotifications = true;
+  String? _cachedTeamName;
 
   @override
   void initState() {
@@ -108,22 +109,24 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
         // 所属チーム情報
         if (widget.appUser.teamId != null)
-          FutureBuilder<Team?>(
-            future: AuthService().getTeam(widget.appUser.teamId!),
+          StreamBuilder<DocumentSnapshot>(
+            stream: FirebaseFirestore.instance
+                .collection('teams')
+                .doc(widget.appUser.teamId!)
+                .snapshots(),
             builder: (context, snapshot) {
-              if (snapshot.connectionState == ConnectionState.waiting) {
-                return const ListTile(
-                  leading: Icon(Icons.groups),
-                  title: Text('所属チーム'),
-                  subtitle: Text('読み込み中...'),
-                );
+              if (snapshot.hasData && snapshot.data?.data() != null) {
+                final teamName = (snapshot.data!.data() as Map<String, dynamic>)['name'] as String?;
+                if (teamName != null) {
+                  _cachedTeamName = teamName;
+                }
               }
 
-              final team = snapshot.data;
               return ListTile(
                 leading: const Icon(Icons.groups),
                 title: const Text('所属チーム'),
-                subtitle: Text(team?.name ?? '不明'),
+                subtitle: Text(_cachedTeamName ?? '読み込み中...'),
+                onTap: widget.appUser.isAdmin ? _showTeamNameEditDialog : null,
               );
             },
           ),
@@ -347,6 +350,81 @@ class _SettingsScreenState extends State<SettingsScreen> {
         builder: (context) => const TeamInviteScreen(),
       ),
     );
+  }
+
+  /// チーム名変更ダイアログを表示
+  Future<void> _showTeamNameEditDialog() async {
+    final teamId = widget.appUser.teamId;
+    if (teamId == null) return;
+
+    // 現在のチーム情報を取得
+    final team = await AuthService().getTeam(teamId);
+    if (team == null || !mounted) return;
+
+    final controller = TextEditingController(text: team.name);
+
+    final newName = await showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('チーム名変更'),
+        content: TextField(
+          controller: controller,
+          decoration: const InputDecoration(
+            labelText: 'チーム名',
+            hintText: '新しいチーム名を入力',
+            border: OutlineInputBorder(),
+          ),
+          autofocus: true,
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('キャンセル'),
+          ),
+          FilledButton(
+            onPressed: () {
+              final name = controller.text.trim();
+              if (name.isEmpty) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('チーム名を入力してください')),
+                );
+                return;
+              }
+              Navigator.pop(context, name);
+            },
+            child: const Text('変更'),
+          ),
+        ],
+      ),
+    );
+
+    controller.dispose();
+
+    if (newName == null || !mounted) return;
+    if (newName == team.name) return; // 変更なし
+
+    // チーム名を更新
+    try {
+      await AuthService().updateTeamName(teamId: teamId, newName: newName);
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('チーム名を「$newName」に変更しました')),
+        );
+
+        // 画面を再描画
+        setState(() {});
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('チーム名の変更に失敗しました: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
   }
 
   /// ログアウト処理

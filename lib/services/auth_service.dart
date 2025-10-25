@@ -205,6 +205,22 @@ class AuthService {
     }
   }
 
+  /// チーム名を変更
+  Future<void> updateTeamName({
+    required String teamId,
+    required String newName,
+  }) async {
+    try {
+      await _firestore.collection('teams').doc(teamId).update({
+        'name': newName,
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+      print('✅ チーム名変更成功: $newName');
+    } catch (e) {
+      throw '❌ チーム名の変更に失敗しました: $e';
+    }
+  }
+
   /// 招待コードでチームに参加
   Future<Team> joinTeamByCode({
     required String inviteCode,
