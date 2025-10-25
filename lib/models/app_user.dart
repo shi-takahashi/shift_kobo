@@ -16,6 +16,8 @@ class AppUser {
   final DateTime createdAt;   // 作成日時
   final DateTime updatedAt;   // 更新日時
   final List<String> readAnnouncementIds; // 既読のお知らせID一覧
+  final String? fcmToken;     // FCMトークン（Push通知用、Web版では使用しない）
+  final Map<String, bool> notificationSettings; // 通知設定
 
   AppUser({
     required this.uid,
@@ -26,7 +28,13 @@ class AppUser {
     required this.createdAt,
     required this.updatedAt,
     this.readAnnouncementIds = const [],
-  });
+    this.fcmToken,
+    Map<String, bool>? notificationSettings,
+  }) : notificationSettings = notificationSettings ?? {
+    'requestCreated': true,  // 申請通知（管理者用）
+    'requestApproved': true, // 承認通知（スタッフ用）
+    'requestRejected': true, // 却下通知（スタッフ用）
+  };
 
   /// Firestoreから取得
   factory AppUser.fromFirestore(DocumentSnapshot doc) {
@@ -43,6 +51,10 @@ class AppUser {
       createdAt: (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
       updatedAt: (data['updatedAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
       readAnnouncementIds: List<String>.from(data['readAnnouncementIds'] ?? []),
+      fcmToken: data['fcmToken'],
+      notificationSettings: data['notificationSettings'] != null
+          ? Map<String, bool>.from(data['notificationSettings'])
+          : null,
     );
   }
 
@@ -56,6 +68,8 @@ class AppUser {
       'createdAt': Timestamp.fromDate(createdAt),
       'updatedAt': Timestamp.fromDate(updatedAt),
       'readAnnouncementIds': readAnnouncementIds,
+      'fcmToken': fcmToken,
+      'notificationSettings': notificationSettings,
     };
   }
 
@@ -69,6 +83,8 @@ class AppUser {
     DateTime? createdAt,
     DateTime? updatedAt,
     List<String>? readAnnouncementIds,
+    String? fcmToken,
+    Map<String, bool>? notificationSettings,
   }) {
     return AppUser(
       uid: uid ?? this.uid,
@@ -79,6 +95,8 @@ class AppUser {
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
       readAnnouncementIds: readAnnouncementIds ?? this.readAnnouncementIds,
+      fcmToken: fcmToken ?? this.fcmToken,
+      notificationSettings: notificationSettings ?? this.notificationSettings,
     );
   }
 

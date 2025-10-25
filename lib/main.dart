@@ -31,7 +31,7 @@ void main() async {
 
   // テスト用データの初期化（初回のみ）
   // TODO: Providerの改修（Firestore対応）が完了したら削除
-  if (!kIsWeb) {
+  if (kIsWeb) {
     await TestDataHelper.initializeTestData(); // データ移行テスト用に有効化
   }
 
@@ -53,6 +53,8 @@ void main() async {
     );
 
     debugPrint('✅ Firebase初期化成功');
+
+    // FCMの初期化は行わない（ログイン後に初期化する）
   } catch (e) {
     debugPrint('❌ Firebase初期化エラー: $e');
   }

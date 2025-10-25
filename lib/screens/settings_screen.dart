@@ -2,6 +2,7 @@ import 'dart:io' show Platform;
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:package_info_plus/package_info_plus.dart';
@@ -17,6 +18,7 @@ import '../providers/shift_time_provider.dart';
 import '../providers/staff_provider.dart';
 import '../services/auth_service.dart';
 import '../services/backup_service.dart';
+import '../services/notification_service.dart';
 import '../widgets/auth_gate.dart';
 import 'help_screen.dart';
 import 'monthly_shift_settings_screen.dart';
@@ -38,11 +40,14 @@ class SettingsScreen extends StatefulWidget {
 class _SettingsScreenState extends State<SettingsScreen> {
   bool _isRestoring = false;
   PackageInfo? _packageInfo;
+  Map<String, bool> _notificationSettings = {};
+  bool _isLoadingNotifications = true;
 
   @override
   void initState() {
     super.initState();
     _loadPackageInfo();
+    _loadNotificationSettings();
   }
 
   Future<void> _loadPackageInfo() async {
@@ -51,6 +56,37 @@ class _SettingsScreenState extends State<SettingsScreen> {
       setState(() {
         _packageInfo = packageInfo;
       });
+    }
+  }
+
+  Future<void> _loadNotificationSettings() async {
+    if (kIsWeb) {
+      setState(() {
+        _isLoadingNotifications = false;
+      });
+      return;
+    }
+
+    final settings = await NotificationService.getNotificationSettings();
+    if (mounted) {
+      setState(() {
+        _notificationSettings = settings;
+        _isLoadingNotifications = false;
+      });
+    }
+  }
+
+  Future<void> _updateNotificationSetting(String key, bool value) async {
+    setState(() {
+      _notificationSettings[key] = value;
+    });
+
+    await NotificationService.updateNotificationSettings(_notificationSettings);
+
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('通知設定を更新しました')),
+      );
     }
   }
 
@@ -173,6 +209,59 @@ class _SettingsScreenState extends State<SettingsScreen> {
               );
             },
           ),
+          const Divider(),
+        ],
+
+        // Push通知設定（アプリ版のみ）
+        if (!kIsWeb && FirebaseAuth.instance.currentUser != null) ...[
+          const Padding(
+            padding: EdgeInsets.all(16.0),
+            child: Text(
+              '通知設定',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+          if (_isLoadingNotifications)
+            const ListTile(
+              leading: Icon(Icons.notifications),
+              title: Text('読み込み中...'),
+            )
+          else ...[
+            // 管理者向け通知設定
+            if (widget.appUser.isAdmin)
+              SwitchListTile(
+                secondary: const Icon(Icons.notification_add),
+                title: const Text('新しい申請の通知'),
+                subtitle: const Text('スタッフが申請・取り消しをしたときに通知'),
+                value: _notificationSettings['requestCreated'] ?? true,
+                onChanged: (value) => _updateNotificationSetting('requestCreated', value),
+              ),
+            // スタッフ向け通知設定
+            if (!widget.appUser.isAdmin)
+              SwitchListTile(
+                secondary: const Icon(Icons.notifications_active),
+                title: const Text('申請結果の通知'),
+                subtitle: const Text('休み希望が承認・却下されたときに通知'),
+                value: (_notificationSettings['requestApproved'] ?? true) &&
+                       (_notificationSettings['requestRejected'] ?? true),
+                onChanged: (value) async {
+                  // 承認と却下の両方を同じ値に設定
+                  setState(() {
+                    _notificationSettings['requestApproved'] = value;
+                    _notificationSettings['requestRejected'] = value;
+                  });
+                  await NotificationService.updateNotificationSettings(_notificationSettings);
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('通知設定を更新しました')),
+                    );
+                  }
+                },
+              ),
+          ],
           const Divider(),
         ],
 

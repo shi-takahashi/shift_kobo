@@ -1,3 +1,4 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
@@ -7,6 +8,7 @@ import '../providers/shift_time_provider.dart';
 import '../models/staff.dart';
 import '../models/app_user.dart';
 import '../services/auth_service.dart';
+import 'auth_gate.dart';
 
 class StaffEditDialog extends StatefulWidget {
   final Staff? existingStaff;
@@ -786,9 +788,15 @@ class _StaffEditDialogState extends State<StaffEditDialog> {
       await staffProvider.updateStaff(updatedStaff);
 
       // ロール変更がある場合、AuthServiceで更新
+      bool isSelfRoleChange = false;
       if (_linkedUser != null && _selectedRole != null && _linkedUser!.role != _selectedRole) {
         try {
           final authService = AuthService();
+          final currentUserId = FirebaseAuth.instance.currentUser?.uid;
+
+          // 自分自身のロール変更かチェック
+          isSelfRoleChange = (_linkedUser!.uid == currentUserId);
+
           await authService.updateUserRole(
             userId: _linkedUser!.uid,
             teamId: _linkedUser!.teamId!,
@@ -809,12 +817,44 @@ class _StaffEditDialogState extends State<StaffEditDialog> {
       if (!mounted) return;
       Navigator.pop(context);
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('${updatedStaff.name}の情報を更新しました'),
-          backgroundColor: Colors.green,
-        ),
-      );
+      // 自分自身のロールを変更した場合は再ログインを促す
+      if (isSelfRoleChange) {
+        await showDialog(
+          context: context,
+          barrierDismissible: false,
+          builder: (context) => AlertDialog(
+            title: const Text('ロール変更完了'),
+            content: const Text(
+              '自分のロールが変更されました。\n'
+              '変更を反映するため、再度ログインしてください。',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () async {
+                  Navigator.of(context).pop();
+                  // ログアウト処理
+                  final authService = AuthService();
+                  await authService.signOut();
+                  // AuthGateに戻る（自動的にログイン画面に遷移）
+                  if (!mounted) return;
+                  Navigator.of(context).pushAndRemoveUntil(
+                    MaterialPageRoute(builder: (_) => const AuthGate()),
+                    (route) => false,
+                  );
+                },
+                child: const Text('ログアウト'),
+              ),
+            ],
+          ),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('${updatedStaff.name}の情報を更新しました'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
     } else {
       // 追加モード
       final staff = Staff(

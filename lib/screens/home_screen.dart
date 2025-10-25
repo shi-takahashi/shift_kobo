@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -12,6 +13,7 @@ import '../widgets/auto_assignment_dialog.dart';
 import '../widgets/banner_ad_widget.dart';
 import '../widgets/announcement_dialog.dart';
 import '../services/announcement_service.dart';
+import '../services/notification_service.dart';
 import '../providers/staff_provider.dart';
 import '../providers/shift_provider.dart';
 import '../providers/shift_time_provider.dart';
@@ -114,6 +116,28 @@ class _HomeScreenState extends State<HomeScreen> {
   void initState() {
     super.initState();
     _checkFirstTimeHelp();
+    _initializeFCM();
+  }
+
+  /// FCM初期化（アプリ版のみ、初回のみ）
+  Future<void> _initializeFCM() async {
+    if (kIsWeb) return;
+
+    try {
+      // 既に初期化済みかチェック
+      final prefs = await SharedPreferences.getInstance();
+      final hasInitializedFCM = prefs.getBool('has_initialized_fcm') ?? false;
+
+      if (!hasInitializedFCM) {
+        // ログイン成功後、画面が表示された後に通知許可を求める
+        WidgetsBinding.instance.addPostFrameCallback((_) async {
+          await NotificationService.initialize();
+          await prefs.setBool('has_initialized_fcm', true);
+        });
+      }
+    } catch (e) {
+      debugPrint('⚠️ FCM初期化エラー: $e');
+    }
   }
 
   /// 初回起動チェック及び自動ヘルプ表示

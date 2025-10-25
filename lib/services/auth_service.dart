@@ -2,8 +2,10 @@ import 'dart:math';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:cloud_functions/cloud_functions.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import '../models/app_user.dart';
 import '../models/team.dart';
+import 'notification_service.dart';
 
 /// 認証サービス
 class AuthService {
@@ -75,6 +77,16 @@ class AuthService {
 
   /// ログアウト
   Future<void> signOut() async {
+    // FCMトークンを削除（アプリ版のみ）
+    if (!kIsWeb) {
+      try {
+        await NotificationService.deleteFcmToken();
+      } catch (e) {
+        // エラーは無視してログアウト処理を継続
+        print('⚠️ FCMトークン削除エラー（無視）: $e');
+      }
+    }
+
     await _auth.signOut();
   }
 
