@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../../services/auth_service.dart';
@@ -166,60 +167,65 @@ class _JoinTeamScreenState extends State<JoinTeamScreen> {
         const SizedBox(height: 16),
 
         // 説明
-        const Text(
-          'シフト工房では、チーム単位でシフトを管理します。\n既存のチームに参加するか、新しいチームを作成してください。',
-          style: TextStyle(fontSize: 14, color: Colors.grey),
+        Text(
+          kIsWeb
+              ? 'シフト工房では、チーム単位でシフトを管理します。\n管理者から受け取った招待コードを入力してチームに参加してください。'
+              : 'シフト工房では、チーム単位でシフトを管理します。\n既存のチームに参加するか、新しいチームを作成してください。',
+          style: const TextStyle(fontSize: 14, color: Colors.grey),
           textAlign: TextAlign.center,
         ),
         const SizedBox(height: 48),
 
-        // チーム作成ボタン（大きく目立たせる）
-        Card(
-          elevation: 4,
-          color: Theme.of(context).colorScheme.primaryContainer,
-          child: InkWell(
-            onTap: _handleCreateTeam,
-            child: Padding(
-              padding: const EdgeInsets.all(24.0),
-              child: Column(
-                children: [
-                  Icon(
-                    Icons.add_circle_outline,
-                    size: 64,
-                    color: Theme.of(context).colorScheme.primary,
-                  ),
-                  const SizedBox(height: 16),
-                  Text(
-                    '新しいチームを作成',
-                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                          fontWeight: FontWeight.bold,
-                        ),
-                  ),
-                  const SizedBox(height: 8),
-                  const Text(
-                    '管理者としてシフト作成・編集が可能',
-                    style: TextStyle(fontSize: 13, color: Colors.black54),
-                    textAlign: TextAlign.center,
-                  ),
-                ],
+        // Web版ではチーム作成ボタンを非表示
+        if (!kIsWeb) ...[
+          // チーム作成ボタン（大きく目立たせる）
+          Card(
+            elevation: 4,
+            color: Theme.of(context).colorScheme.primaryContainer,
+            child: InkWell(
+              onTap: _handleCreateTeam,
+              child: Padding(
+                padding: const EdgeInsets.all(24.0),
+                child: Column(
+                  children: [
+                    Icon(
+                      Icons.add_circle_outline,
+                      size: 64,
+                      color: Theme.of(context).colorScheme.primary,
+                    ),
+                    const SizedBox(height: 16),
+                    Text(
+                      '新しいチームを作成',
+                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                            fontWeight: FontWeight.bold,
+                          ),
+                    ),
+                    const SizedBox(height: 8),
+                    const Text(
+                      '管理者としてシフト作成・編集が可能',
+                      style: TextStyle(fontSize: 13, color: Colors.black54),
+                      textAlign: TextAlign.center,
+                    ),
+                  ],
+                ),
               ),
             ),
           ),
-        ),
-        const SizedBox(height: 24),
+          const SizedBox(height: 24),
 
-        // または
-        const Row(
-          children: [
-            Expanded(child: Divider()),
-            Padding(
-              padding: EdgeInsets.symmetric(horizontal: 16),
-              child: Text('または', style: TextStyle(color: Colors.grey)),
-            ),
-            Expanded(child: Divider()),
-          ],
-        ),
-        const SizedBox(height: 24),
+          // または
+          const Row(
+            children: [
+              Expanded(child: Divider()),
+              Padding(
+                padding: EdgeInsets.symmetric(horizontal: 16),
+                child: Text('または', style: TextStyle(color: Colors.grey)),
+              ),
+              Expanded(child: Divider()),
+            ],
+          ),
+          const SizedBox(height: 24),
+        ],
 
         // チーム参加ボタン
         Card(

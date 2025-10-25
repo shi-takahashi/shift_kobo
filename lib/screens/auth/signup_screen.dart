@@ -245,7 +245,7 @@ class _SignupScreenState extends State<SignupScreen> {
                         ),
                         SizedBox(height: 8),
                         Text('1. アカウント作成'),
-                        Text('2. チームを作成（または招待コード入力）'),
+                        Text('2. 招待コード入力'),
                         Text('3. シフト管理を開始'),
                       ],
                     ),

@@ -614,6 +614,14 @@ class _CalendarScreenState extends State<CalendarScreen> {
   }
 
   void _showAddShiftDialog(BuildContext context) {
+    // 管理者のみシフト追加可能
+    if (!widget.appUser.isAdmin) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('管理者のみシフトを追加できます')),
+      );
+      return;
+    }
+
     if (_selectedDay == null) return;
 
     final shiftProvider = context.read<ShiftProvider>();
@@ -643,6 +651,14 @@ class _CalendarScreenState extends State<CalendarScreen> {
   }
 
   void _showEditShiftDialog(BuildContext context, Shift shift) {
+    // 管理者のみシフト編集可能
+    if (!widget.appUser.isAdmin) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('管理者のみシフトを編集できます')),
+      );
+      return;
+    }
+
     final shiftProvider = context.read<ShiftProvider>();
     final staffProvider = context.read<StaffProvider>();
     final shiftTimeProvider = context.read<ShiftTimeProvider>();
@@ -673,6 +689,14 @@ class _CalendarScreenState extends State<CalendarScreen> {
   }
 
   void _showDeleteConfirmDialog(BuildContext context, Shift shift) async {
+    // 管理者のみシフト削除可能
+    if (!widget.appUser.isAdmin) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('管理者のみシフトを削除できます')),
+      );
+      return;
+    }
+
     final staffProvider = context.read<StaffProvider>();
     final shiftProvider = context.read<ShiftProvider>();
     final staff = staffProvider.getStaffById(shift.staffId);
@@ -713,6 +737,14 @@ class _CalendarScreenState extends State<CalendarScreen> {
   }
 
   void _showQuickActionDialog(BuildContext context, Shift shift) {
+    // 管理者のみクイックアクション可能
+    if (!widget.appUser.isAdmin) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('管理者のみシフトを変更できます')),
+      );
+      return;
+    }
+
     final shiftProvider = context.read<ShiftProvider>();
     final staffProvider = context.read<StaffProvider>();
 
@@ -963,40 +995,42 @@ class _ShiftTile extends StatelessWidget {
               ),
             ],
           ),
-          trailing: PopupMenuButton<String>(
-            onSelected: (value) {
-              switch (value) {
-                case 'edit':
-                  onEdit(shift);
-                  break;
-                case 'delete':
-                  if (onDelete != null) onDelete!(shift);
-                  break;
-              }
-            },
-            itemBuilder: (context) => [
-              const PopupMenuItem(
-                value: 'edit',
-                child: Row(
-                  children: [
-                    Icon(Icons.edit, size: 20),
-                    SizedBox(width: 8),
-                    Text('編集'),
+          trailing: isAdmin
+              ? PopupMenuButton<String>(
+                  onSelected: (value) {
+                    switch (value) {
+                      case 'edit':
+                        onEdit(shift);
+                        break;
+                      case 'delete':
+                        if (onDelete != null) onDelete!(shift);
+                        break;
+                    }
+                  },
+                  itemBuilder: (context) => [
+                    const PopupMenuItem(
+                      value: 'edit',
+                      child: Row(
+                        children: [
+                          Icon(Icons.edit, size: 20),
+                          SizedBox(width: 8),
+                          Text('編集'),
+                        ],
+                      ),
+                    ),
+                    const PopupMenuItem(
+                      value: 'delete',
+                      child: Row(
+                        children: [
+                          Icon(Icons.delete, size: 20, color: Colors.red),
+                          SizedBox(width: 8),
+                          Text('削除', style: TextStyle(color: Colors.red)),
+                        ],
+                      ),
+                    ),
                   ],
-                ),
-              ),
-              const PopupMenuItem(
-                value: 'delete',
-                child: Row(
-                  children: [
-                    Icon(Icons.delete, size: 20, color: Colors.red),
-                    SizedBox(width: 8),
-                    Text('削除', style: TextStyle(color: Colors.red)),
-                  ],
-                ),
-              ),
-            ],
-          ),
+                )
+              : null, // スタッフの場合はボタンなし
           ),
         ),
       ),
