@@ -241,9 +241,12 @@ class _ExportScreenState extends State<ExportScreen> {
                                 
                                 return GestureDetector(
                                   onTap: () {
+                                    final newMonth = DateTime(selectedYear, month, 1);
                                     setState(() {
-                                      _selectedMonth = DateTime(selectedYear, month, 1);
+                                      _selectedMonth = newMonth;
                                     });
+                                    // ShiftProviderに表示月を通知（データ取得範囲を更新）
+                                    Provider.of<ShiftProvider>(context, listen: false).setCurrentMonth(newMonth);
                                     Navigator.pop(context);
                                   },
                                   child: Container(

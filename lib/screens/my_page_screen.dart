@@ -674,14 +674,17 @@ class _MyPageScreenState extends State<MyPageScreen> {
                             IconButton(
                               icon: const Icon(Icons.chevron_left),
                               onPressed: () {
+                                final newMonth = DateTime(
+                                  _focusedDay.year,
+                                  _focusedDay.month - 1,
+                                  1,
+                                );
                                 setState(() {
-                                  _focusedDay = DateTime(
-                                    _focusedDay.year,
-                                    _focusedDay.month - 1,
-                                    1,
-                                  );
+                                  _focusedDay = newMonth;
                                   _selectedDay = null;
                                 });
+                                // ShiftProviderに表示月を通知（データ取得範囲を更新）
+                                shiftProvider.setCurrentMonth(newMonth);
                               },
                               tooltip: '前月',
                             ),
@@ -695,14 +698,17 @@ class _MyPageScreenState extends State<MyPageScreen> {
                             IconButton(
                               icon: const Icon(Icons.chevron_right),
                               onPressed: () {
+                                final newMonth = DateTime(
+                                  _focusedDay.year,
+                                  _focusedDay.month + 1,
+                                  1,
+                                );
                                 setState(() {
-                                  _focusedDay = DateTime(
-                                    _focusedDay.year,
-                                    _focusedDay.month + 1,
-                                    1,
-                                  );
+                                  _focusedDay = newMonth;
                                   _selectedDay = null;
                                 });
+                                // ShiftProviderに表示月を通知（データ取得範囲を更新）
+                                shiftProvider.setCurrentMonth(newMonth);
                               },
                               tooltip: '次月',
                             ),

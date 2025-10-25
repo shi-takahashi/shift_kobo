@@ -14,6 +14,7 @@ class ShiftProvider extends ChangeNotifier {
   StreamSubscription? _constraintsSubscription;
   bool _isShiftsLoading = true;
   bool _isConstraintsLoading = true;
+  DateTime _currentMonth = DateTime.now(); // 現在表示中の月
 
   List<Shift> get shifts => _shifts;
   List<ShiftConstraint> get constraints => _constraints;
@@ -30,15 +31,32 @@ class ShiftProvider extends ChangeNotifier {
     _subscribeToConstraints();
   }
 
-  /// Firestoreからシフトをリアルタイムで購読
+  /// 表示月を変更（カレンダー画面から呼び出される）
+  void setCurrentMonth(DateTime month) {
+    final newMonth = DateTime(month.year, month.month, 1);
+    if (_currentMonth.year != newMonth.year || _currentMonth.month != newMonth.month) {
+      _currentMonth = newMonth;
+      _subscribeToShifts(); // 月が変わったら再購読
+    }
+  }
+
+  /// Firestoreからシフトをリアルタイムで購読（表示月±3ヶ月のみ）
   void _subscribeToShifts() {
     if (teamId == null) return;
+
+    // 表示範囲: 現在の月の前後3ヶ月（合計7ヶ月分）
+    final startDate = DateTime(_currentMonth.year, _currentMonth.month - 3, 1);
+    final endDate = DateTime(_currentMonth.year, _currentMonth.month + 4, 0, 23, 59, 59);
+
+    print('📅 シフト購読範囲: ${startDate.toString().substring(0, 10)} 〜 ${endDate.toString().substring(0, 10)}');
 
     _shiftsSubscription?.cancel();
     _shiftsSubscription = _firestore
         .collection('teams')
         .doc(teamId)
         .collection('shifts')
+        .where('date', isGreaterThanOrEqualTo: Timestamp.fromDate(startDate))
+        .where('date', isLessThanOrEqualTo: Timestamp.fromDate(endDate))
         .snapshots()
         .listen((snapshot) {
       _shifts = snapshot.docs.map((doc) {

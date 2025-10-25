@@ -299,8 +299,9 @@ class _CalendarScreenState extends State<CalendarScreen> {
                       IconButton(
                         icon: const Icon(Icons.chevron_left, size: 20),
                         onPressed: () {
+                          final isMonthMode = _calendarFormat == CalendarFormat.month;
                           setState(() {
-                            if (_calendarFormat == CalendarFormat.month) {
+                            if (isMonthMode) {
                               _focusedDay = DateTime(_focusedDay.year, _focusedDay.month - 1, 1);
                             } else {
                               _focusedDay = _focusedDay.subtract(const Duration(days: 7));
@@ -308,6 +309,10 @@ class _CalendarScreenState extends State<CalendarScreen> {
                             _selectedDay = null;
                           });
                           _selectedShifts.value = [];
+                          // 月モードの場合のみShiftProviderに通知
+                          if (isMonthMode) {
+                            shiftProvider.setCurrentMonth(_focusedDay);
+                          }
                         },
                       ),
                       // 月年表示（中央固定）
@@ -323,8 +328,9 @@ class _CalendarScreenState extends State<CalendarScreen> {
                       IconButton(
                         icon: const Icon(Icons.chevron_right, size: 20),
                         onPressed: () {
+                          final isMonthMode = _calendarFormat == CalendarFormat.month;
                           setState(() {
-                            if (_calendarFormat == CalendarFormat.month) {
+                            if (isMonthMode) {
                               _focusedDay = DateTime(_focusedDay.year, _focusedDay.month + 1, 1);
                             } else {
                               _focusedDay = _focusedDay.add(const Duration(days: 7));
@@ -332,6 +338,10 @@ class _CalendarScreenState extends State<CalendarScreen> {
                             _selectedDay = null;
                           });
                           _selectedShifts.value = [];
+                          // 月モードの場合のみShiftProviderに通知
+                          if (isMonthMode) {
+                            shiftProvider.setCurrentMonth(_focusedDay);
+                          }
                         },
                       ),
                       // 右側スペーサー（大きく）
@@ -408,6 +418,8 @@ class _CalendarScreenState extends State<CalendarScreen> {
                             _selectedDay = null;
                           });
                           _selectedShifts.value = [];
+                          // ShiftProviderに表示月を通知（データ取得範囲を更新）
+                          shiftProvider.setCurrentMonth(focusedDay);
                         },
                         calendarBuilders: CalendarBuilders(
                           markerBuilder: (context, date, shifts) {
