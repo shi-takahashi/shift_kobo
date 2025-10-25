@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:hive_flutter/hive_flutter.dart';
@@ -30,10 +31,14 @@ void main() async {
 
   // テスト用データの初期化（初回のみ）
   // TODO: Providerの改修（Firestore対応）が完了したら削除
-  await TestDataHelper.initializeTestData(); // データ移行テスト用に有効化
+  if (!kIsWeb) {
+    await TestDataHelper.initializeTestData(); // データ移行テスト用に有効化
+  }
 
-  // AdMobの初期化
-  await AdService.initialize();
+  // AdMobの初期化（Web版では無効）
+  if (!kIsWeb) {
+    await AdService.initialize();
+  }
 
   // Firebaseの初期化
   try {

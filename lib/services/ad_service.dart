@@ -1,5 +1,3 @@
-import 'dart:io';
-
 import 'package:flutter/foundation.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
 
@@ -13,8 +11,8 @@ class AdService {
   /// - 本番リリース時: 必ず true に設定してビルド
   /// - ユーザーが自由に変更できないよう、設定画面には表示しない
   ///
-  /// true: 広告を表示、false: 広告を非表示
-  static const bool showBannerAds = true;
+  /// true: 広告を表示、false: 広告を非表示（Web版では常に非表示）
+  static bool get showBannerAds => !kIsWeb && true;
 
   // インタースティシャル広告のインスタンス保持
   static InterstitialAd? _interstitialAd;
@@ -39,24 +37,38 @@ class AdService {
 
   /// 現在の環境に応じたバナー広告IDを取得
   static String get bannerAdUnitId {
-    if (Platform.isAndroid) {
-      return _isDebug ? _testBannerAdUnitIdAndroid : _productionBannerAdUnitIdAndroid;
-    } else {
-      return _isDebug ? _testBannerAdUnitIdIOS : _productionBannerAdUnitIdIOS;
+    if (kIsWeb) return '';
+    // defaultTargetPlatformを使用してWeb対応
+    switch (defaultTargetPlatform) {
+      case TargetPlatform.android:
+        return _isDebug ? _testBannerAdUnitIdAndroid : _productionBannerAdUnitIdAndroid;
+      case TargetPlatform.iOS:
+        return _isDebug ? _testBannerAdUnitIdIOS : _productionBannerAdUnitIdIOS;
+      default:
+        return _isDebug ? _testBannerAdUnitIdAndroid : _productionBannerAdUnitIdAndroid;
     }
   }
 
   /// 現在の環境に応じたインタースティシャル広告IDを取得
   static String get interstitialAdUnitId {
-    if (Platform.isAndroid) {
-      return _isDebug ? _testInterstitialAdUnitIdAndroid : _productionInterstitialAdUnitIdAndroid;
-    } else {
-      return _isDebug ? _testInterstitialAdUnitIdIOS : _productionInterstitialAdUnitIdIOS;
+    if (kIsWeb) return '';
+    // defaultTargetPlatformを使用してWeb対応
+    switch (defaultTargetPlatform) {
+      case TargetPlatform.android:
+        return _isDebug ? _testInterstitialAdUnitIdAndroid : _productionInterstitialAdUnitIdAndroid;
+      case TargetPlatform.iOS:
+        return _isDebug ? _testInterstitialAdUnitIdIOS : _productionInterstitialAdUnitIdIOS;
+      default:
+        return _isDebug ? _testInterstitialAdUnitIdAndroid : _productionInterstitialAdUnitIdAndroid;
     }
   }
 
   /// AdMobを初期化
   static Future<void> initialize() async {
+    if (kIsWeb) {
+      print('Web版では広告を無効化しています');
+      return;
+    }
     await MobileAds.instance.initialize();
 
     // デバッグ時のテストデバイス設定
