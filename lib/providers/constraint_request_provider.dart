@@ -38,11 +38,11 @@ class ConstraintRequestProvider extends ChangeNotifier {
     _subscribeToRequests();
   }
 
-  /// Firestoreからリクエストをリアルタイムで購読（pending/rejected のみ）
+  /// Firestoreからリクエストをリアルタイムで購読（pending/rejected/approved）
   void _subscribeToRequests() {
     if (teamId == null) return;
 
-    print('📋 休み希望申請購読開始（pending/rejected のみ）');
+    print('📋 休み希望申請購読開始（pending/rejected/approved）');
 
     _requestSubscription?.cancel();
     _requestSubscription = _firestore
@@ -52,6 +52,7 @@ class ConstraintRequestProvider extends ChangeNotifier {
         .where('status', whereIn: [
           ConstraintRequest.statusPending,
           ConstraintRequest.statusRejected,
+          ConstraintRequest.statusApproved,
         ])
         .snapshots()
         .listen((snapshot) {

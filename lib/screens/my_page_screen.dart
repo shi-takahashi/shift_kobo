@@ -1666,28 +1666,8 @@ class _MyPageScreenState extends State<MyPageScreen> {
         .toList();
     final approvedShiftTypes = myStaff.unavailableShiftTypes;
 
-    // 初期表示されていたデータ（承認済み + pending追加申請）を取得
+    // 既存のpending申請を取得
     final myRequests = requestProvider.getRequestsByUserId(widget.appUser.uid);
-
-    final initialDays = approvedDays.toSet();
-    final initialSpecificDays = approvedSpecificDays.toSet();
-    final initialShiftTypes = approvedShiftTypes.toSet();
-
-    // pending追加申請のみ初期表示に含める（rejected申請は除外）
-    for (final request in myRequests) {
-      if (request.status == ConstraintRequest.statusPending) {
-        if (!request.isDelete) {
-          // 追加申請のみ初期表示に含める
-          if (request.requestType == ConstraintRequest.typeWeekday && request.weekday != null) {
-            initialDays.add(request.weekday!);
-          } else if (request.requestType == ConstraintRequest.typeSpecificDay && request.specificDate != null) {
-            initialSpecificDays.add(request.specificDate!);
-          } else if (request.requestType == ConstraintRequest.typeShiftType && request.shiftType != null) {
-            initialShiftTypes.add(request.shiftType!);
-          }
-        }
-      }
-    }
 
     // 【重要】既存のpending申請のみ削除してから、新しい内容で再作成（rejectedは履歴として残す）
     for (final request in myRequests) {
@@ -1700,171 +1680,131 @@ class _MyPageScreenState extends State<MyPageScreen> {
     int newRequestCount = 0;
 
     // 1. 曜日の休み希望
-    debugPrint('🔍 [削除検出] approvedDays: $approvedDays');
-    debugPrint('🔍 [削除検出] initialDays: $initialDays');
-    debugPrint('🔍 [削除検出] selectedDays: $selectedDays');
+    debugPrint('🔍 [申請作成] approvedDays: $approvedDays');
+    debugPrint('🔍 [申請作成] selectedDays: $selectedDays');
 
-    // 追加申請：selectedDaysにあるが、initialDays（初期表示）にない
+    // 追加申請：selectedDaysにあるが、approvedDays（承認済み）にない
     for (final day in selectedDays) {
-      if (!initialDays.contains(day)) {
-        // 承認済みにもないことを確認（二重申請防止）
-        if (!approvedDays.contains(day)) {
-          debugPrint('✅ [曜日追加申請] 曜日 $day を追加申請');
-          final request = ConstraintRequest(
-            id: uuid.v4(),
-            staffId: myStaff.id,
-            userId: widget.appUser.uid,
-            requestType: ConstraintRequest.typeWeekday,
-            weekday: day,
-            status: ConstraintRequest.statusPending,
-            isDelete: false,
-          );
-          await requestProvider.createRequest(request);
-          newRequestCount++;
-        }
+      if (!approvedDays.contains(day)) {
+        debugPrint('✅ [曜日追加申請] 曜日 $day を追加申請');
+        final request = ConstraintRequest(
+          id: uuid.v4(),
+          staffId: myStaff.id,
+          userId: widget.appUser.uid,
+          requestType: ConstraintRequest.typeWeekday,
+          weekday: day,
+          status: ConstraintRequest.statusPending,
+          isDelete: false,
+        );
+        await requestProvider.createRequest(request);
+        newRequestCount++;
       }
     }
-    // 削除申請：initialDays（初期表示）にあるが、selectedDaysにない
-    for (final day in initialDays) {
+    // 削除申請：approvedDays（承認済み）にあるが、selectedDaysにない
+    for (final day in approvedDays) {
       if (!selectedDays.contains(day)) {
-        debugPrint('🔍 [削除チェック] 曜日 $day が削除された（initialDaysにあるがselectedDaysにない）');
-        // 承認済みデータからのみ削除申請（pending追加申請を削除しても削除申請にはしない）
-        if (approvedDays.contains(day)) {
-          debugPrint('✅ [曜日削除申請] 曜日 $day の削除申請を作成（承認済みデータからの削除）');
-          final request = ConstraintRequest(
-            id: uuid.v4(),
-            staffId: myStaff.id,
-            userId: widget.appUser.uid,
-            requestType: ConstraintRequest.typeWeekday,
-            weekday: day,
-            status: ConstraintRequest.statusPending,
-            isDelete: true,
-          );
-          await requestProvider.createRequest(request);
-          newRequestCount++;
-        } else {
-          debugPrint('⚠️ [曜日削除スキップ] 曜日 $day は承認済みデータにないのでスキップ（追加申請中の削除）');
-        }
+        debugPrint('✅ [曜日削除申請] 曜日 $day の削除申請を作成');
+        final request = ConstraintRequest(
+          id: uuid.v4(),
+          staffId: myStaff.id,
+          userId: widget.appUser.uid,
+          requestType: ConstraintRequest.typeWeekday,
+          weekday: day,
+          status: ConstraintRequest.statusPending,
+          isDelete: true,
+        );
+        await requestProvider.createRequest(request);
+        newRequestCount++;
       }
     }
 
     // 2. 特定日の休み希望
-    debugPrint('🔍 [削除検出] approvedSpecificDays: $approvedSpecificDays');
-    debugPrint('🔍 [削除検出] initialSpecificDays: $initialSpecificDays');
-    debugPrint('🔍 [削除検出] selectedSpecificDays: $selectedSpecificDays');
+    debugPrint('🔍 [申請作成] approvedSpecificDays: $approvedSpecificDays');
+    debugPrint('🔍 [申請作成] selectedSpecificDays: $selectedSpecificDays');
 
-    // 追加申請：selectedSpecificDaysにあるが、initialSpecificDays（初期表示）にない
+    // 追加申請：selectedSpecificDaysにあるが、approvedSpecificDays（承認済み）にない
     for (final date in selectedSpecificDays) {
       final normalizedDate = DateTime(date.year, date.month, date.day);
-      final isNew = !initialSpecificDays.any((initial) =>
-          initial.year == normalizedDate.year &&
-          initial.month == normalizedDate.month &&
-          initial.day == normalizedDate.day);
+      final isApproved = approvedSpecificDays.any((approved) =>
+          approved.year == normalizedDate.year &&
+          approved.month == normalizedDate.month &&
+          approved.day == normalizedDate.day);
 
-      if (isNew) {
-        // 承認済みにもないことを確認（二重申請防止）
-        final isApproved = approvedSpecificDays.any((approved) =>
-            approved.year == normalizedDate.year &&
-            approved.month == normalizedDate.month &&
-            approved.day == normalizedDate.day);
-
-        if (!isApproved) {
-          debugPrint('✅ [特定日追加申請] $normalizedDate を追加申請');
-          final request = ConstraintRequest(
-            id: uuid.v4(),
-            staffId: myStaff.id,
-            userId: widget.appUser.uid,
-            requestType: ConstraintRequest.typeSpecificDay,
-            specificDate: normalizedDate,
-            status: ConstraintRequest.statusPending,
-            isDelete: false,
-          );
-          await requestProvider.createRequest(request);
-          newRequestCount++;
-        }
+      if (!isApproved) {
+        debugPrint('✅ [特定日追加申請] $normalizedDate を追加申請');
+        final request = ConstraintRequest(
+          id: uuid.v4(),
+          staffId: myStaff.id,
+          userId: widget.appUser.uid,
+          requestType: ConstraintRequest.typeSpecificDay,
+          specificDate: normalizedDate,
+          status: ConstraintRequest.statusPending,
+          isDelete: false,
+        );
+        await requestProvider.createRequest(request);
+        newRequestCount++;
       }
     }
-    // 削除申請：initialSpecificDays（初期表示）にあるが、selectedSpecificDaysにない
-    for (final initialDate in initialSpecificDays) {
-      final normalizedInitial = DateTime(initialDate.year, initialDate.month, initialDate.day);
-      final isDeleted = !selectedSpecificDays.any((selected) =>
-          selected.year == normalizedInitial.year &&
-          selected.month == normalizedInitial.month &&
-          selected.day == normalizedInitial.day);
+    // 削除申請：approvedSpecificDays（承認済み）にあるが、selectedSpecificDaysにない
+    for (final approvedDate in approvedSpecificDays) {
+      final normalizedApproved = DateTime(approvedDate.year, approvedDate.month, approvedDate.day);
+      final isSelected = selectedSpecificDays.any((selected) =>
+          selected.year == normalizedApproved.year &&
+          selected.month == normalizedApproved.month &&
+          selected.day == normalizedApproved.day);
 
-      if (isDeleted) {
-        debugPrint('🔍 [削除チェック] $normalizedInitial が削除された（initialSpecificDaysにあるがselectedSpecificDaysにない）');
-        // 承認済みデータからのみ削除申請（pending追加申請を削除しても削除申請にはしない）
-        final isApproved = approvedSpecificDays.any((approved) =>
-            approved.year == normalizedInitial.year &&
-            approved.month == normalizedInitial.month &&
-            approved.day == normalizedInitial.day);
-
-        if (isApproved) {
-          debugPrint('✅ [特定日削除申請] $normalizedInitial の削除申請を作成（承認済みデータからの削除）');
-          final request = ConstraintRequest(
-            id: uuid.v4(),
-            staffId: myStaff.id,
-            userId: widget.appUser.uid,
-            requestType: ConstraintRequest.typeSpecificDay,
-            specificDate: normalizedInitial,
-            status: ConstraintRequest.statusPending,
-            isDelete: true,
-          );
-          await requestProvider.createRequest(request);
-          newRequestCount++;
-        } else {
-          debugPrint('⚠️ [特定日削除スキップ] $normalizedInitial は承認済みデータにないのでスキップ（追加申請中の削除）');
-        }
+      if (!isSelected) {
+        debugPrint('✅ [特定日削除申請] $normalizedApproved の削除申請を作成');
+        final request = ConstraintRequest(
+          id: uuid.v4(),
+          staffId: myStaff.id,
+          userId: widget.appUser.uid,
+          requestType: ConstraintRequest.typeSpecificDay,
+          specificDate: normalizedApproved,
+          status: ConstraintRequest.statusPending,
+          isDelete: true,
+        );
+        await requestProvider.createRequest(request);
+        newRequestCount++;
       }
     }
 
     // 3. シフトタイプの勤務不可
-    debugPrint('🔍 [削除検出] approvedShiftTypes: $approvedShiftTypes');
-    debugPrint('🔍 [削除検出] initialShiftTypes: $initialShiftTypes');
-    debugPrint('🔍 [削除検出] selectedShiftTypes: $selectedShiftTypes');
+    debugPrint('🔍 [申請作成] approvedShiftTypes: $approvedShiftTypes');
+    debugPrint('🔍 [申請作成] selectedShiftTypes: $selectedShiftTypes');
 
-    // 追加申請：selectedShiftTypesにあるが、initialShiftTypes（初期表示）にない
+    // 追加申請：selectedShiftTypesにあるが、approvedShiftTypes（承認済み）にない
     for (final shiftType in selectedShiftTypes) {
-      if (!initialShiftTypes.contains(shiftType)) {
-        // 承認済みにもないことを確認（二重申請防止）
-        if (!approvedShiftTypes.contains(shiftType)) {
-          debugPrint('✅ [シフトタイプ追加申請] $shiftType を追加申請');
-          final request = ConstraintRequest(
-            id: uuid.v4(),
-            staffId: myStaff.id,
-            userId: widget.appUser.uid,
-            requestType: ConstraintRequest.typeShiftType,
-            shiftType: shiftType,
-            status: ConstraintRequest.statusPending,
-            isDelete: false,
-          );
-          await requestProvider.createRequest(request);
-          newRequestCount++;
-        }
+      if (!approvedShiftTypes.contains(shiftType)) {
+        debugPrint('✅ [シフトタイプ追加申請] $shiftType を追加申請');
+        final request = ConstraintRequest(
+          id: uuid.v4(),
+          staffId: myStaff.id,
+          userId: widget.appUser.uid,
+          requestType: ConstraintRequest.typeShiftType,
+          shiftType: shiftType,
+          status: ConstraintRequest.statusPending,
+          isDelete: false,
+        );
+        await requestProvider.createRequest(request);
+        newRequestCount++;
       }
     }
-    // 削除申請：initialShiftTypes（初期表示）にあるが、selectedShiftTypesにない
-    for (final shiftType in initialShiftTypes) {
+    // 削除申請：approvedShiftTypes（承認済み）にあるが、selectedShiftTypesにない
+    for (final shiftType in approvedShiftTypes) {
       if (!selectedShiftTypes.contains(shiftType)) {
-        debugPrint('🔍 [削除チェック] シフトタイプ $shiftType が削除された（initialShiftTypesにあるがselectedShiftTypesにない）');
-        // 承認済みデータからのみ削除申請（pending追加申請を削除しても削除申請にはしない）
-        if (approvedShiftTypes.contains(shiftType)) {
-          debugPrint('✅ [シフトタイプ削除申請] $shiftType の削除申請を作成（承認済みデータからの削除）');
-          final request = ConstraintRequest(
-            id: uuid.v4(),
-            staffId: myStaff.id,
-            userId: widget.appUser.uid,
-            requestType: ConstraintRequest.typeShiftType,
-            shiftType: shiftType,
-            status: ConstraintRequest.statusPending,
-            isDelete: true,
-          );
-          await requestProvider.createRequest(request);
-          newRequestCount++;
-        } else {
-          debugPrint('⚠️ [シフトタイプ削除スキップ] $shiftType は承認済みデータにないのでスキップ（追加申請中の削除）');
-        }
+        debugPrint('✅ [シフトタイプ削除申請] $shiftType の削除申請を作成');
+        final request = ConstraintRequest(
+          id: uuid.v4(),
+          staffId: myStaff.id,
+          userId: widget.appUser.uid,
+          requestType: ConstraintRequest.typeShiftType,
+          shiftType: shiftType,
+          status: ConstraintRequest.statusPending,
+          isDelete: true,
+        );
+        await requestProvider.createRequest(request);
+        newRequestCount++;
       }
     }
 
