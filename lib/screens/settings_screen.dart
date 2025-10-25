@@ -339,7 +339,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   Future<void> _sendContactEmail() async {
-    const emailAddress = 'fdks487351@yahoo.co.jp';
+    const emailAddress = 'stzx723@gmail.com';
     final version = _packageInfo?.version ?? '不明';
     final buildNumber = _packageInfo?.buildNumber ?? '不明';
     final osInfo = Platform.isAndroid
