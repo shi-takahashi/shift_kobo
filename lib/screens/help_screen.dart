@@ -154,7 +154,7 @@ class HelpScreen extends StatelessWidget {
       child: ExpansionTile(
         leading: const Icon(Icons.person, color: Colors.blue),
         title: const Text(
-          'スタッフができること（準備中）',
+          'スタッフができること',
           style: TextStyle(fontWeight: FontWeight.bold),
         ),
         children: [
@@ -170,15 +170,66 @@ class HelpScreen extends StatelessWidget {
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: const Text(
-                    '現在は管理者が作成したシフトを閲覧できます。\n'
-                    '今後のアップデートで以下の機能を追加予定です：',
-                    style: TextStyle(fontSize: 13),
+                    'スタッフとしてアプリに参加すると、以下の機能が利用できます：',
+                    style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
                   ),
                 ),
                 const SizedBox(height: 12),
-                _buildFeatureItem(Icons.event_busy, '休み希望入力', '自分で休み希望日を入力（予定）'),
-                _buildFeatureItem(Icons.notifications, 'プッシュ通知', '新しいシフトが作成されたら通知（予定）'),
-                _buildFeatureItem(Icons.comment, 'コメント機能', '急な変更やリクエストをコメント（予定）'),
+                _buildFeatureItem(
+                  Icons.calendar_today,
+                  'シフト閲覧',
+                  'マイページで自分のシフトを確認、カレンダー画面で全員分のシフトを日毎に確認',
+                ),
+                _buildFeatureItem(
+                  Icons.event_busy,
+                  '休み希望の入力・申請',
+                  'マイページから休み希望を入力し、管理者に申請',
+                ),
+                _buildFeatureItem(
+                  Icons.check_circle,
+                  '申請結果の通知（Android版のみ）',
+                  '管理者が申請を承認・却下したらPush通知でお知らせ',
+                ),
+                const SizedBox(height: 16),
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.orange.shade50,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.orange.shade200),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Icon(Icons.info_outline, color: Colors.orange.shade700, size: 20),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              '制限事項',
+                              style: TextStyle(
+                                fontSize: 13,
+                                color: Colors.orange.shade900,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        '• シフトの編集・削除はできません（閲覧のみ）\n'
+                        '• スタッフの追加・削除はできません\n'
+                        '• シフト自動作成はできません',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Colors.orange.shade900,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
               ],
             ),
           ),

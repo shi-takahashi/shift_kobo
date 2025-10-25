@@ -387,11 +387,11 @@ class _HomeScreenState extends State<HomeScreen> {
                   const SizedBox(height: 8),
                   const Text('4. 完成したシフト表を共有'),
                 ] else ...[
-                  const Text('1. マイページでシフトを確認'),
+                  const Text('1. マイページで自分のシフトを確認'),
                   const SizedBox(height: 8),
-                  const Text('2. 休み希望を入力して申請'),
+                  const Text('2. カレンダーで全員分のシフトを確認'),
                   const SizedBox(height: 8),
-                  const Text('3. 管理者の承認を待つ'),
+                  const Text('3. 休み希望を入力して申請'),
                 ],
                 const SizedBox(height: 16),
                 Container(
