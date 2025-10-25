@@ -80,7 +80,8 @@ exports.deleteTeamAndAllAccounts = onCall(async (request) => {
     // 5. サブコレクション削除
     await deleteSubcollection(teamId, "staff");
     await deleteSubcollection(teamId, "shifts");
-    await deleteSubcollection(teamId, "constraintRequests");
+    await deleteSubcollection(teamId, "constraint_requests");
+    await deleteSubcollection(teamId, "monthly_requirements");
     await deleteSubcollection(teamId, "settings");
     await deleteSubcollection(teamId, "shift_time_settings");
 
