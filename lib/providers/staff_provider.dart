@@ -90,6 +90,11 @@ class StaffProvider extends ChangeNotifier {
         .collection('staff')
         .doc(staff.id)
         .set(data);
+
+    // メールアドレスが設定されている場合、自動紐付けを試行
+    if (staff.email != null && staff.email!.isNotEmpty) {
+      await _tryAutoLinkByEmail(staff.id, staff.email!);
+    }
   }
 
   Future<void> updateStaff(Staff staff) async {
