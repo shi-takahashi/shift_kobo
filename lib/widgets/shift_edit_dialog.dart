@@ -425,18 +425,9 @@ class _ShiftEditDialogState extends State<ShiftEditDialog> {
         _endTime.minute,
       );
 
-      // 制約チェック
       final staff = staffProvider.staffList.firstWhere((s) => s.id == _selectedStaffId!);
-      final constraintViolations = _checkConstraintViolations(staff, shiftProvider);
 
-      if (constraintViolations.isNotEmpty) {
-        final shouldContinue = await _showConstraintWarningDialog(staff, constraintViolations);
-        if (!shouldContinue) {
-          return;
-        }
-      }
-
-      // 時間重複チェック
+      // 1. 時間重複チェック（絶対NG - 先にチェック）
       final conflictingShift = _checkTimeConflict(
         staffId: _selectedStaffId!,
         startTime: startDateTime,
@@ -448,6 +439,16 @@ class _ShiftEditDialogState extends State<ShiftEditDialog> {
       if (conflictingShift != null) {
         _showConflictDialog(conflictingShift, staff.name);
         return;
+      }
+
+      // 2. 制約チェック（警告付きで保存可能 - 後でチェック）
+      final constraintViolations = _checkConstraintViolations(staff, shiftProvider);
+
+      if (constraintViolations.isNotEmpty) {
+        final shouldContinue = await _showConstraintWarningDialog(staff, constraintViolations);
+        if (!shouldContinue) {
+          return;
+        }
       }
       
       if (widget.existingShift != null) {
@@ -618,7 +619,7 @@ class _ShiftEditDialogState extends State<ShiftEditDialog> {
     }
 
     // 2. 特定日の休み希望チェック
-    final dateString = DateFormat('yyyy-MM-dd').format(_selectedDate);
+    final dateString = DateTime(_selectedDate.year, _selectedDate.month, _selectedDate.day).toIso8601String();
     if (staff.specificDaysOff.contains(dateString)) {
       final dateStr = DateFormat('yyyy/MM/dd(E)', 'ja').format(_selectedDate);
       violations.add('$dateStrは休み希望日になっています');
@@ -630,27 +631,36 @@ class _ShiftEditDialogState extends State<ShiftEditDialog> {
     }
 
     // 4. 月間最大シフト数チェック
-    final targetMonth = DateTime(_selectedDate.year, _selectedDate.month);
-    final monthlyShifts = shiftProvider.getShiftsForMonth(targetMonth.year, targetMonth.month)
-        .where((shift) => shift.staffId == staff.id);
+    if (staff.maxShiftsPerMonth > 0) {
+      final targetMonth = DateTime(_selectedDate.year, _selectedDate.month);
+      final monthlyShifts = shiftProvider.getShiftsForMonth(targetMonth.year, targetMonth.month)
+          .where((shift) => shift.staffId == staff.id);
 
-    // 既存シフトの編集の場合は、そのシフト自体を除外してカウント
-    int currentMonthlyCount = monthlyShifts.where((shift) {
-      if (widget.existingShift != null) {
-        return shift.id != widget.existingShift!.id;
+      // スタッフが変更されたか、月が変更されたか判定
+      final isStaffChanged = widget.existingShift != null && widget.existingShift!.staffId != staff.id;
+      final isMonthChanged = widget.existingShift != null &&
+          (widget.existingShift!.date.year != _selectedDate.year ||
+           widget.existingShift!.date.month != _selectedDate.month);
+
+      // 既存シフトの編集の場合（同じスタッフ、同じ月）は、そのシフト自体を除外してカウント
+      int currentMonthlyCount = monthlyShifts.where((shift) {
+        if (widget.existingShift != null && !isStaffChanged && !isMonthChanged) {
+          return shift.id != widget.existingShift!.id;
+        }
+        return true;
+      }).length;
+
+      // 新規追加、スタッフ変更、または月変更の場合は+1、それ以外は現在のカウントのまま
+      int futureCount = (widget.existingShift == null || isStaffChanged || isMonthChanged)
+          ? currentMonthlyCount + 1
+          : currentMonthlyCount;
+
+      debugPrint('🔍 [月間最大シフト数チェック] スタッフ: ${staff.name}, 上限: ${staff.maxShiftsPerMonth}, 現在: $currentMonthlyCount, 追加後: $futureCount, スタッフ変更: $isStaffChanged, 月変更: $isMonthChanged');
+
+      if (futureCount > staff.maxShiftsPerMonth) {
+        // 上限を超える場合
+        violations.add('月間最大シフト数（${staff.maxShiftsPerMonth}回）を超えます（現在: ${currentMonthlyCount}回）');
       }
-      return true;
-    }).length;
-
-    // 新規追加の場合は+1、編集の場合は現在のカウントのまま
-    int futureCount = widget.existingShift != null ? currentMonthlyCount : currentMonthlyCount + 1;
-
-    if (staff.maxShiftsPerMonth == 0) {
-      // 月間最大シフト数が0の場合（自動割り当て対象外）
-      violations.add('月間最大シフト数が0に設定されています（自動割り当て対象外）');
-    } else if (futureCount > staff.maxShiftsPerMonth) {
-      // 上限を超える場合
-      violations.add('月間最大シフト数（${staff.maxShiftsPerMonth}回）を超えます（現在: ${currentMonthlyCount}回）');
     }
 
     return violations;

@@ -1049,7 +1049,7 @@ class _MyPageScreenState extends State<MyPageScreen> {
                           contentText = '${request.shiftType}の勤務不可';
                           actionText = request.isDelete ? 'を削除' : 'を追加';
                         } else if (request.requestType == ConstraintRequest.typeMaxShiftsPerMonth && request.maxShiftsPerMonth != null) {
-                          contentText = '月間最大シフト数を${request.maxShiftsPerMonth}日に変更';
+                          contentText = '月間最大シフト数を${request.maxShiftsPerMonth}回に変更';
                           actionText = '';
                         }
 
@@ -1320,7 +1320,7 @@ class _MyPageScreenState extends State<MyPageScreen> {
                       return Row(
                         children: [
                           Text(
-                            displayMaxShifts != null ? '$displayMaxShifts日' : '未設定',
+                            displayMaxShifts != null ? '$displayMaxShifts回' : '未設定',
                             style: TextStyle(
                               fontSize: 16,
                               fontWeight: FontWeight.bold,
@@ -1643,7 +1643,7 @@ class _MyPageScreenState extends State<MyPageScreen> {
                             initialValue: selectedMaxShifts?.toString() ?? '',
                             decoration: const InputDecoration(
                               hintText: '未設定',
-                              suffixText: '日',
+                              suffixText: '回',
                               border: OutlineInputBorder(),
                               contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                             ),
@@ -2008,7 +2008,7 @@ class _MyPageScreenState extends State<MyPageScreen> {
                         actionText = request.isDelete ? 'を削除' : 'を追加';
                       } else if (request.requestType == ConstraintRequest.typeMaxShiftsPerMonth &&
                           request.maxShiftsPerMonth != null) {
-                        contentText = '月間最大シフト数を${request.maxShiftsPerMonth}日に変更';
+                        contentText = '月間最大シフト数を${request.maxShiftsPerMonth}回に変更';
                         actionText = '';
                       }
 

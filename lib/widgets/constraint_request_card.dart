@@ -182,7 +182,7 @@ class ConstraintRequestCard extends StatelessWidget {
         return '$shiftTypeName$actionText';
       case ConstraintRequest.typeMaxShiftsPerMonth:
         if (request.maxShiftsPerMonth != null) {
-          return '${request.maxShiftsPerMonth}日/月';
+          return '${request.maxShiftsPerMonth}回/月';
         }
         return '未設定';
       default:
