@@ -7,7 +7,7 @@ import '../../providers/constraint_request_provider.dart';
 import '../../providers/staff_provider.dart';
 import '../../widgets/constraint_request_card.dart';
 
-/// 休み希望承認画面（管理者専用）
+/// 制約承認画面（管理者専用）
 class ConstraintApprovalScreen extends StatelessWidget {
   final AppUser appUser;
 
@@ -21,7 +21,7 @@ class ConstraintApprovalScreen extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(
         backgroundColor: Theme.of(context).colorScheme.inversePrimary,
-        title: const Text('休み希望承認', style: TextStyle(fontSize: 18)),
+        title: const Text('制約承認', style: TextStyle(fontSize: 18)),
         toolbarHeight: 48,
       ),
       body: Consumer2<ConstraintRequestProvider, StaffProvider>(

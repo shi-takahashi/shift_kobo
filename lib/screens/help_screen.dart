@@ -318,8 +318,8 @@ class HelpScreen extends StatelessWidget {
                 ),
                 _buildFeatureItem(
                   Icons.event_busy,
-                  '休み希望の入力・申請',
-                  'マイページから休み希望を入力し、管理者に申請',
+                  '休み希望・制約の入力・申請',
+                  'マイページから休み希望や月間最大シフト数などの制約を入力し、管理者に申請',
                 ),
                 _buildFeatureItem(
                   Icons.check_circle,
@@ -435,8 +435,8 @@ class HelpScreen extends StatelessWidget {
                   'ホーム画面の「シフト表」タブ > PNG保存またはExcel出力を選択',
                 ),
                 _buildHowToItem(
-                  'スタッフの休み希望を承認・却下する',
-                  'ホーム画面の「スタッフ」タブ > 承認待ちバナーをタップ > 申請一覧から承認または却下\n※ スタッフが休み希望を申請すると通知されます（Android版のみ）',
+                  'スタッフの制約申請を承認・却下する',
+                  'ホーム画面の「スタッフ」タブ > 承認待ちバナーをタップ > 申請一覧から承認または却下\n※ スタッフが制約を申請すると通知されます（Android版のみ）',
                 ),
               ],
             ),

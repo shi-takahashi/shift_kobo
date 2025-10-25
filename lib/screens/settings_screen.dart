@@ -244,7 +244,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               SwitchListTile(
                 secondary: const Icon(Icons.notifications_active),
                 title: const Text('申請結果の通知'),
-                subtitle: const Text('休み希望が承認・却下されたときに通知'),
+                subtitle: const Text('制約申請が承認・却下されたときに通知'),
                 value: (_notificationSettings['requestApproved'] ?? true) &&
                        (_notificationSettings['requestRejected'] ?? true),
                 onChanged: (value) async {
@@ -651,7 +651,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ),
               const SizedBox(height: 12),
               const Text('• ログイン情報（メールアドレス・パスワード）'),
-              const Text('• 休み希望の申請データ'),
+              const Text('• 制約の申請データ'),
               const SizedBox(height: 16),
               Container(
                 padding: const EdgeInsets.all(12),
@@ -738,7 +738,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ),
               SizedBox(height: 12),
               Text('• ログイン情報（メールアドレス・パスワード）'),
-              Text('• 休み希望の申請データ'),
+              Text('• 制約の申請データ'),
               SizedBox(height: 16),
               Text(
                 'スタッフ登録データは管理者側に残ります。\n'

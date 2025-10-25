@@ -1035,16 +1035,22 @@ class _MyPageScreenState extends State<MyPageScreen> {
                       const SizedBox(height: 12),
                       ...displayRequests.map((request) {
                         final isApproved = request.status == ConstraintRequest.statusApproved;
-                        final actionText = request.isDelete ? 'を削除' : 'を追加';
                         String contentText = '';
+                        String actionText = '';
 
                         if (request.requestType == ConstraintRequest.typeSpecificDay && request.specificDate != null) {
                           contentText = '${DateFormat('MM/dd(E)', 'ja').format(request.specificDate!)}の休み希望';
+                          actionText = request.isDelete ? 'を削除' : 'を追加';
                         } else if (request.requestType == ConstraintRequest.typeWeekday && request.weekday != null) {
                           final dayNames = ['月', '火', '水', '木', '金', '土', '日'];
                           contentText = '${dayNames[request.weekday! - 1]}曜の休み希望';
+                          actionText = request.isDelete ? 'を削除' : 'を追加';
                         } else if (request.requestType == ConstraintRequest.typeShiftType && request.shiftType != null) {
                           contentText = '${request.shiftType}の勤務不可';
+                          actionText = request.isDelete ? 'を削除' : 'を追加';
+                        } else if (request.requestType == ConstraintRequest.typeMaxShiftsPerMonth && request.maxShiftsPerMonth != null) {
+                          contentText = '月間最大シフト数を${request.maxShiftsPerMonth}日に変更';
+                          actionText = '';
                         }
 
                         // 却下理由がある場合のみ表示（空文字列もチェック）
@@ -1283,6 +1289,51 @@ class _MyPageScreenState extends State<MyPageScreen> {
                         }).toList(),
                       );
                     }(),
+
+                    const SizedBox(height: 16),
+
+                    // 月間最大シフト数
+                    const Text(
+                      '月間最大シフト数',
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.black87,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    () {
+                      // 承認済みの月間最大シフト数（0は未設定とみなす）
+                      final approvedMaxShifts = myStaff.maxShiftsPerMonth;
+
+                      // 承認待ちの月間最大シフト数申請（却下済みは除外）
+                      final pendingRequest = myRequests
+                          .where((r) =>
+                              r.requestType == ConstraintRequest.typeMaxShiftsPerMonth &&
+                              r.maxShiftsPerMonth != null &&
+                              r.status == ConstraintRequest.statusPending)
+                          .firstOrNull;
+
+                      // 表示する値（承認待ちがあればそれを優先、0は未設定）
+                      final displayMaxShifts = pendingRequest?.maxShiftsPerMonth ?? (approvedMaxShifts > 0 ? approvedMaxShifts : null);
+
+                      return Row(
+                        children: [
+                          Text(
+                            displayMaxShifts != null ? '$displayMaxShifts日' : '未設定',
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                              color: displayMaxShifts != null ? Colors.black87 : Colors.grey,
+                            ),
+                          ),
+                          if (pendingRequest != null && _buildStatusBadge(pendingRequest, compactMode: true) != null) ...[
+                            const SizedBox(width: 8),
+                            _buildStatusBadge(pendingRequest, compactMode: true)!,
+                          ],
+                        ],
+                      );
+                    }(),
                   ],
                 ),
               ),
@@ -1318,11 +1369,13 @@ class _MyPageScreenState extends State<MyPageScreen> {
           }
         })
         .toList();
+    final approvedMaxShifts = myStaff.maxShiftsPerMonth > 0 ? myStaff.maxShiftsPerMonth : null; // 0は未設定とみなす
 
     // 承認待ち・却下の申請も含める
     final selectedDays = approvedDays.toSet();
     final selectedShiftTypes = approvedShiftTypes.toSet();
     final selectedSpecificDays = approvedSpecificDays.toSet();
+    int? selectedMaxShifts = approvedMaxShifts;
 
     // 承認待ちの曜日申請を反映（却下済みは除外）
     for (final request in myRequests) {
@@ -1369,6 +1422,15 @@ class _MyPageScreenState extends State<MyPageScreen> {
           // 追加申請：リストに追加
           selectedSpecificDays.add(request.specificDate!);
         }
+      }
+    }
+
+    // 承認待ちの月間最大シフト数申請を反映（却下済みは除外）
+    for (final request in myRequests) {
+      if (request.requestType == ConstraintRequest.typeMaxShiftsPerMonth &&
+          request.maxShiftsPerMonth != null &&
+          request.status == ConstraintRequest.statusPending) {
+        selectedMaxShifts = request.maxShiftsPerMonth;
       }
     }
 
@@ -1562,6 +1624,51 @@ class _MyPageScreenState extends State<MyPageScreen> {
                         );
                       }).toList(),
                     ),
+
+                    const SizedBox(height: 24),
+
+                    // 月間最大シフト数
+                    const Text(
+                      '月間最大シフト数',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: TextFormField(
+                            initialValue: selectedMaxShifts?.toString() ?? '',
+                            decoration: const InputDecoration(
+                              hintText: '未設定',
+                              suffixText: '日',
+                              border: OutlineInputBorder(),
+                              contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                            ),
+                            keyboardType: TextInputType.number,
+                            onChanged: (value) {
+                              final parsed = int.tryParse(value);
+                              setDialogState(() {
+                                selectedMaxShifts = parsed;
+                              });
+                            },
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        if (selectedMaxShifts != null)
+                          IconButton(
+                            icon: const Icon(Icons.clear),
+                            onPressed: () {
+                              setDialogState(() {
+                                selectedMaxShifts = null;
+                              });
+                            },
+                            tooltip: 'クリア',
+                          ),
+                      ],
+                    ),
                   ],
                 ),
               ),
@@ -1582,6 +1689,7 @@ class _MyPageScreenState extends State<MyPageScreen> {
                         selectedDays.toList(),
                         (selectedSpecificDays.toList()..sort((a, b) => a.compareTo(b))),
                         selectedShiftTypes.toList(),
+                        selectedMaxShifts,
                       );
                     } else {
                       // 【スタッフ】申請作成
@@ -1592,6 +1700,7 @@ class _MyPageScreenState extends State<MyPageScreen> {
                         selectedDays.toList(),
                         (selectedSpecificDays.toList()..sort((a, b) => a.compareTo(b))),
                         selectedShiftTypes.toList(),
+                        selectedMaxShifts,
                       );
                     }
                   },
@@ -1613,6 +1722,7 @@ class _MyPageScreenState extends State<MyPageScreen> {
     List<int> selectedDays,
     List<DateTime> selectedSpecificDays,
     List<String> selectedShiftTypes,
+    int? selectedMaxShifts,
   ) async {
     // DateTimeのリストをISO8601文字列のリストに変換
     final specificDaysOffStrings = selectedSpecificDays
@@ -1626,7 +1736,7 @@ class _MyPageScreenState extends State<MyPageScreen> {
       name: myStaff.name,
       phoneNumber: myStaff.phoneNumber,
       email: myStaff.email,
-      maxShiftsPerMonth: myStaff.maxShiftsPerMonth,
+      maxShiftsPerMonth: selectedMaxShifts ?? 0, // nullの場合は0（自動割り当て対象外）
       preferredDaysOff: List.from(selectedDays),
       isActive: myStaff.isActive,
       createdAt: myStaff.createdAt,
@@ -1655,6 +1765,7 @@ class _MyPageScreenState extends State<MyPageScreen> {
     List<int> selectedDays,
     List<DateTime> selectedSpecificDays,
     List<String> selectedShiftTypes,
+    int? selectedMaxShifts,
   ) async {
     final requestProvider = outerContext.read<ConstraintRequestProvider>();
     final uuid = const Uuid();
@@ -1665,6 +1776,7 @@ class _MyPageScreenState extends State<MyPageScreen> {
         .map((dateStr) => DateTime.parse(dateStr))
         .toList();
     final approvedShiftTypes = myStaff.unavailableShiftTypes;
+    final approvedMaxShifts = myStaff.maxShiftsPerMonth > 0 ? myStaff.maxShiftsPerMonth : null; // 0は未設定とみなす
 
     // 既存のpending申請を取得
     final myRequests = requestProvider.getRequestsByUserId(widget.appUser.uid);
@@ -1808,6 +1920,26 @@ class _MyPageScreenState extends State<MyPageScreen> {
       }
     }
 
+    // 4. 月間最大シフト数
+    debugPrint('🔍 [申請作成] approvedMaxShifts: $approvedMaxShifts');
+    debugPrint('🔍 [申請作成] selectedMaxShifts: $selectedMaxShifts');
+
+    // 月間最大シフト数が変更されている場合のみ申請作成
+    if (selectedMaxShifts != approvedMaxShifts) {
+      debugPrint('✅ [月間最大シフト数変更申請] $selectedMaxShifts を申請');
+      final request = ConstraintRequest(
+        id: uuid.v4(),
+        staffId: myStaff.id,
+        userId: widget.appUser.uid,
+        requestType: ConstraintRequest.typeMaxShiftsPerMonth,
+        maxShiftsPerMonth: selectedMaxShifts,
+        status: ConstraintRequest.statusPending,
+        isDelete: false,
+      );
+      await requestProvider.createRequest(request);
+      newRequestCount++;
+    }
+
     if (outerContext.mounted) {
       Navigator.pop(dialogContext);
       if (mounted) {
@@ -1815,7 +1947,7 @@ class _MyPageScreenState extends State<MyPageScreen> {
       }
       // メッセージの内容を申請件数によって変更
       final message = newRequestCount > 0
-          ? '休み希望を申請しました。管理者の承認をお待ちください。'
+          ? '制約を申請しました。管理者の承認をお待ちください。'
           : '変更を保存しました。';
       ScaffoldMessenger.of(outerContext).showSnackBar(
         SnackBar(
@@ -1858,19 +1990,26 @@ class _MyPageScreenState extends State<MyPageScreen> {
                     itemBuilder: (context, index) {
                       final request = historyRequests[index];
                       final isApproved = request.status == ConstraintRequest.statusApproved;
-                      final actionText = request.isDelete ? 'を削除' : 'を追加';
                       String contentText = '';
+                      String actionText = '';
 
                       if (request.requestType == ConstraintRequest.typeSpecificDay &&
                           request.specificDate != null) {
                         contentText = '${DateFormat('MM/dd(E)', 'ja').format(request.specificDate!)}の休み希望';
+                        actionText = request.isDelete ? 'を削除' : 'を追加';
                       } else if (request.requestType == ConstraintRequest.typeWeekday &&
                           request.weekday != null) {
                         final dayNames = ['月', '火', '水', '木', '金', '土', '日'];
                         contentText = '${dayNames[request.weekday! - 1]}曜の休み希望';
+                        actionText = request.isDelete ? 'を削除' : 'を追加';
                       } else if (request.requestType == ConstraintRequest.typeShiftType &&
                           request.shiftType != null) {
                         contentText = '${request.shiftType}の勤務不可';
+                        actionText = request.isDelete ? 'を削除' : 'を追加';
+                      } else if (request.requestType == ConstraintRequest.typeMaxShiftsPerMonth &&
+                          request.maxShiftsPerMonth != null) {
+                        contentText = '月間最大シフト数を${request.maxShiftsPerMonth}日に変更';
+                        actionText = '';
                       }
 
                       final hasReason = !isApproved &&

@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 import '../models/constraint_request.dart';
 import '../models/staff.dart';
 
-/// 休み希望承認リクエストを管理するProvider
+/// 制約承認リクエストを管理するProvider
 class ConstraintRequestProvider extends ChangeNotifier {
   final String? teamId;
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
@@ -42,7 +42,7 @@ class ConstraintRequestProvider extends ChangeNotifier {
   void _subscribeToRequests() {
     if (teamId == null) return;
 
-    print('📋 休み希望申請購読開始（pending/rejected/approved）');
+    print('📋 制約申請購読開始（pending/rejected/approved）');
 
     _requestSubscription?.cancel();
     _requestSubscription = _firestore
@@ -68,6 +68,7 @@ class ConstraintRequestProvider extends ChangeNotifier {
               : null,
           weekday: data['weekday'] as int?,
           shiftType: data['shiftType'] as String?,
+          maxShiftsPerMonth: data['maxShiftsPerMonth'] as int?,
           status: data['status'] as String,
           isDelete: data['isDelete'] as bool? ?? false,  // 追加：削除申請フラグ
           approvedBy: data['approvedBy'] as String?,
@@ -121,6 +122,7 @@ class ConstraintRequestProvider extends ChangeNotifier {
           : null,
       'weekday': request.weekday,
       'shiftType': request.shiftType,
+      'maxShiftsPerMonth': request.maxShiftsPerMonth,
       'status': request.status,
       'isDelete': request.isDelete,
       'approvedBy': request.approvedBy,
@@ -232,6 +234,16 @@ class ConstraintRequestProvider extends ChangeNotifier {
         'unavailableShiftTypes': updatedShiftTypes,
         'updatedAt': FieldValue.serverTimestamp(),
       });
+    } else if (request.requestType == ConstraintRequest.typeMaxShiftsPerMonth) {
+      // 月間最大シフト数の変更
+      debugPrint('🔍 [承認処理/月間最大シフト数] 現在: ${staff.maxShiftsPerMonth}');
+      if (request.maxShiftsPerMonth != null) {
+        debugPrint('✅ [承認処理/月間最大シフト数] 変更: ${request.maxShiftsPerMonth}');
+        batch.update(staffRef, {
+          'maxShiftsPerMonth': request.maxShiftsPerMonth,
+          'updatedAt': FieldValue.serverTimestamp(),
+        });
+      }
     }
 
     // バッチコミット

@@ -9,7 +9,7 @@ import '../providers/constraint_request_provider.dart';
 import '../providers/shift_provider.dart';
 import '../providers/shift_time_provider.dart';
 
-/// 休み希望申請カードウィジェット
+/// 制約申請カードウィジェット
 class ConstraintRequestCard extends StatelessWidget {
   final ConstraintRequest request;
   final Staff staff;
@@ -156,6 +156,8 @@ class ConstraintRequestCard extends StatelessWidget {
         return '$prefix休み希望曜日';
       case ConstraintRequest.typeShiftType:
         return '$prefix勤務不可シフトタイプ';
+      case ConstraintRequest.typeMaxShiftsPerMonth:
+        return '月間最大シフト数の変更';
       default:
         return '$prefix休み希望';
     }
@@ -178,6 +180,11 @@ class ConstraintRequestCard extends StatelessWidget {
       case ConstraintRequest.typeShiftType:
         final shiftTypeName = request.shiftType ?? '不明なシフトタイプ';
         return '$shiftTypeName$actionText';
+      case ConstraintRequest.typeMaxShiftsPerMonth:
+        if (request.maxShiftsPerMonth != null) {
+          return '${request.maxShiftsPerMonth}日/月';
+        }
+        return '未設定';
       default:
         return '不明な申請';
     }
@@ -191,6 +198,8 @@ class ConstraintRequestCard extends StatelessWidget {
         return Icons.calendar_today;
       case ConstraintRequest.typeShiftType:
         return Icons.work_off;
+      case ConstraintRequest.typeMaxShiftsPerMonth:
+        return Icons.calendar_month;
       default:
         return Icons.info_outline;
     }
