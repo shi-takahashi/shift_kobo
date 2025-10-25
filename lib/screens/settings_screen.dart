@@ -265,33 +265,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
           const Divider(),
         ],
 
-        // 管理者のみデータ管理を表示
-        if (widget.appUser.isAdmin) ...[
-          const Padding(
-            padding: EdgeInsets.all(16.0),
-            child: Text(
-              'データ管理',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-          ),
-          ListTile(
-            leading: const Icon(Icons.backup),
-            title: const Text('データバックアップ'),
-            subtitle: const Text('シフトデータをバックアップ'),
-            onTap: () => _showBackupDialog(context),
-          ),
-          ListTile(
-            leading: const Icon(Icons.restore),
-            title: const Text('データ復元'),
-            subtitle: _isRestoring ? const Text('復元中...') : const Text('バックアップからデータを復元'),
-            enabled: !_isRestoring,
-            onTap: _isRestoring ? null : () => _showRestoreDialog(context),
-          ),
-          const Divider(),
-        ],
         const Padding(
           padding: EdgeInsets.all(16.0),
           child: Text(
@@ -331,7 +304,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     '• シフト自動割り当て\n'
                     '• スタッフ管理\n'
                     '• カレンダー表示\n'
-                    '• データバックアップ・復元\n'
                     '• 設定カスタマイズ',
                     style: TextStyle(fontSize: 14),
                   ),
