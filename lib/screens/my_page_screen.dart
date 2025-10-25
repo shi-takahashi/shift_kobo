@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/gestures.dart';
 import 'package:provider/provider.dart';
 import 'package:table_calendar/table_calendar.dart';
 import 'package:holiday_jp/holiday_jp.dart' as holiday_jp;
@@ -508,6 +509,7 @@ class _MyPageScreenState extends State<MyPageScreen> {
 
         return ListView(
           padding: const EdgeInsets.all(16),
+          physics: const AlwaysScrollableScrollPhysics(),
           children: [
             // ヘッダー
             Row(
@@ -643,6 +645,232 @@ class _MyPageScreenState extends State<MyPageScreen> {
                       }),
                   ],
                 ),
+              ),
+            ),
+            const SizedBox(height: 16),
+
+            // カレンダー（折りたたみ式）
+            Card(
+              child: ExpansionTile(
+                leading: const Icon(Icons.calendar_month),
+                title: const Text(
+                  'カレンダーで確認',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                subtitle: const Text('タップして展開'),
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // 年月表示と前後の矢印
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            IconButton(
+                              icon: const Icon(Icons.chevron_left),
+                              onPressed: () {
+                                setState(() {
+                                  _focusedDay = DateTime(
+                                    _focusedDay.year,
+                                    _focusedDay.month - 1,
+                                    1,
+                                  );
+                                  _selectedDay = null;
+                                });
+                              },
+                              tooltip: '前月',
+                            ),
+                            Text(
+                              '${_focusedDay.year}年${_focusedDay.month}月',
+                              style: const TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            IconButton(
+                              icon: const Icon(Icons.chevron_right),
+                              onPressed: () {
+                                setState(() {
+                                  _focusedDay = DateTime(
+                                    _focusedDay.year,
+                                    _focusedDay.month + 1,
+                                    1,
+                                  );
+                                  _selectedDay = null;
+                                });
+                              },
+                              tooltip: '次月',
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        NotificationListener<ScrollNotification>(
+                          onNotification: (notification) {
+                            // カレンダー内部のスクロール通知を無視
+                            return true;
+                          },
+                          child: TableCalendar<Shift>(
+                            firstDay: DateTime.utc(2020, 1, 1),
+                            lastDay: DateTime.utc(2030, 12, 31),
+                            focusedDay: _focusedDay,
+                            calendarFormat: CalendarFormat.month,
+                            locale: 'ja_JP',
+                            selectedDayPredicate: (day) => isSameDay(_selectedDay, day),
+                            eventLoader: (day) => _getMyShiftsForDay(day, shiftProvider, myStaff),
+                            startingDayOfWeek: StartingDayOfWeek.sunday,
+                            daysOfWeekVisible: true,
+                            availableCalendarFormats: const {
+                              CalendarFormat.month: '月',
+                            },
+                            rowHeight: 40.0,
+                            sixWeekMonthsEnforced: true,
+                            calendarStyle: const CalendarStyle(
+                              outsideDaysVisible: false,
+                              selectedDecoration: BoxDecoration(
+                                color: Colors.blue,
+                                shape: BoxShape.circle,
+                              ),
+                              todayDecoration: BoxDecoration(
+                                color: Colors.orange,
+                                shape: BoxShape.circle,
+                              ),
+                              markerDecoration: BoxDecoration(
+                                color: Colors.blue,
+                                shape: BoxShape.circle,
+                              ),
+                              weekendTextStyle: TextStyle(color: Colors.red, fontSize: 12),
+                              holidayTextStyle: TextStyle(color: Colors.red, fontSize: 12),
+                            ),
+                            headerVisible: false,
+                            pageJumpingEnabled: false,
+                            pageAnimationEnabled: false,
+                            onDaySelected: (selectedDay, focusedDay) {
+                              if (!isSameDay(_selectedDay, selectedDay)) {
+                                setState(() {
+                                  _selectedDay = selectedDay;
+                                  _focusedDay = focusedDay;
+                                });
+                              }
+                            },
+                            onPageChanged: (focusedDay) {
+                              setState(() {
+                                _focusedDay = focusedDay;
+                                _selectedDay = null;
+                              });
+                            },
+                            calendarBuilders: CalendarBuilders(
+                              markerBuilder: (context, date, shifts) {
+                                if (shifts.isEmpty) return null;
+                                // シフトを時間順にソート
+                                final sortedShifts = List<Shift>.from(shifts)
+                                  ..sort((a, b) => a.startTime.compareTo(b.startTime));
+
+                                return Row(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: sortedShifts.take(3).map((shift) {
+                                    final color = _getShiftTypeColor(shift.shiftType, shiftTimeProvider);
+                                    return Container(
+                                      margin: const EdgeInsets.symmetric(horizontal: 0.5),
+                                      width: 6,
+                                      height: 6,
+                                      decoration: BoxDecoration(
+                                        color: color,
+                                        shape: BoxShape.circle,
+                                      ),
+                                    );
+                                  }).toList(),
+                                );
+                              },
+                              dowBuilder: (context, day) {
+                                final text = JapaneseCalendarUtils.getJapaneseDayOfWeek(day);
+                                return Center(
+                                  child: Text(
+                                    text,
+                                    style: TextStyle(
+                                      color: day.weekday == DateTime.saturday
+                                          ? Colors.blue
+                                          : day.weekday == DateTime.sunday
+                                          ? Colors.red
+                                          : Colors.black87,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                );
+                              },
+                              defaultBuilder: (context, day, focusedDay) {
+                                final isHoliday = holiday_jp.isHoliday(day);
+                                return Center(
+                                  child: Text(
+                                    '${day.day}',
+                                    style: TextStyle(
+                                      color: isHoliday || day.weekday == DateTime.sunday
+                                          ? Colors.red
+                                          : day.weekday == DateTime.saturday
+                                          ? Colors.blue
+                                          : Colors.black87,
+                                      fontSize: 12,
+                                    ),
+                                  ),
+                                );
+                              },
+                            ),
+                          ),
+                        ),
+                        const Divider(),
+                        // 選択日のシフト
+                        if (_selectedDay != null) ...[
+                          const SizedBox(height: 8),
+                          Text(
+                            '${_selectedDay!.month}/${_selectedDay!.day}(${['月', '火', '水', '木', '金', '土', '日'][_selectedDay!.weekday % 7]})のシフト',
+                            style: const TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          ...() {
+                            final shifts = _getMyShiftsForDay(_selectedDay!, shiftProvider, myStaff);
+                            if (shifts.isEmpty) {
+                              return [
+                                const Padding(
+                                  padding: EdgeInsets.all(16),
+                                  child: Text(
+                                    'この日のシフトはありません',
+                                    style: TextStyle(color: Colors.grey),
+                                  ),
+                                ),
+                              ];
+                            }
+                            return shifts.map((shift) {
+                              final color = _getShiftTypeColor(shift.shiftType, shiftTimeProvider);
+                              return Card(
+                                margin: const EdgeInsets.symmetric(vertical: 4, horizontal: 8),
+                                child: ListTile(
+                                  dense: true,
+                                  leading: Container(
+                                    width: 4,
+                                    height: 40,
+                                    decoration: BoxDecoration(
+                                      color: color,
+                                      borderRadius: BorderRadius.circular(2),
+                                    ),
+                                  ),
+                                  title: Text(shift.shiftType),
+                                  subtitle: Text(_formatShiftTime(shift)),
+                                ),
+                              );
+                            }).toList();
+                          }(),
+                        ],
+                      ],
+                    ),
+                  ),
+                ],
               ),
             ),
             const SizedBox(height: 16),
@@ -873,224 +1101,6 @@ class _MyPageScreenState extends State<MyPageScreen> {
                 ),
               );
             }(),
-            const SizedBox(height: 16),
-
-            // カレンダー（全予定）
-            Card(
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Row(
-                      children: [
-                        Icon(Icons.calendar_month, size: 20),
-                        SizedBox(width: 8),
-                        Text(
-                          '全ての予定',
-                          style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 12),
-                    // 年月表示と前後の矢印
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        IconButton(
-                          icon: const Icon(Icons.chevron_left),
-                          onPressed: () {
-                            setState(() {
-                              _focusedDay = DateTime(
-                                _focusedDay.year,
-                                _focusedDay.month - 1,
-                                1,
-                              );
-                              _selectedDay = null;
-                            });
-                          },
-                          tooltip: '前月',
-                        ),
-                        Text(
-                          '${_focusedDay.year}年${_focusedDay.month}月',
-                          style: const TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        IconButton(
-                          icon: const Icon(Icons.chevron_right),
-                          onPressed: () {
-                            setState(() {
-                              _focusedDay = DateTime(
-                                _focusedDay.year,
-                                _focusedDay.month + 1,
-                                1,
-                              );
-                              _selectedDay = null;
-                            });
-                          },
-                          tooltip: '次月',
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    TableCalendar<Shift>(
-                      firstDay: DateTime.utc(2020, 1, 1),
-                      lastDay: DateTime.utc(2030, 12, 31),
-                      focusedDay: _focusedDay,
-                      calendarFormat: CalendarFormat.month,
-                      locale: 'ja_JP',
-                      selectedDayPredicate: (day) => isSameDay(_selectedDay, day),
-                      eventLoader: (day) => _getMyShiftsForDay(day, shiftProvider, myStaff),
-                      startingDayOfWeek: StartingDayOfWeek.sunday,
-                      daysOfWeekVisible: true,
-                      availableCalendarFormats: const {
-                        CalendarFormat.month: '月',
-                      },
-                      rowHeight: 40.0,
-                      calendarStyle: const CalendarStyle(
-                        outsideDaysVisible: false,
-                        selectedDecoration: BoxDecoration(
-                          color: Colors.blue,
-                          shape: BoxShape.circle,
-                        ),
-                        todayDecoration: BoxDecoration(
-                          color: Colors.orange,
-                          shape: BoxShape.circle,
-                        ),
-                        markerDecoration: BoxDecoration(
-                          color: Colors.blue,
-                          shape: BoxShape.circle,
-                        ),
-                        weekendTextStyle: TextStyle(color: Colors.red, fontSize: 12),
-                        holidayTextStyle: TextStyle(color: Colors.red, fontSize: 12),
-                      ),
-                      headerVisible: false,
-                      onDaySelected: (selectedDay, focusedDay) {
-                        if (!isSameDay(_selectedDay, selectedDay)) {
-                          setState(() {
-                            _selectedDay = selectedDay;
-                            _focusedDay = focusedDay;
-                          });
-                        }
-                      },
-                      onPageChanged: (focusedDay) {
-                        setState(() {
-                          _focusedDay = focusedDay;
-                          _selectedDay = null;
-                        });
-                      },
-                      calendarBuilders: CalendarBuilders(
-                        markerBuilder: (context, date, shifts) {
-                          if (shifts.isEmpty) return null;
-                          // シフトを時間順にソート
-                          final sortedShifts = List<Shift>.from(shifts)
-                            ..sort((a, b) => a.startTime.compareTo(b.startTime));
-
-                          return Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: sortedShifts.take(3).map((shift) {
-                              final color = _getShiftTypeColor(shift.shiftType, shiftTimeProvider);
-                              return Container(
-                                margin: const EdgeInsets.symmetric(horizontal: 0.5),
-                                width: 6,
-                                height: 6,
-                                decoration: BoxDecoration(
-                                  color: color,
-                                  shape: BoxShape.circle,
-                                ),
-                              );
-                            }).toList(),
-                          );
-                        },
-                        dowBuilder: (context, day) {
-                          final text = JapaneseCalendarUtils.getJapaneseDayOfWeek(day);
-                          return Center(
-                            child: Text(
-                              text,
-                              style: TextStyle(
-                                color: day.weekday == DateTime.saturday
-                                    ? Colors.blue
-                                    : day.weekday == DateTime.sunday
-                                    ? Colors.red
-                                    : Colors.black87,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          );
-                        },
-                        defaultBuilder: (context, day, focusedDay) {
-                          final isHoliday = holiday_jp.isHoliday(day);
-                          return Center(
-                            child: Text(
-                              '${day.day}',
-                              style: TextStyle(
-                                color: isHoliday || day.weekday == DateTime.sunday
-                                    ? Colors.red
-                                    : day.weekday == DateTime.saturday
-                                    ? Colors.blue
-                                    : Colors.black87,
-                                fontSize: 12,
-                              ),
-                            ),
-                          );
-                        },
-                      ),
-                    ),
-                    const Divider(),
-                    // 選択日のシフト
-                    if (_selectedDay != null) ...[
-                      const SizedBox(height: 8),
-                      Text(
-                        '${_selectedDay!.month}/${_selectedDay!.day}(${['月', '火', '水', '木', '金', '土', '日'][_selectedDay!.weekday % 7]})のシフト',
-                        style: const TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      ...() {
-                        final shifts = _getMyShiftsForDay(_selectedDay!, shiftProvider, myStaff);
-                        if (shifts.isEmpty) {
-                          return [
-                            const Padding(
-                              padding: EdgeInsets.all(16),
-                              child: Text(
-                                'この日のシフトはありません',
-                                style: TextStyle(color: Colors.grey),
-                              ),
-                            ),
-                          ];
-                        }
-                        return shifts.map((shift) {
-                          final color = _getShiftTypeColor(shift.shiftType, shiftTimeProvider);
-                          return Card(
-                            margin: const EdgeInsets.symmetric(vertical: 4, horizontal: 8),
-                            child: ListTile(
-                              dense: true,
-                              leading: Container(
-                                width: 4,
-                                height: 40,
-                                decoration: BoxDecoration(
-                                  color: color,
-                                  borderRadius: BorderRadius.circular(2),
-                                ),
-                              ),
-                              title: Text(shift.shiftType),
-                              subtitle: Text(_formatShiftTime(shift)),
-                            ),
-                          );
-                        }).toList();
-                      }(),
-                    ],
-                  ],
-                ),
-              ),
-            ),
             const SizedBox(height: 16),
 
             // その他の制約（休み希望曜日、勤務不可シフトタイプ）
