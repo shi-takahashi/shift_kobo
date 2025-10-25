@@ -147,6 +147,50 @@ firebase hosting:channel:list
 
 ---
 
+## 🔐 セキュリティとAPI制限
+
+### Google API キー公開警告について
+
+Web版デプロイ後、Googleから「APIキーが一般公開されています」という警告メールが届くことがありますが、**これは正常な動作です**。
+
+#### なぜ警告が来るのか
+- Firebase Web APIキーはブラウザで実行されるため、必然的に公開されます
+- ビルドされた`build/web`内のJavaScriptにも含まれており、隠すことは不可能です
+- GoogleがGitHub等でAPIキーを検出すると自動的に警告メールを送信します
+
+#### 安全性について
+- **Firebase Web APIキーは公開前提の設計です**（Firebase公式も明言）
+- APIキーは単なるプロジェクト識別子であり、それ自体はセキュリティリスクではありません
+- 実際のセキュリティは以下で担保されています：
+  - **Firestore Security Rules**（データアクセス制限）
+  - **Firebase Authentication**（認証）
+  - **API制限**（オプション）
+
+#### 対応方法
+
+**基本的には無視してOK**ですが、警告を止めたい場合は以下の手順でAPI制限を設定できます：
+
+```bash
+# Google Cloud Consoleにアクセス
+# https://console.cloud.google.com/
+
+# 1. 該当プロジェクト（shift-kobo-online-prod）を選択
+# 2. 「APIとサービス」→「認証情報」
+# 3. 該当のAPIキー（AIzaSy...）をクリック
+# 4. 「アプリケーションの制限」で「HTTPリファラー」を選択
+# 5. 「ウェブサイトの制限」に以下を追加：
+#    - https://shift-kobo-online-prod.web.app/*
+#    - https://shift-kobo-online-prod.firebaseapp.com/*
+# 6. 保存
+```
+
+**注意**：
+- API制限はオプションです（設定しなくても問題ありません）
+- 制限を設定すると、指定したドメイン以外からのアクセスが拒否されます
+- 開発環境（localhost）でテストする場合は、`http://localhost/*`も追加してください
+
+---
+
 ## 🗑️ Web版を無効化する（iOS版リリース後）
 
 iOS版アプリをリリースした後、Web版を終了する場合の手順です。
