@@ -623,7 +623,7 @@ class HelpScreen extends StatelessWidget {
                 _buildHowToItem(
                   '削除されるデータ',
                   '• 自分のアカウント情報（メールアドレス、パスワード等）\n'
-                      '• 自分が申請した休み希望データ\n'
+                      '• 自分が申請した制約データ\n'
                       '• スタッフ情報との紐付け（スタッフ情報自体は残る）',
                 ),
                 _buildHowToItem(
@@ -705,7 +705,7 @@ class HelpScreen extends StatelessWidget {
                 _buildHowToItem(
                   '削除されるデータ',
                   '• 該当スタッフのアカウント（アプリ利用中の場合）\n'
-                      '• 該当スタッフの休み希望データ\n'
+                      '• 該当スタッフの制約データ\n'
                       '• スタッフ情報（名前、連絡先等）',
                 ),
                 _buildHowToItem(
