@@ -14,6 +14,8 @@ class HelpScreen extends StatelessWidget {
         padding: const EdgeInsets.all(16),
         children: [
           _buildWelcomeCard(),
+          const SizedBox(height: 16),
+          _buildIOSWebGuideCard(),
           const SizedBox(height: 24),
           _buildSectionTitle('管理者向け'),
           const SizedBox(height: 8),
@@ -66,6 +68,135 @@ class HelpScreen extends StatelessWidget {
     );
   }
 
+  Widget _buildIOSWebGuideCard() {
+    return Card(
+      color: Colors.blue.shade50,
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(Icons.smartphone, color: Colors.blue.shade700, size: 24),
+                const SizedBox(width: 8),
+                Text(
+                  'アプリを始める',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.blue.shade900,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+
+            // Androidユーザー向け
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.green.shade200),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Icon(Icons.android, color: Colors.green.shade700, size: 20),
+                      const SizedBox(width: 8),
+                      Text(
+                        'Androidの方',
+                        style: TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.green.shade900,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Google Playストアから「シフト工房」で検索してアプリをインストール',
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: Colors.grey.shade800,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 12),
+
+            // iPhoneユーザー向け
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.orange.shade200),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Icon(Icons.apple, color: Colors.orange.shade700, size: 20),
+                      const SizedBox(width: 8),
+                      Text(
+                        'iPhoneの方',
+                        style: TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.orange.shade900,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'アプリは準備中です。アプリが公開されるまでは、SafariやChrome等のWebブラウザで、下記のアドレスを開いてください',
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: Colors.grey.shade800,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  SelectableText(
+                    'https://shift-kobo-online-prod.web.app',
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: Colors.blue.shade700,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      Icon(Icons.bookmark_outline, size: 16, color: Colors.grey.shade700),
+                      const SizedBox(width: 6),
+                      Expanded(
+                        child: Text(
+                          'ブックマークに保存すると便利です',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Colors.grey.shade700,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildSectionTitle(String title) {
     return Text(
       title,
@@ -104,11 +235,16 @@ class HelpScreen extends StatelessWidget {
                 _buildStepItem(
                   '3',
                   'スタッフ側の手順を案内',
-                  '以下の手順をスタッフに伝えてください：\n'
-                      '• アプリをインストール\n'
-                      '• メールアドレスでアカウント作成\n'
-                      '• 「既存のチームに参加」を選択\n'
-                      '• 招待コードを入力',
+                  '以下の手順をスタッフに伝えてください：\n\n'
+                      '【Androidの方】\n'
+                      '・Google Playストアで「シフト工房」を検索してインストール\n\n'
+                      '【iPhoneの方】\n'
+                      '・アプリは準備中です。SafariやChrome等のブラウザで\n'
+                      '　https://shift-kobo-online-prod.web.app を開いてください\n\n'
+                      '【共通】\n'
+                      '・メールアドレスでアカウント作成\n'
+                      '・「既存のチームに参加」を選択\n'
+                      '・招待コードを入力',
                 ),
                 const SizedBox(height: 12),
                 Container(

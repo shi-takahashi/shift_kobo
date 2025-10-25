@@ -162,15 +162,102 @@ class InviteGuideDialog extends StatelessWidget {
                     ],
                   ),
                   const SizedBox(height: 12),
-                  const Text(
+                  Text(
                     'スタッフに以下の手順を伝えてください：',
-                    style: TextStyle(fontSize: 13),
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.green.shade900,
+                    ),
                   ),
-                  const SizedBox(height: 8),
-                  _buildStep('1', 'アプリをインストールして起動'),
-                  _buildStep('2', 'メールアドレスでアカウント作成'),
-                  _buildStep('3', '「既存のチームに参加」を選択'),
-                  _buildStep('4', '招待コード「$inviteCode」を入力'),
+                  const SizedBox(height: 12),
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Icon(Icons.android, color: Colors.green.shade700, size: 18),
+                            const SizedBox(width: 6),
+                            Text(
+                              'Androidの方',
+                              style: TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.green.shade900,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 6),
+                        const Text(
+                          '① Google Playストアで「シフト工房」を検索してインストール\n'
+                          '② メールアドレスでアカウント作成\n'
+                          '③ 「既存のチームに参加」を選択\n'
+                          '④ 招待コードを入力',
+                          style: TextStyle(fontSize: 12, height: 1.6),
+                        ),
+                        const SizedBox(height: 12),
+                        Row(
+                          children: [
+                            Icon(Icons.apple, color: Colors.orange.shade700, size: 18),
+                            const SizedBox(width: 6),
+                            Text(
+                              'iPhoneの方',
+                              style: TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.orange.shade900,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 6),
+                        const SelectableText(
+                          'アプリは準備中です。\n'
+                          'SafariやChrome等のブラウザで下記のアドレスを開いてください\n\n'
+                          'https://shift-kobo-online-prod.web.app\n\n'
+                          '① メールアドレスでアカウント作成\n'
+                          '② 「既存のチームに参加」を選択\n'
+                          '③ 招待コードを入力',
+                          style: TextStyle(fontSize: 12, height: 1.6),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: Colors.blue.shade50,
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(Icons.key, color: Colors.blue.shade700, size: 16),
+                        const SizedBox(width: 6),
+                        Expanded(
+                          child: Text(
+                            '招待コード: $inviteCode',
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.blue.shade900,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 0),
+                  const SizedBox(height: 0),
+                  const SizedBox(height: 0),
+                  const SizedBox(height: 0),
                   const SizedBox(height: 8),
                   Text(
                     '※ スタッフ登録時に入力したメールアドレスと同じアドレスでアカウント作成すると自動紐付き',
