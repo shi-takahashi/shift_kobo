@@ -15,6 +15,7 @@ class AppUser {
   final String? teamId;       // 所属チームID（未所属の場合はnull）
   final DateTime createdAt;   // 作成日時
   final DateTime updatedAt;   // 更新日時
+  final List<String> readAnnouncementIds; // 既読のお知らせID一覧
 
   AppUser({
     required this.uid,
@@ -24,6 +25,7 @@ class AppUser {
     this.teamId,
     required this.createdAt,
     required this.updatedAt,
+    this.readAnnouncementIds = const [],
   });
 
   /// Firestoreから取得
@@ -40,6 +42,7 @@ class AppUser {
       teamId: data['teamId'],
       createdAt: (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
       updatedAt: (data['updatedAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
+      readAnnouncementIds: List<String>.from(data['readAnnouncementIds'] ?? []),
     );
   }
 
@@ -52,6 +55,7 @@ class AppUser {
       'teamId': teamId,
       'createdAt': Timestamp.fromDate(createdAt),
       'updatedAt': Timestamp.fromDate(updatedAt),
+      'readAnnouncementIds': readAnnouncementIds,
     };
   }
 
@@ -64,6 +68,7 @@ class AppUser {
     String? teamId,
     DateTime? createdAt,
     DateTime? updatedAt,
+    List<String>? readAnnouncementIds,
   }) {
     return AppUser(
       uid: uid ?? this.uid,
@@ -73,6 +78,7 @@ class AppUser {
       teamId: teamId ?? this.teamId,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
+      readAnnouncementIds: readAnnouncementIds ?? this.readAnnouncementIds,
     );
   }
 

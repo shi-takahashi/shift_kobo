@@ -7,8 +7,11 @@ import 'my_page_screen.dart';
 import 'staff_list_screen.dart';
 import 'settings_screen.dart';
 import '../models/app_user.dart';
+import '../models/announcement.dart';
 import '../widgets/auto_assignment_dialog.dart';
 import '../widgets/banner_ad_widget.dart';
+import '../widgets/announcement_dialog.dart';
+import '../services/announcement_service.dart';
 import '../providers/staff_provider.dart';
 import '../providers/shift_provider.dart';
 import '../providers/shift_time_provider.dart';
@@ -33,6 +36,7 @@ class _HomeScreenState extends State<HomeScreen> {
   int _selectedIndex = 0;
   bool _hasShownFirstTimeHelp = false;
   bool _hasCheckedInitialTab = false; // 初期タブ選択チェック済みフラグ
+  final AnnouncementService _announcementService = AnnouncementService();
 
   /// 権限に応じてタブ画面を取得
   List<Widget> get _screens {
@@ -146,6 +150,50 @@ class _HomeScreenState extends State<HomeScreen> {
     await prefs.setBool('has_seen_first_time_help', true);
   }
 
+  /// お知らせをチェックして表示
+  Future<void> _checkAnnouncements() async {
+    print('📢 _checkAnnouncements() 呼び出し開始');
+    if (!mounted) {
+      print('📢 mounted=false のため中断');
+      return;
+    }
+
+    try {
+      // 未読のお知らせを取得
+      print('📢 未読お知らせ取得開始...');
+      final announcements = await _announcementService.getUnreadAnnouncements(widget.appUser.uid);
+
+      print('📢 取得結果: ${announcements.length}件');
+
+      if (!mounted || announcements.isEmpty) {
+        print('📢 表示するお知らせなし（mounted=$mounted, 件数=${announcements.length}）');
+        return;
+      }
+
+      // 最新のお知らせのみ表示（複数ある場合は最新1件のみ）
+      final latestAnnouncement = announcements.first;
+      print('📢 お知らせダイアログ表示: ${latestAnnouncement.title}');
+
+      // ダイアログ表示
+      await showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => AnnouncementDialog(
+          announcement: latestAnnouncement,
+          onClose: () {
+            Navigator.of(context).pop();
+          },
+        ),
+      );
+
+      // 既読マーク
+      print('📢 既読マーク実行');
+      await _announcementService.markAsRead(widget.appUser.uid, latestAnnouncement.id);
+    } catch (e) {
+      print('⚠️ お知らせチェックエラー: $e');
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final teamId = widget.appUser.teamId!;
@@ -211,6 +259,11 @@ class _HomeScreenState extends State<HomeScreen> {
                 });
               }
             }
+
+            // データロード完了後、お知らせをチェック
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              _checkAnnouncements();
+            });
           }
 
           return Scaffold(
