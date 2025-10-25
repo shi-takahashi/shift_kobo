@@ -90,8 +90,9 @@ class AuthService {
   }
 
   /// 8文字のランダム招待コード生成（重複チェック付き）
+  /// 紛らわしい文字を除外: 0/O, 1/I/L, 2/Z, 5/S, 8/B
   Future<String> _generateUniqueInviteCode() async {
-    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+    const chars = 'ACDEFGHJKMNPQRTUVWXY34679';
     final random = Random();
 
     // 最大10回まで重複チェック
