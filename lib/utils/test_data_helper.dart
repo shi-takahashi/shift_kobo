@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:hive/hive.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../models/staff.dart';
 import '../models/shift.dart';
 
@@ -7,12 +8,25 @@ class TestDataHelper {
   static Future<void> initializeTestData() async {
     // リリースビルドではテストデータを作成しない
     if (!kDebugMode) return;
-    
+
+    // 移行完了済みの場合はテストデータを作成しない
+    final prefs = await SharedPreferences.getInstance();
+    final hasMigrated = prefs.getBool('has_migrated_to_firestore') ?? false;
+    if (hasMigrated) {
+      debugPrint('ℹ️ [TestDataHelper] 移行完了済みのためテストデータ作成をスキップ');
+      return;
+    }
+
     final staffBox = Hive.box<Staff>('staff');
     final shiftBox = Hive.box<Shift>('shifts');
-    
+
     // スタッフデータが既に存在する場合はスキップ
-    if (staffBox.isNotEmpty) return;
+    if (staffBox.isNotEmpty) {
+      debugPrint('ℹ️ [TestDataHelper] 既存データがあるためテストデータ作成をスキップ');
+      return;
+    }
+
+    debugPrint('🔧 [TestDataHelper] テストデータ作成開始');
     
     // テスト用スタッフデータ
     final testStaff = [
@@ -98,6 +112,8 @@ class TestDataHelper {
     for (final shift in testShifts) {
       await shiftBox.put(shift.id, shift);
     }
+
+    debugPrint('✅ [TestDataHelper] テストデータ作成完了（スタッフ: ${testStaff.length}件, シフト: ${testShifts.length}件）');
   }
   
   static String _getShiftTypeForDay(DateTime date, int staffIndex) {

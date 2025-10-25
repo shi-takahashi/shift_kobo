@@ -218,7 +218,11 @@ class MigrationService {
       await shiftsBox.clear();
       await constraintsBox.clear();
 
-      print('✅ Hiveデータ削除完了');
+      // 移行完了フラグを保存（デバッグビルドでテストデータを再作成しないため）
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool('has_migrated_to_firestore', true);
+
+      print('✅ Hiveデータ削除完了（移行完了フラグ保存）');
     } catch (e) {
       print('❌ Hiveデータ削除エラー: $e');
       // エラーでも続行（移行済みなので問題ない）

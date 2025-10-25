@@ -31,9 +31,9 @@ void main() async {
 
   // テスト用データの初期化（初回のみ）
   // TODO: Providerの改修（Firestore対応）が完了したら削除
-  // if (!kIsWeb) {
-  //   await TestDataHelper.initializeTestData(); // データ移行テスト用に有効化
-  // }
+  if (!kIsWeb) {
+    await TestDataHelper.initializeTestData(); // データ移行テスト用に有効化
+  }
 
   // AdMobの初期化（Web版では無効）
   if (!kIsWeb) {

@@ -104,6 +104,14 @@ class AuthService {
   /// 8文字のランダム招待コード生成（重複チェック付き）
   /// 紛らわしい文字を除外: 0/O, 1/I/L, 2/Z, 5/S, 8/B
   Future<String> _generateUniqueInviteCode() async {
+    // 認証状態を確認
+    final currentUser = _auth.currentUser;
+    print('🔍 [招待コード生成] 認証状態: ${currentUser != null ? "ログイン中 (${currentUser.uid})" : "未ログイン"}');
+
+    if (currentUser == null) {
+      throw '認証エラー: ログインしていません';
+    }
+
     const chars = 'ACDEFGHJKMNPQRTUVWXY34679';
     final random = Random();
 
@@ -115,15 +123,25 @@ class AuthService {
         (_) => chars[random.nextInt(chars.length)],
       ).join();
 
-      // Firestoreで重複チェック
-      final existingTeam = await _firestore
-          .collection('teams')
-          .where('inviteCode', isEqualTo: code)
-          .limit(1)
-          .get();
+      print('🔍 [招待コード生成] 重複チェック実行: $code');
 
-      if (existingTeam.docs.isEmpty) {
-        return code; // 重複なし
+      // Firestoreで重複チェック
+      try {
+        final existingTeam = await _firestore
+            .collection('teams')
+            .where('inviteCode', isEqualTo: code)
+            .limit(1)
+            .get();
+
+        if (existingTeam.docs.isEmpty) {
+          print('✅ [招待コード生成] 成功: $code');
+          return code; // 重複なし
+        }
+
+        print('⚠️ [招待コード生成] 重複あり: $code, 再試行...');
+      } catch (e) {
+        print('❌ [招待コード生成] Firestoreクエリエラー: $e');
+        rethrow;
       }
     }
 
@@ -137,6 +155,15 @@ class AuthService {
     required String ownerId,
   }) async {
     try {
+      // 既にチームに所属していないかチェック
+      final userDoc = await _firestore.collection('users').doc(ownerId).get();
+      if (userDoc.exists) {
+        final existingTeamId = userDoc.data()?['teamId'];
+        if (existingTeamId != null) {
+          throw '既にチームに所属しています。新しいチームを作成するには、現在のチームから退出してください。';
+        }
+      }
+
       // 招待コード生成（重複チェック付き）
       final inviteCode = await _generateUniqueInviteCode();
 
@@ -184,6 +211,17 @@ class AuthService {
     required String userId,
   }) async {
     try {
+      // 既にチームに所属していないかチェック
+      final existingUserDoc = await _firestore.collection('users').doc(userId).get();
+      final userEmail = existingUserDoc.data()?['email'] as String?;
+
+      if (existingUserDoc.exists) {
+        final existingTeamId = existingUserDoc.data()?['teamId'];
+        if (existingTeamId != null) {
+          throw '既にチームに所属しています。新しいチームに参加するには、現在のチームから退出してください。';
+        }
+      }
+
       // 1. 招待コードでteamsコレクションを検索
       final inviteCodeUpper = inviteCode.toUpperCase();
 
@@ -215,8 +253,7 @@ class AuthService {
       });
 
       // 4. ユーザーのメールアドレスでスタッフとの自動紐付けを試行
-      final userDoc = await _firestore.collection('users').doc(userId).get();
-      final email = userDoc.data()?['email'] as String?;
+      final email = userEmail;
       if (email != null && email.isNotEmpty) {
         await _autoLinkStaffByEmail(
           teamId: teamId,
