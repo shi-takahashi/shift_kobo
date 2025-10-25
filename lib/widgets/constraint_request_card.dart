@@ -353,38 +353,48 @@ class ConstraintRequestCard extends StatelessWidget {
   Future<void> _showRejectDialog(BuildContext context) async {
     final reasonController = TextEditingController();
 
-    final result = await showDialog<bool>(
+    final result = await showDialog<String?>(
       context: context,
       builder: (dialogContext) => AlertDialog(
         title: const Text('申請を却下'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              '${staff.name}さんの申請を却下します。',
-              style: const TextStyle(fontSize: 14),
+        insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
+        content: SizedBox(
+          width: MediaQuery.of(dialogContext).size.width,
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '${staff.name}さんの申請を却下します。',
+                  style: const TextStyle(fontSize: 14),
+                ),
+                const SizedBox(height: 16),
+                TextField(
+                  controller: reasonController,
+                  decoration: const InputDecoration(
+                    labelText: '却下理由（任意）',
+                    hintText: '例：シフトが埋まっているため',
+                    border: OutlineInputBorder(),
+                  ),
+                  maxLines: 3,
+                  autofocus: false,
+                ),
+              ],
             ),
-            const SizedBox(height: 16),
-            TextField(
-              controller: reasonController,
-              decoration: const InputDecoration(
-                labelText: '却下理由（任意）',
-                hintText: '例：シフトが埋まっているため',
-                border: OutlineInputBorder(),
-              ),
-              maxLines: 3,
-              autofocus: true,
-            ),
-          ],
+          ),
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(dialogContext, false),
+            onPressed: () {
+              Navigator.pop(dialogContext, null);
+            },
             child: const Text('キャンセル'),
           ),
           FilledButton(
-            onPressed: () => Navigator.pop(dialogContext, true),
+            onPressed: () {
+              Navigator.pop(dialogContext, reasonController.text.trim());
+            },
             style: FilledButton.styleFrom(
               backgroundColor: Colors.red,
             ),
@@ -394,11 +404,11 @@ class ConstraintRequestCard extends StatelessWidget {
       ),
     );
 
-    if (result == true && context.mounted) {
-      await _rejectRequest(context, reasonController.text.trim());
-    }
-
     reasonController.dispose();
+
+    if (result != null && context.mounted) {
+      await _rejectRequest(context, result);
+    }
   }
 
   /// 却下処理

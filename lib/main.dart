@@ -31,7 +31,7 @@ void main() async {
 
   // テスト用データの初期化（初回のみ）
   // TODO: Providerの改修（Firestore対応）が完了したら削除
-  if (kIsWeb) {
+  if (!kIsWeb) {
     await TestDataHelper.initializeTestData(); // データ移行テスト用に有効化
   }
 
