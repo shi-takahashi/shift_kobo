@@ -6,13 +6,17 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:shift_kobo/utils/test_data_helper.dart';
 
-import 'firebase_options.dart';
+import 'firebase_options.dart' as dev_options;
+import 'firebase_options_prod.dart' as prod_options;
 import 'models/shift.dart';
 import 'models/shift_constraint.dart';
 import 'models/shift_time_setting.dart';
 import 'models/staff.dart';
 import 'services/ad_service.dart';
 import 'widgets/auth_gate.dart';
+
+// ビルド時に環境を指定: --dart-define=FIREBASE_ENV=prod
+const firebaseEnv = String.fromEnvironment('FIREBASE_ENV', defaultValue: 'dev');
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -42,8 +46,15 @@ void main() async {
 
   // Firebaseの初期化
   try {
+    // 環境に応じてFirebase設定を切り替え
+    final firebaseOptions = firebaseEnv == 'prod'
+        ? prod_options.DefaultFirebaseOptions.currentPlatform
+        : dev_options.DefaultFirebaseOptions.currentPlatform;
+
+    debugPrint('🔥 Firebase環境: $firebaseEnv');
+
     await Firebase.initializeApp(
-      options: DefaultFirebaseOptions.currentPlatform,
+      options: firebaseOptions,
     );
 
     // Firestoreのキャッシュ設定（オフライン対応）
