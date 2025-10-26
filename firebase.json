@@ -1,1 +1,102 @@
-{"functions":{"source":"functions"},"hosting":{"public":"build/web","ignore":["firebase.json","**/.*","**/node_modules/**"],"rewrites":[{"source":"**","destination":"/index.html"}]},"flutter":{"platforms":{"android":{"default":{"projectId":"shift-kobo-online","appId":"1:342148343099:android:6a56d7a980a4807966831e","fileOutput":"android/app/google-services.json"}},"ios":{"default":{"projectId":"shift-kobo-online","appId":"1:342148343099:ios:c57d21ecbfc413b966831e","uploadDebugSymbols":false,"fileOutput":"ios/Runner/GoogleService-Info.plist"}},"macos":{"default":{"projectId":"shift-kobo-online","appId":"1:342148343099:ios:ad9243e72ac9164966831e","uploadDebugSymbols":false,"fileOutput":"macos/Runner/GoogleService-Info.plist"}},"dart":{"lib/firebase_options.dart":{"projectId":"shift-kobo-online","configurations":{"android":"1:342148343099:android:6a56d7a980a4807966831e","ios":"1:342148343099:ios:c57d21ecbfc413b966831e","macos":"1:342148343099:ios:ad9243e72ac9164966831e","web":"1:342148343099:web:9742e25079fdbbdf66831e","windows":"1:342148343099:web:bcc1be119b00bd4b66831e"}},"lib/firebase_options_prod.dart":{"projectId":"shift-kobo-online-prod","configurations":{"web":"1:823238942691:web:e71edafce9b15a7b9d8ad6"}}}}}}
+{
+  "functions": {
+    "source": "functions"
+  },
+  "hosting": {
+    "public": "build/web",
+    "ignore": [
+      "firebase.json",
+      "**/.*",
+      "**/node_modules/**"
+    ],
+    "rewrites": [
+      {
+        "source": "**",
+        "destination": "/index.html"
+      }
+    ],
+    "headers": [
+      {
+        "source": "**/*.@(html)",
+        "headers": [
+          {
+            "key": "Cache-Control",
+            "value": "no-cache, no-store, must-revalidate"
+          }
+        ]
+      },
+      {
+        "source": "**/*.@(js|css)",
+        "headers": [
+          {
+            "key": "Cache-Control",
+            "value": "public, max-age=3600"
+          }
+        ]
+      },
+      {
+        "source": "**/*.@(jpg|jpeg|gif|png|svg|webp|ico)",
+        "headers": [
+          {
+            "key": "Cache-Control",
+            "value": "public, max-age=86400"
+          }
+        ]
+      },
+      {
+        "source": "flutter_service_worker.js",
+        "headers": [
+          {
+            "key": "Cache-Control",
+            "value": "no-cache, no-store, must-revalidate"
+          }
+        ]
+      }
+    ]
+  },
+  "flutter": {
+    "platforms": {
+      "android": {
+        "default": {
+          "projectId": "shift-kobo-online",
+          "appId": "1:342148343099:android:6a56d7a980a4807966831e",
+          "fileOutput": "android/app/google-services.json"
+        }
+      },
+      "ios": {
+        "default": {
+          "projectId": "shift-kobo-online",
+          "appId": "1:342148343099:ios:c57d21ecbfc413b966831e",
+          "uploadDebugSymbols": false,
+          "fileOutput": "ios/Runner/GoogleService-Info.plist"
+        }
+      },
+      "macos": {
+        "default": {
+          "projectId": "shift-kobo-online",
+          "appId": "1:342148343099:ios:ad9243e72ac9164966831e",
+          "uploadDebugSymbols": false,
+          "fileOutput": "macos/Runner/GoogleService-Info.plist"
+        }
+      },
+      "dart": {
+        "lib/firebase_options.dart": {
+          "projectId": "shift-kobo-online",
+          "configurations": {
+            "android": "1:342148343099:android:6a56d7a980a4807966831e",
+            "ios": "1:342148343099:ios:c57d21ecbfc413b966831e",
+            "macos": "1:342148343099:ios:ad9243e72ac9164966831e",
+            "web": "1:342148343099:web:9742e25079fdbbdf66831e",
+            "windows": "1:342148343099:web:bcc1be119b00bd4b66831e"
+          }
+        },
+        "lib/firebase_options_prod.dart": {
+          "projectId": "shift-kobo-online-prod",
+          "configurations": {
+            "web": "1:823238942691:web:e71edafce9b15a7b9d8ad6"
+          }
+        }
+      }
+    }
+  }
+}

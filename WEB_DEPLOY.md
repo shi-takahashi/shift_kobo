@@ -12,8 +12,8 @@
 ### 開発環境（テスト用）にデプロイ
 
 ```bash
-# 1. Web版をビルド（開発環境用）
-flutter build web --release
+# 1. Web版をビルド（開発環境用、Service Worker無効）
+flutter build web --release --pwa-strategy=none
 
 # 2. 開発環境にデプロイ
 firebase deploy --only hosting
@@ -32,8 +32,8 @@ firebase deploy --only hosting
 # 1. 本番環境に切り替え
 firebase use shift-kobo-online-prod
 
-# 2. Web版をビルド（本番環境用）
-flutter build web --release --dart-define=FIREBASE_ENV=prod
+# 2. Web版をビルド（本番環境用、Service Worker無効）
+flutter build web --release --dart-define=FIREBASE_ENV=prod --pwa-strategy=none
 
 # 3. 本番環境にデプロイ
 firebase deploy --only hosting
@@ -127,8 +127,8 @@ firebase hosting:channel:list
 
 | 操作 | コマンド |
 |------|----------|
-| 開発環境にデプロイ | `flutter build web --release && firebase deploy --only hosting` |
-| 本番環境にデプロイ | `firebase use shift-kobo-online-prod && flutter build web --release --dart-define=FIREBASE_ENV=prod && firebase deploy --only hosting && firebase use shift-kobo-online` |
+| 開発環境にデプロイ | `flutter build web --release --pwa-strategy=none && firebase deploy --only hosting` |
+| 本番環境にデプロイ | `firebase use shift-kobo-online-prod && flutter build web --release --dart-define=FIREBASE_ENV=prod --pwa-strategy=none && firebase deploy --only hosting && firebase use shift-kobo-online` |
 | 現在の環境確認 | `firebase use` |
 | 開発環境に切り替え | `firebase use shift-kobo-online` |
 | 本番環境に切り替え | `firebase use shift-kobo-online-prod` |
@@ -141,7 +141,7 @@ firebase hosting:channel:list
 |------|----------|----------|
 | Firebase Project | shift-kobo-online | shift-kobo-online-prod |
 | Hosting URL | https://shift-kobo-online.web.app | https://shift-kobo-online-prod.web.app |
-| ビルドコマンド | `flutter build web --release` | `flutter build web --release --dart-define=FIREBASE_ENV=prod` |
+| ビルドコマンド | `flutter build web --release --pwa-strategy=none` | `flutter build web --release --dart-define=FIREBASE_ENV=prod --pwa-strategy=none` |
 | 用途 | テスト・開発 | 本番リリース |
 | データ | テストデータ | 本番データ |
 
