@@ -59,8 +59,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
     final lastDay = DateTime(month.year, month.month + 1, 0);
 
     // 最初の日の曜日（日曜=0, 月曜=1...土曜=6）
-    final firstWeekday =
-        firstDay.weekday % 7; // Dart weekday: 月=1...日=7 → 日曜始まり: 日=0...土=6
+    final firstWeekday = firstDay.weekday % 7; // Dart weekday: 月=1...日=7 → 日曜始まり: 日=0...土=6
 
     // 月の日数
     final daysInMonth = lastDay.day;
@@ -75,9 +74,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
     final shiftTimeProvider = context.read<ShiftTimeProvider>();
 
     // まず新しいShiftTimeSettingから検索
-    final setting = shiftTimeProvider.settings
-        .where((s) => s.displayName == shiftTypeName)
-        .firstOrNull;
+    final setting = shiftTimeProvider.settings.where((s) => s.displayName == shiftTypeName).firstOrNull;
 
     if (setting != null) {
       return setting.shiftType.color;
@@ -165,12 +162,9 @@ class _CalendarScreenState extends State<CalendarScreen> {
                       MaterialPageRoute(
                         builder: (context) => MultiProvider(
                           providers: [
-                            ChangeNotifierProvider<ShiftProvider>.value(
-                                value: shiftProvider),
-                            ChangeNotifierProvider<StaffProvider>.value(
-                                value: staffProvider),
-                            ChangeNotifierProvider<ShiftTimeProvider>.value(
-                                value: shiftTimeProvider),
+                            ChangeNotifierProvider<ShiftProvider>.value(value: shiftProvider),
+                            ChangeNotifierProvider<StaffProvider>.value(value: staffProvider),
+                            ChangeNotifierProvider<ShiftTimeProvider>.value(value: shiftTimeProvider),
                           ],
                           child: ExportScreen(
                             initialMonth: _focusedDay,
@@ -190,8 +184,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
                   },
                   borderRadius: BorderRadius.circular(8.0),
                   child: Padding(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
@@ -233,8 +226,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
                     onTap: () => _showAutoAssignmentDialog(context),
                     borderRadius: BorderRadius.circular(8.0),
                     child: Padding(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 12, vertical: 8),
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
@@ -266,23 +258,9 @@ class _CalendarScreenState extends State<CalendarScreen> {
             padding: const EdgeInsets.only(right: 16.0),
             child: Column(
               children: [
-                // デプロイ確認用バナー（Web版のみ、一時的）
-                if (kIsWeb)
-                  Container(
-                    width: double.infinity,
-                    padding:
-                        const EdgeInsets.symmetric(vertical: 4, horizontal: 8),
-                    color: Colors.orange.shade100,
-                    child: const Text(
-                      'デプロイ確認: v1.0.4+9 (2025-10-26 22:45 カレンダー高さ可変化)',
-                      style: TextStyle(fontSize: 10, color: Colors.black87),
-                      textAlign: TextAlign.center,
-                    ),
-                  ),
                 // カスタムヘッダー
                 Container(
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 16.0, vertical: 8.0),
+                  padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
                   child: Row(
                     children: [
                       // 月/週切り替えボタン（左端に配置）
@@ -301,31 +279,23 @@ class _CalendarScreenState extends State<CalendarScreen> {
                         child: InkWell(
                           onTap: () {
                             setState(() {
-                              _calendarFormat =
-                                  _calendarFormat == CalendarFormat.month
-                                      ? CalendarFormat.week
-                                      : CalendarFormat.month;
+                              _calendarFormat = _calendarFormat == CalendarFormat.month ? CalendarFormat.week : CalendarFormat.month;
                             });
                           },
                           borderRadius: BorderRadius.circular(8.0),
                           child: Padding(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 12, vertical: 8),
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                             child: Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
                                 Icon(
-                                  _calendarFormat == CalendarFormat.month
-                                      ? Icons.calendar_view_month
-                                      : Icons.calendar_view_week,
+                                  _calendarFormat == CalendarFormat.month ? Icons.calendar_view_month : Icons.calendar_view_week,
                                   size: 16,
                                   color: Colors.white,
                                 ),
                                 const SizedBox(width: 4),
                                 Text(
-                                  _calendarFormat == CalendarFormat.month
-                                      ? '月'
-                                      : '週',
+                                  _calendarFormat == CalendarFormat.month ? '月' : '週',
                                   style: const TextStyle(
                                     color: Colors.white,
                                     fontSize: 13,
@@ -343,15 +313,12 @@ class _CalendarScreenState extends State<CalendarScreen> {
                       IconButton(
                         icon: const Icon(Icons.chevron_left, size: 20),
                         onPressed: () {
-                          final isMonthMode =
-                              _calendarFormat == CalendarFormat.month;
+                          final isMonthMode = _calendarFormat == CalendarFormat.month;
                           setState(() {
                             if (isMonthMode) {
-                              _focusedDay = DateTime(
-                                  _focusedDay.year, _focusedDay.month - 1, 1);
+                              _focusedDay = DateTime(_focusedDay.year, _focusedDay.month - 1, 1);
                             } else {
-                              _focusedDay =
-                                  _focusedDay.subtract(const Duration(days: 7));
+                              _focusedDay = _focusedDay.subtract(const Duration(days: 7));
                             }
                             _selectedDay = null;
                           });
@@ -367,8 +334,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
                         constraints: const BoxConstraints(minWidth: 100),
                         child: Text(
                           JapaneseCalendarUtils.formatMonthYear(_focusedDay),
-                          style: const TextStyle(
-                              fontSize: 16, fontWeight: FontWeight.w600),
+                          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
                           textAlign: TextAlign.center,
                         ),
                       ),
@@ -376,15 +342,12 @@ class _CalendarScreenState extends State<CalendarScreen> {
                       IconButton(
                         icon: const Icon(Icons.chevron_right, size: 20),
                         onPressed: () {
-                          final isMonthMode =
-                              _calendarFormat == CalendarFormat.month;
+                          final isMonthMode = _calendarFormat == CalendarFormat.month;
                           setState(() {
                             if (isMonthMode) {
-                              _focusedDay = DateTime(
-                                  _focusedDay.year, _focusedDay.month + 1, 1);
+                              _focusedDay = DateTime(_focusedDay.year, _focusedDay.month + 1, 1);
                             } else {
-                              _focusedDay =
-                                  _focusedDay.add(const Duration(days: 7));
+                              _focusedDay = _focusedDay.add(const Duration(days: 7));
                             }
                             _selectedDay = null;
                           });
@@ -425,9 +388,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
                       CalendarFormat.week: '週',
                     },
                     daysOfWeekHeight: 30.0,
-                    rowHeight: _calendarFormat == CalendarFormat.month
-                        ? (kIsWeb ? 32.0 : 36.0)
-                        : 40.0,
+                    rowHeight: _calendarFormat == CalendarFormat.month ? (kIsWeb ? 32.0 : 36.0) : 40.0,
                     calendarStyle: const CalendarStyle(
                       outsideDaysVisible: false,
                       selectedDecoration: BoxDecoration(
@@ -445,10 +406,8 @@ class _CalendarScreenState extends State<CalendarScreen> {
                       // カレンダーの縦幅を縮小
                       cellMargin: EdgeInsets.all(2.0),
                       defaultTextStyle: TextStyle(fontSize: 12),
-                      weekendTextStyle:
-                          TextStyle(color: Colors.red, fontSize: 12),
-                      holidayTextStyle:
-                          TextStyle(color: Colors.red, fontSize: 12),
+                      weekendTextStyle: TextStyle(color: Colors.red, fontSize: 12),
+                      holidayTextStyle: TextStyle(color: Colors.red, fontSize: 12),
                     ),
                     headerVisible: false, // デフォルトヘッダーを非表示
                     onDaySelected: _onDaySelected,
@@ -474,8 +433,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
                         return _buildShiftMarkers(shifts);
                       },
                       dowBuilder: (context, day) {
-                        final text =
-                            JapaneseCalendarUtils.getJapaneseDayOfWeek(day);
+                        final text = JapaneseCalendarUtils.getJapaneseDayOfWeek(day);
                         return Center(
                           child: Text(
                             text,
@@ -575,16 +533,10 @@ class _CalendarScreenState extends State<CalendarScreen> {
                                   itemBuilder: (context, index) {
                                     return _ShiftTile(
                                       shift: value[index],
-                                      shiftColor: _getShiftTypeColor(
-                                          value[index].shiftType),
-                                      onEdit: (shift) =>
-                                          _showEditShiftDialog(context, shift),
-                                      onDelete: (shift) =>
-                                          _showDeleteConfirmDialog(
-                                              context, shift),
-                                      onQuickAction: (shift) =>
-                                          _showQuickActionDialog(
-                                              context, shift),
+                                      shiftColor: _getShiftTypeColor(value[index].shiftType),
+                                      onEdit: (shift) => _showEditShiftDialog(context, shift),
+                                      onDelete: (shift) => _showDeleteConfirmDialog(context, shift),
+                                      onQuickAction: (shift) => _showQuickActionDialog(context, shift),
                                       isAdmin: widget.appUser.isAdmin,
                                     );
                                   },
@@ -603,8 +555,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
                                   icon: const Icon(Icons.add),
                                   label: const Text('シフトを追加'),
                                   style: ElevatedButton.styleFrom(
-                                    padding: const EdgeInsets.symmetric(
-                                        vertical: 12),
+                                    padding: const EdgeInsets.symmetric(vertical: 12),
                                   ),
                                 ),
                               ),
@@ -626,8 +577,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
     final shiftProvider = context.read<ShiftProvider>();
     final staffProvider = context.read<StaffProvider>();
     final shiftTimeProvider = context.read<ShiftTimeProvider>();
-    final monthlyRequirementsProvider =
-        context.read<MonthlyRequirementsProvider>();
+    final monthlyRequirementsProvider = context.read<MonthlyRequirementsProvider>();
 
     showDialog<bool>(
       context: context,
@@ -636,10 +586,8 @@ class _CalendarScreenState extends State<CalendarScreen> {
         providers: [
           ChangeNotifierProvider<ShiftProvider>.value(value: shiftProvider),
           ChangeNotifierProvider<StaffProvider>.value(value: staffProvider),
-          ChangeNotifierProvider<ShiftTimeProvider>.value(
-              value: shiftTimeProvider),
-          ChangeNotifierProvider<MonthlyRequirementsProvider>.value(
-              value: monthlyRequirementsProvider),
+          ChangeNotifierProvider<ShiftTimeProvider>.value(value: shiftTimeProvider),
+          ChangeNotifierProvider<MonthlyRequirementsProvider>.value(value: monthlyRequirementsProvider),
         ],
         child: AutoAssignmentDialog(
           selectedMonth: _focusedDay,
@@ -686,8 +634,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
         providers: [
           ChangeNotifierProvider<ShiftProvider>.value(value: shiftProvider),
           ChangeNotifierProvider<StaffProvider>.value(value: staffProvider),
-          ChangeNotifierProvider<ShiftTimeProvider>.value(
-              value: shiftTimeProvider),
+          ChangeNotifierProvider<ShiftTimeProvider>.value(value: shiftTimeProvider),
         ],
         child: ShiftEditDialog(selectedDate: _selectedDay!),
       ),
@@ -722,8 +669,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
         providers: [
           ChangeNotifierProvider<ShiftProvider>.value(value: shiftProvider),
           ChangeNotifierProvider<StaffProvider>.value(value: staffProvider),
-          ChangeNotifierProvider<ShiftTimeProvider>.value(
-              value: shiftTimeProvider),
+          ChangeNotifierProvider<ShiftTimeProvider>.value(value: shiftTimeProvider),
         ],
         child: ShiftEditDialog(
           selectedDate: shift.date,
@@ -825,12 +771,8 @@ class _CalendarScreenState extends State<CalendarScreen> {
     final shiftProvider = context.read<ShiftProvider>();
 
     // 移動先の日付に同じスタッフのシフトがないかチェック
-    final conflictShifts = shiftProvider
-        .getShiftsForDate(newDate)
-        .where((s) => s.staffId == shift.staffId)
-        .toList();
-    final conflictShift =
-        conflictShifts.isNotEmpty ? conflictShifts.first : null;
+    final conflictShifts = shiftProvider.getShiftsForDate(newDate).where((s) => s.staffId == shift.staffId).toList();
+    final conflictShift = conflictShifts.isNotEmpty ? conflictShifts.first : null;
 
     if (conflictShift != null) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -999,9 +941,7 @@ class _ShiftTile extends StatelessWidget {
         ),
         child: InkWell(
           onTap: isAdmin ? () => onEdit(shift) : null, // 管理者のみ編集可能
-          onLongPress: isAdmin && onQuickAction != null
-              ? () => onQuickAction!(shift)
-              : null, // 管理者のみクイックアクション可能
+          onLongPress: isAdmin && onQuickAction != null ? () => onQuickAction!(shift) : null, // 管理者のみクイックアクション可能
           child: ListTile(
             dense: true,
             leading: CircleAvatar(
@@ -1017,16 +957,13 @@ class _ShiftTile extends StatelessWidget {
               ),
             ),
             title: Text(
-              staff != null
-                  ? staff.name
-                  : '不明なスタッフ (ID: ${shift.staffId.substring(0, 8)})',
+              staff != null ? staff.name : '不明なスタッフ (ID: ${shift.staffId.substring(0, 8)})',
               style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 15),
             ),
             subtitle: Row(
               children: [
                 Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
                   decoration: BoxDecoration(
                     color: shiftColor.withOpacity(0.1),
                     borderRadius: BorderRadius.circular(10),
