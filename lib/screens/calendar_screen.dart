@@ -1,3 +1,4 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -37,6 +38,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
   late CalendarFormat _calendarFormat;
   DateTime _focusedDay = DateTime.now();
   DateTime? _selectedDay;
+  Map<String, bool> _userRoleCache = {}; // userId -> isAdmin のキャッシュ
 
   @override
   void initState() {
@@ -45,6 +47,38 @@ class _CalendarScreenState extends State<CalendarScreen> {
     _calendarFormat = kIsWeb ? CalendarFormat.week : CalendarFormat.month;
     _selectedDay = DateTime.now();
     _selectedShifts = ValueNotifier(_getShiftsForDay(_selectedDay!));
+    _loadTeamUserRoles();
+  }
+
+  /// チーム内の全ユーザーのロール情報をキャッシュ
+  Future<void> _loadTeamUserRoles() async {
+    if (widget.appUser.teamId == null) return;
+
+    try {
+      final snapshot = await FirebaseFirestore.instance
+          .collection('users')
+          .where('teamId', isEqualTo: widget.appUser.teamId)
+          .get();
+
+      final roleCache = <String, bool>{};
+      for (final doc in snapshot.docs) {
+        final data = doc.data();
+        final role = data['role'] as String?;
+        roleCache[doc.id] = role == 'admin';
+      }
+
+      if (mounted) {
+        setState(() {
+          _userRoleCache = roleCache;
+        });
+        // キャッシュが更新されたら、選択中の日のシフトを再ソート
+        if (_selectedDay != null) {
+          _selectedShifts.value = _getShiftsForDay(_selectedDay!);
+        }
+      }
+    } catch (e) {
+      print('ユーザーロール情報の取得エラー: $e');
+    }
   }
 
   @override
@@ -86,40 +120,75 @@ class _CalendarScreenState extends State<CalendarScreen> {
 
   List<Shift> _getShiftsForDay(DateTime day) {
     final shiftProvider = context.read<ShiftProvider>();
+    final staffProvider = context.read<StaffProvider>();
     final shifts = shiftProvider.getShiftsForDate(day);
 
-    // ソート: 1.開始時間順 2.終了時間順 3.スタッフID順
+    // ソート: 1.ロール順（管理者を上） 2.createdAt順（昇順） 3.開始時間順 4.終了時間順
     shifts.sort((a, b) {
-      // まず開始時間で比較
+      final staffA = staffProvider.getStaffById(a.staffId);
+      final staffB = staffProvider.getStaffById(b.staffId);
+
+      // スタッフ情報が見つからない場合の処理
+      if (staffA == null && staffB == null) return 0;
+      if (staffA == null) return 1;
+      if (staffB == null) return -1;
+
+      // 1. ロール順（管理者を上、スタッフを下）
+      final isAdminA = staffA.userId != null && (_userRoleCache[staffA.userId] ?? false);
+      final isAdminB = staffB.userId != null && (_userRoleCache[staffB.userId] ?? false);
+
+      if (isAdminA && !isAdminB) return -1;
+      if (!isAdminA && isAdminB) return 1;
+
+      // 2. createdAt順（昇順＝過去に作成されたスタッフが上）
+      int createdAtComparison = staffA.createdAt.compareTo(staffB.createdAt);
+      if (createdAtComparison != 0) return createdAtComparison;
+
+      // 3. 開始時間順
       int startComparison = a.startTime.compareTo(b.startTime);
       if (startComparison != 0) return startComparison;
 
-      // 開始時間が同じ場合は終了時間で比較
-      int endComparison = a.endTime.compareTo(b.endTime);
-      if (endComparison != 0) return endComparison;
-
-      // 開始時間・終了時間が同じ場合はスタッフID順（安定ソート）
-      return a.staffId.compareTo(b.staffId);
+      // 4. 終了時間順
+      return a.endTime.compareTo(b.endTime);
     });
 
     return shifts;
   }
 
-  /// カレンダーマーカー用に時間順でソートしたシフトリストを取得
+  /// カレンダーマーカー用にソートしたシフトリストを取得
+  /// ソート順: 1.ロール順 2.createdAt順 3.時間順
   List<Shift> _getSortedShiftsForMarker(List<Shift> shifts) {
+    final staffProvider = context.read<StaffProvider>();
     final sortedShifts = List<Shift>.from(shifts);
+
     sortedShifts.sort((a, b) {
-      // まず開始時間で比較
+      final staffA = staffProvider.getStaffById(a.staffId);
+      final staffB = staffProvider.getStaffById(b.staffId);
+
+      // スタッフ情報が見つからない場合の処理
+      if (staffA == null && staffB == null) return 0;
+      if (staffA == null) return 1;
+      if (staffB == null) return -1;
+
+      // 1. ロール順（管理者を上、スタッフを下）
+      final isAdminA = staffA.userId != null && (_userRoleCache[staffA.userId] ?? false);
+      final isAdminB = staffB.userId != null && (_userRoleCache[staffB.userId] ?? false);
+
+      if (isAdminA && !isAdminB) return -1;
+      if (!isAdminA && isAdminB) return 1;
+
+      // 2. createdAt順（昇順）
+      int createdAtComparison = staffA.createdAt.compareTo(staffB.createdAt);
+      if (createdAtComparison != 0) return createdAtComparison;
+
+      // 3. 開始時間順
       int startComparison = a.startTime.compareTo(b.startTime);
       if (startComparison != 0) return startComparison;
 
-      // 開始時間が同じ場合は終了時間で比較
-      int endComparison = a.endTime.compareTo(b.endTime);
-      if (endComparison != 0) return endComparison;
-
-      // 開始時間・終了時間が同じ場合はスタッフID順
-      return a.staffId.compareTo(b.staffId);
+      // 4. 終了時間順
+      return a.endTime.compareTo(b.endTime);
     });
+
     return sortedShifts;
   }
 
