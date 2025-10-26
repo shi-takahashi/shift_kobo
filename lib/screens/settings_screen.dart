@@ -379,24 +379,62 @@ class _SettingsScreenState extends State<SettingsScreen> {
           title: const Text('アプリについて'),
           subtitle: Text(_packageInfo != null ? 'バージョン ${_packageInfo!.version}' : 'バージョン 情報取得中...'),
           onTap: () {
-            showAboutDialog(
+            showDialog(
               context: context,
-              applicationName: 'シフト工房',
-              applicationVersion: _packageInfo != null ? _packageInfo!.version : '1.0.0',
-              applicationLegalese: '© 2025 Shift Kobo\n\nシフト表自動作成アプリ\nスタッフの勤務スケジュールを効率的に管理',
-              children: [
-                const Padding(
-                  padding: EdgeInsets.only(top: 16),
-                  child: Text(
-                    '主な機能:\n'
-                    '• シフト自動割り当て\n'
-                    '• スタッフ管理\n'
-                    '• カレンダー表示\n'
-                    '• 設定カスタマイズ',
-                    style: TextStyle(fontSize: 14),
+              builder: (context) => AlertDialog(
+                title: const Text('シフト工房'),
+                content: SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'バージョン ${_packageInfo != null ? _packageInfo!.version : '1.0.0'}',
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: Colors.grey[600],
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      const Text(
+                        'シフト管理を簡単に。チームでシフトを共有し、休み希望の申請・承認もスムーズに。',
+                        style: TextStyle(fontSize: 14),
+                      ),
+                      const SizedBox(height: 16),
+                      const Text(
+                        '主な機能:',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      const Text(
+                        '• チームでシフト共有\n'
+                        '• シフト自動割り当て\n'
+                        '• 休み希望の申請・承認\n'
+                        '• スタッフ管理\n'
+                        '• シフト表出力',
+                        style: TextStyle(fontSize: 14),
+                      ),
+                      const SizedBox(height: 16),
+                      Text(
+                        '© 2025 Shift Kobo',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Colors.grey[600],
+                        ),
+                      ),
+                    ],
                   ),
                 ),
-              ],
+                actions: [
+                  TextButton(
+                    onPressed: () => Navigator.of(context).pop(),
+                    child: const Text('閉じる'),
+                  ),
+                ],
+              ),
             );
           },
         ),
