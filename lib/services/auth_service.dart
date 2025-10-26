@@ -383,11 +383,14 @@ class AuthService {
   /// チーム内の管理者数を取得
   Future<int> getAdminCount(String teamId) async {
     try {
-      final teamDoc = await _firestore.collection('teams').doc(teamId).get();
-      if (!teamDoc.exists) return 0;
+      // usersコレクションから、teamIdが一致しroleがadminのユーザー数をカウント
+      final snapshot = await _firestore
+          .collection('users')
+          .where('teamId', isEqualTo: teamId)
+          .where('role', isEqualTo: 'admin')
+          .get();
 
-      final adminIds = teamDoc.data()?['adminIds'] as List<dynamic>?;
-      return adminIds?.length ?? 0;
+      return snapshot.docs.length;
     } catch (e) {
       throw '❌ 管理者数の取得に失敗しました: $e';
     }
