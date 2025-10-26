@@ -1037,7 +1037,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
               children: [
                 Icon(Icons.check_circle, color: Colors.green.shade700),
                 const SizedBox(width: 8),
-                const Text('アカウントを削除しました'),
+                const Flexible(
+                  child: Text('アカウントを削除しました'),
+                ),
               ],
             ),
             content: const Text(
@@ -1198,7 +1200,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
               children: [
                 Icon(Icons.check_circle, color: Colors.green.shade700),
                 const SizedBox(width: 8),
-                const Text('チームを解散しました'),
+                const Flexible(
+                  child: Text('チームを解散しました'),
+                ),
               ],
             ),
             content: const Text(
