@@ -12,14 +12,14 @@ class NotificationService {
   static final FlutterLocalNotificationsPlugin _localNotifications =
       FlutterLocalNotificationsPlugin();
 
-  /// FCMを初期化（アプリ版のみ）
-  static Future<void> initialize() async {
+  /// 通知許可をリクエスト（初回のみ）
+  static Future<void> requestPermission() async {
     if (kIsWeb) {
       debugPrint('🌐 Web版ではPush通知を無効化');
       return;
     }
 
-    debugPrint('📱 FCM初期化開始');
+    debugPrint('📱 FCM通知許可リクエスト開始');
 
     try {
       // Android通知チャンネルを作成
@@ -35,6 +35,29 @@ class NotificationService {
 
       if (settings.authorizationStatus == AuthorizationStatus.authorized) {
         debugPrint('✅ Push通知権限が許可されました');
+        await syncToken();
+      } else if (settings.authorizationStatus == AuthorizationStatus.denied) {
+        debugPrint('❌ Push通知権限が拒否されました');
+      } else {
+        debugPrint('⚠️ Push通知権限が未決定です');
+      }
+    } catch (e) {
+      debugPrint('❌ FCM通知許可リクエストエラー: $e');
+    }
+  }
+
+  /// FCMトークンを同期（毎回起動時）
+  static Future<void> syncToken() async {
+    if (kIsWeb) return;
+
+    debugPrint('🔄 FCMトークン同期開始');
+
+    try {
+      // 現在の許可状態を確認
+      final settings = await _messaging.getNotificationSettings();
+
+      if (settings.authorizationStatus == AuthorizationStatus.authorized) {
+        debugPrint('✅ Push通知が許可されています');
 
         // FCMトークンを取得
         final token = await _messaging.getToken();
@@ -43,7 +66,7 @@ class NotificationService {
           await _saveFcmToken(token);
         }
 
-        // トークン更新時の処理
+        // トークン更新時の処理（リスナーの重複登録を避ける）
         _messaging.onTokenRefresh.listen((newToken) {
           debugPrint('🔄 FCMトークンが更新されました: $newToken');
           _saveFcmToken(newToken);
@@ -61,14 +84,18 @@ class NotificationService {
           debugPrint('🚀 アプリ起動時の通知: ${initialMessage.notification?.title}');
           _handleBackgroundMessage(initialMessage);
         }
-      } else if (settings.authorizationStatus == AuthorizationStatus.denied) {
-        debugPrint('❌ Push通知権限が拒否されました');
       } else {
-        debugPrint('⚠️ Push通知権限が未決定です');
+        debugPrint('⚠️ Push通知が許可されていません（状態: ${settings.authorizationStatus}）');
       }
     } catch (e) {
-      debugPrint('❌ FCM初期化エラー: $e');
+      debugPrint('❌ FCMトークン同期エラー: $e');
     }
+  }
+
+  /// FCMを初期化（アプリ版のみ）
+  @Deprecated('requestPermission()とsyncToken()を使用してください')
+  static Future<void> initialize() async {
+    await requestPermission();
   }
 
   /// FCMトークンをFirestoreに保存
@@ -215,5 +242,18 @@ class NotificationService {
         ?.createNotificationChannel(channel);
 
     debugPrint('✅ Android通知チャンネルを作成しました');
+  }
+
+  /// 通知が有効かどうかをチェック
+  static Future<bool> isNotificationEnabled() async {
+    if (kIsWeb) return false;
+
+    try {
+      final settings = await _messaging.getNotificationSettings();
+      return settings.authorizationStatus == AuthorizationStatus.authorized;
+    } catch (e) {
+      debugPrint('⚠️ 通知許可状態チェックエラー: $e');
+      return false;
+    }
   }
 }

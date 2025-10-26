@@ -116,23 +116,41 @@ class _HomeScreenState extends State<HomeScreen> {
   void initState() {
     super.initState();
     _checkFirstTimeHelp();
+    _syncFCMTokenOnStartup();
   }
 
-  /// FCM初期化（アプリ版のみ、初回のみ）
-  /// ようこそダイアログの後に呼び出される
+  /// アプリ起動時にFCMトークンを同期（ウェルカムダイアログなしの場合）
+  Future<void> _syncFCMTokenOnStartup() async {
+    if (kIsWeb) return;
+
+    final prefs = await SharedPreferences.getInstance();
+    final hasRequestedPermission = prefs.getBool('has_requested_fcm_permission') ?? false;
+
+    // 既に許可ダイアログを表示済みの場合のみトークン同期
+    if (hasRequestedPermission) {
+      WidgetsBinding.instance.addPostFrameCallback((_) async {
+        await NotificationService.syncToken();
+      });
+    }
+  }
+
+  /// FCM初期化（アプリ版のみ）
+  /// ようこそダイアログの後、または毎回起動時に呼び出される
   Future<void> _initializeFCM() async {
     if (kIsWeb) return;
 
     try {
-      // 既に初期化済みかチェック
       final prefs = await SharedPreferences.getInstance();
-      final hasInitializedFCM = prefs.getBool('has_initialized_fcm') ?? false;
+      final hasRequestedPermission = prefs.getBool('has_requested_fcm_permission') ?? false;
 
-      if (!hasInitializedFCM && mounted) {
-        // 通知許可を求める
-        await NotificationService.initialize();
-        await prefs.setBool('has_initialized_fcm', true);
+      if (!hasRequestedPermission && mounted) {
+        // 初回のみ通知許可ダイアログを表示
+        await NotificationService.requestPermission();
+        await prefs.setBool('has_requested_fcm_permission', true);
       }
+
+      // 毎回、許可状態をチェックしてトークンを同期
+      await NotificationService.syncToken();
     } catch (e) {
       debugPrint('⚠️ FCM初期化エラー: $e');
     }
@@ -166,6 +184,11 @@ class _HomeScreenState extends State<HomeScreen> {
           // ようこそダイアログの後にFCM初期化
           await _initializeFCM();
         }
+      });
+    } else if (mounted) {
+      // ヘルプを既に見ている場合でも、FCM初期化は実行
+      WidgetsBinding.instance.addPostFrameCallback((_) async {
+        await _initializeFCM();
       });
     }
   }

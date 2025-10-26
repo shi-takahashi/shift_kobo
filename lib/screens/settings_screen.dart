@@ -91,6 +91,18 @@ class _SettingsScreenState extends State<SettingsScreen> {
     }
   }
 
+  /// 通知許可状態をチェック
+  Future<bool> _checkNotificationPermission() async {
+    if (kIsWeb) return true;
+
+    try {
+      return await NotificationService.isNotificationEnabled();
+    } catch (e) {
+      debugPrint('通知許可状態チェックエラー: $e');
+      return true; // エラー時は警告を表示しない
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return ListView(
@@ -233,37 +245,110 @@ class _SettingsScreenState extends State<SettingsScreen> {
               title: Text('読み込み中...'),
             )
           else ...[
-            // 管理者向け通知設定
-            if (widget.appUser.isAdmin)
-              SwitchListTile(
-                secondary: const Icon(Icons.notification_add),
-                title: const Text('新しい申請の通知'),
-                subtitle: const Text('スタッフが申請・取り消しをしたときに通知'),
-                value: _notificationSettings['requestCreated'] ?? true,
-                onChanged: (value) => _updateNotificationSetting('requestCreated', value),
-              ),
-            // スタッフ向け通知設定
-            if (!widget.appUser.isAdmin)
-              SwitchListTile(
-                secondary: const Icon(Icons.notifications_active),
-                title: const Text('申請結果の通知'),
-                subtitle: const Text('制約申請が承認・却下されたときに通知'),
-                value: (_notificationSettings['requestApproved'] ?? true) &&
-                       (_notificationSettings['requestRejected'] ?? true),
-                onChanged: (value) async {
-                  // 承認と却下の両方を同じ値に設定
-                  setState(() {
-                    _notificationSettings['requestApproved'] = value;
-                    _notificationSettings['requestRejected'] = value;
-                  });
-                  await NotificationService.updateNotificationSettings(_notificationSettings);
-                  if (mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('通知設定を更新しました')),
-                    );
-                  }
-                },
-              ),
+            // 通知許可状態の確認と案内
+            FutureBuilder<bool>(
+              future: _checkNotificationPermission(),
+              builder: (context, snapshot) {
+                final isNotificationEnabled = snapshot.data ?? true;
+
+                return Column(
+                  children: [
+                    if (!isNotificationEnabled)
+                      // 通知が拒否されている場合の警告
+                      Container(
+                        margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: Colors.orange.shade50,
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: Colors.orange.shade200),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Icon(Icons.warning_amber, color: Colors.orange.shade700, size: 20),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    '通知が無効になっています',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.orange.shade900,
+                                      fontSize: 14,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              '通知を受け取るには、端末の設定から\nこのアプリの通知を許可してください。',
+                              style: TextStyle(
+                                color: Colors.orange.shade900,
+                                fontSize: 13,
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              '【設定方法】\n'
+                              '設定 → アプリ → シフト工房 → 通知',
+                              style: TextStyle(
+                                color: Colors.orange.shade800,
+                                fontSize: 12,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    // 管理者向け通知設定
+                    if (widget.appUser.isAdmin)
+                      SwitchListTile(
+                        secondary: const Icon(Icons.notification_add),
+                        title: const Text('新しい申請の通知'),
+                        subtitle: Text(
+                          isNotificationEnabled
+                              ? 'スタッフが申請・取り消しをしたときに通知'
+                              : '端末の設定で通知を許可してください',
+                        ),
+                        value: _notificationSettings['requestCreated'] ?? true,
+                        onChanged: isNotificationEnabled
+                            ? (value) => _updateNotificationSetting('requestCreated', value)
+                            : null, // 無効化
+                      ),
+                    // スタッフ向け通知設定
+                    if (!widget.appUser.isAdmin)
+                      SwitchListTile(
+                        secondary: const Icon(Icons.notifications_active),
+                        title: const Text('申請結果の通知'),
+                        subtitle: Text(
+                          isNotificationEnabled
+                              ? '制約申請が承認・却下されたときに通知'
+                              : '端末の設定で通知を許可してください',
+                        ),
+                        value: (_notificationSettings['requestApproved'] ?? true) &&
+                               (_notificationSettings['requestRejected'] ?? true),
+                        onChanged: isNotificationEnabled
+                            ? (value) async {
+                                // 承認と却下の両方を同じ値に設定
+                                setState(() {
+                                  _notificationSettings['requestApproved'] = value;
+                                  _notificationSettings['requestRejected'] = value;
+                                });
+                                await NotificationService.updateNotificationSettings(_notificationSettings);
+                                if (mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(content: Text('通知設定を更新しました')),
+                                  );
+                                }
+                              }
+                            : null, // 無効化
+                      ),
+                  ],
+                );
+              },
+            ),
           ],
           const Divider(),
         ],
