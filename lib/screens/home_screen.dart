@@ -116,10 +116,10 @@ class _HomeScreenState extends State<HomeScreen> {
   void initState() {
     super.initState();
     _checkFirstTimeHelp();
-    _initializeFCM();
   }
 
   /// FCM初期化（アプリ版のみ、初回のみ）
+  /// ようこそダイアログの後に呼び出される
   Future<void> _initializeFCM() async {
     if (kIsWeb) return;
 
@@ -128,12 +128,10 @@ class _HomeScreenState extends State<HomeScreen> {
       final prefs = await SharedPreferences.getInstance();
       final hasInitializedFCM = prefs.getBool('has_initialized_fcm') ?? false;
 
-      if (!hasInitializedFCM) {
-        // ログイン成功後、画面が表示された後に通知許可を求める
-        WidgetsBinding.instance.addPostFrameCallback((_) async {
-          await NotificationService.initialize();
-          await prefs.setBool('has_initialized_fcm', true);
-        });
+      if (!hasInitializedFCM && mounted) {
+        // 通知許可を求める
+        await NotificationService.initialize();
+        await prefs.setBool('has_initialized_fcm', true);
       }
     } catch (e) {
       debugPrint('⚠️ FCM初期化エラー: $e');
@@ -144,10 +142,12 @@ class _HomeScreenState extends State<HomeScreen> {
   Future<void> _checkFirstTimeHelp() async {
     // チーム作成直後の場合は、必ずウェルカムダイアログを表示
     if (widget.showWelcomeDialog) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
+      WidgetsBinding.instance.addPostFrameCallback((_) async {
         if (mounted && !_hasShownFirstTimeHelp) {
           _hasShownFirstTimeHelp = true;
-          _showHelpDialog(isFirstTime: true);
+          await _showHelpDialog(isFirstTime: true);
+          // ようこそダイアログの後にFCM初期化
+          await _initializeFCM();
         }
       });
       return;
@@ -159,10 +159,12 @@ class _HomeScreenState extends State<HomeScreen> {
 
     if (!hasSeenHelp && mounted) {
       // 画面描画完了後にヘルプを表示
-      WidgetsBinding.instance.addPostFrameCallback((_) {
+      WidgetsBinding.instance.addPostFrameCallback((_) async {
         if (mounted && !_hasShownFirstTimeHelp) {
           _hasShownFirstTimeHelp = true;
-          _showHelpDialog(isFirstTime: true);
+          await _showHelpDialog(isFirstTime: true);
+          // ようこそダイアログの後にFCM初期化
+          await _initializeFCM();
         }
       });
     }
@@ -349,10 +351,10 @@ class _HomeScreenState extends State<HomeScreen> {
     });
   }
 
-  void _showHelpDialog({required bool isFirstTime}) {
+  Future<void> _showHelpDialog({required bool isFirstTime}) async {
     // 初回起動時は簡易的なウェルカムダイアログを表示
     if (isFirstTime) {
-      showDialog(
+      await showDialog(
         context: context,
         barrierDismissible: false, // 初回時は背景タップで閉じない
         builder: (context) => AlertDialog(
@@ -423,7 +425,7 @@ class _HomeScreenState extends State<HomeScreen> {
       );
     } else {
       // 右上の？アイコンからは詳細なヘルプ画面へ遷移
-      Navigator.of(context).push(
+      await Navigator.of(context).push(
         MaterialPageRoute(builder: (_) => const HelpScreen()),
       );
     }
