@@ -274,7 +274,37 @@ exports.onConstraintRequestCreated = onDocumentCreated(
 
         const staffName = staffDoc.exists ? staffDoc.data().name : "不明なスタッフ";
 
-        // 2. チームの管理者を取得
+        // 2. requestTypeに応じた通知タイトル・メッセージを生成
+        const requestType = requestData.requestType;
+        const isDelete = requestData.isDelete || false;
+
+        let title = "";
+        let body = "";
+
+        if (requestType === "specificDay") {
+          title = isDelete ? "休み希望の取り消し" : "新しい休み希望申請";
+          body = isDelete ?
+            `${staffName}さんが休み希望を取り消しました` :
+            `${staffName}さんが休み希望を申請しました`;
+        } else if (requestType === "weekday") {
+          title = isDelete ? "曜日休みの取り消し" : "新しい曜日休み申請";
+          body = isDelete ?
+            `${staffName}さんが曜日休みを取り消しました` :
+            `${staffName}さんが曜日休みを申請しました`;
+        } else if (requestType === "shiftType") {
+          title = isDelete ? "勤務不可シフトの取り消し" : "新しい勤務不可シフト申請";
+          body = isDelete ?
+            `${staffName}さんが勤務不可シフトを取り消しました` :
+            `${staffName}さんが勤務不可シフトを申請しました`;
+        } else if (requestType === "maxShiftsPerMonth") {
+          title = "月間最大シフト数の変更申請";
+          body = `${staffName}さんが月間最大シフト数の変更を申請しました`;
+        } else {
+          console.log(`⚠️ 不明なrequestType: ${requestType}`);
+          return;
+        }
+
+        // 3. チームの管理者を取得
         const usersSnapshot = await admin.firestore()
             .collection("users")
             .where("teamId", "==", teamId)
@@ -286,7 +316,7 @@ exports.onConstraintRequestCreated = onDocumentCreated(
           return;
         }
 
-        // 3. 各管理者にPush通知を送信
+        // 4. 各管理者にPush通知を送信
         const notifications = [];
         for (const userDoc of usersSnapshot.docs) {
           const userData = userDoc.data();
@@ -308,14 +338,15 @@ exports.onConstraintRequestCreated = onDocumentCreated(
           const message = {
             token: userData.fcmToken,
             notification: {
-              title: "新しい休み希望申請",
-              body: `${staffName}さんが休み希望を申請しました`,
+              title: title,
+              body: body,
             },
             data: {
               type: "request_created",
               teamId: teamId,
               requestId: requestId,
               staffId: requestData.staffId,
+              requestType: requestType,
             },
             android: {
               priority: "high",
@@ -429,21 +460,71 @@ exports.onConstraintRequestUpdated = onDocumentUpdated(
           return;
         }
 
-        // 4. Push通知を送信
+        // 4. requestTypeに応じた通知メッセージを生成
         const isApproved = afterData.status === "approved";
+        const requestType = afterData.requestType;
+        const isDelete = afterData.isDelete || false;
+
+        let title = "";
+        let body = "";
+
+        if (isApproved) {
+          // 承認通知
+          if (requestType === "specificDay") {
+            title = isDelete ? "休み希望の取り消しが承認されました" : "休み希望が承認されました";
+            body = isDelete ?
+              "申請した休み希望の取り消しが承認されました" :
+              "申請した休み希望が承認されました";
+          } else if (requestType === "weekday") {
+            title = isDelete ? "曜日休みの取り消しが承認されました" : "曜日休みが承認されました";
+            body = isDelete ?
+              "申請した曜日休みの取り消しが承認されました" :
+              "申請した曜日休みが承認されました";
+          } else if (requestType === "shiftType") {
+            title = isDelete ? "勤務不可シフトの取り消しが承認されました" : "勤務不可シフトが承認されました";
+            body = isDelete ?
+              "申請した勤務不可シフトの取り消しが承認されました" :
+              "申請した勤務不可シフトが承認されました";
+          } else if (requestType === "maxShiftsPerMonth") {
+            title = "月間最大シフト数の変更が承認されました";
+            body = "申請した月間最大シフト数の変更が承認されました";
+          } else {
+            title = "申請が承認されました";
+            body = "申請が承認されました";
+          }
+        } else {
+          // 却下通知
+          if (requestType === "specificDay") {
+            title = isDelete ? "休み希望の取り消しが却下されました" : "休み希望が却下されました";
+            body = "申請が却下されました。詳細はアプリで確認してください";
+          } else if (requestType === "weekday") {
+            title = isDelete ? "曜日休みの取り消しが却下されました" : "曜日休みが却下されました";
+            body = "申請が却下されました。詳細はアプリで確認してください";
+          } else if (requestType === "shiftType") {
+            title = isDelete ? "勤務不可シフトの取り消しが却下されました" : "勤務不可シフトが却下されました";
+            body = "申請が却下されました。詳細はアプリで確認してください";
+          } else if (requestType === "maxShiftsPerMonth") {
+            title = "月間最大シフト数の変更が却下されました";
+            body = "申請が却下されました。詳細はアプリで確認してください";
+          } else {
+            title = "申請が却下されました";
+            body = "申請が却下されました。詳細はアプリで確認してください";
+          }
+        }
+
+        // 5. Push通知を送信
         const message = {
           token: targetUser.data.fcmToken,
           notification: {
-            title: isApproved ? "休み希望が承認されました" : "休み希望が却下されました",
-            body: isApproved ?
-              "申請した休み希望が承認されました" :
-              "申請した休み希望が却下されました。詳細はアプリで確認してください",
+            title: title,
+            body: body,
           },
           data: {
             type: isApproved ? "request_approved" : "request_rejected",
             teamId: teamId,
             requestId: requestId,
             staffId: afterData.staffId,
+            requestType: requestType,
           },
           android: {
             priority: "high",
