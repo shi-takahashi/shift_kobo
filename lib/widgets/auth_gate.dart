@@ -47,30 +47,39 @@ class AuthGate extends StatelessWidget {
 
   /// ユーザー情報を取得（リトライ機能付き）
   ///
-  /// 新規登録直後はFirestoreへの書き込みに時間がかかる場合があるため、
-  /// nullの場合は500ms待ってから再度取得を試みる。
+  /// 新規登録直後はFirestoreへの書き込みや認証トークンの同期に時間がかかる場合があるため、
+  /// nullまたはエラーの場合は500ms待ってから再度取得を試みる（最大5回）。
   /// それでもnullの場合は削除されたユーザーと判断する。
   Future<dynamic> _getUserWithRetry(String uid) async {
     final authService = AuthService();
+    const maxRetries = 5;
+    const retryDelay = Duration(milliseconds: 500);
 
-    // 1回目の取得
-    var appUser = await authService.getUser(uid);
+    for (var i = 0; i < maxRetries; i++) {
+      try {
+        final appUser = await authService.getUser(uid);
 
-    if (appUser == null) {
-      debugPrint('⚠️ [AuthGate] usersドキュメント取得失敗（1回目）。500ms後にリトライします。');
-      // 500ms待機
-      await Future.delayed(const Duration(milliseconds: 500));
-      // 2回目の取得
-      appUser = await authService.getUser(uid);
+        if (appUser != null) {
+          if (i > 0) {
+            debugPrint('✅ [AuthGate] usersドキュメント取得成功（${i + 1}回目）');
+          }
+          return appUser;
+        }
 
-      if (appUser == null) {
-        debugPrint('❌ [AuthGate] usersドキュメント取得失敗（2回目）。削除されたユーザーと判断します。');
-      } else {
-        debugPrint('✅ [AuthGate] usersドキュメント取得成功（2回目）。新規登録直後と判断します。');
+        debugPrint('⚠️ [AuthGate] usersドキュメント取得失敗（${i + 1}回目）: appUser == null');
+      } catch (e) {
+        debugPrint('⚠️ [AuthGate] usersドキュメント取得エラー（${i + 1}回目）: $e');
+      }
+
+      // 最後の試行以外は待機してリトライ
+      if (i < maxRetries - 1) {
+        debugPrint('⏳ [AuthGate] ${retryDelay.inMilliseconds}ms後にリトライします...');
+        await Future.delayed(retryDelay);
       }
     }
 
-    return appUser;
+    debugPrint('❌ [AuthGate] usersドキュメント取得失敗（$maxRetries回試行）。削除されたユーザーと判断します。');
+    return null;
   }
 
   @override

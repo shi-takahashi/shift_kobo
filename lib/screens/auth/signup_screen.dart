@@ -81,12 +81,54 @@ class _SignupScreenState extends State<SignupScreen> {
       }
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(e.toString()),
-          backgroundColor: Colors.red,
-        ),
-      );
+
+      final errorMessage = e.toString();
+
+      // 「既にメールアドレスが使用されている」エラーの場合
+      if (errorMessage.contains('このメールアドレスは既に使用されています') ||
+          errorMessage.contains('email-already-in-use')) {
+        // ログイン画面への誘導ダイアログを表示
+        showDialog(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Row(
+              children: [
+                Icon(Icons.info_outline, color: Colors.orange),
+                SizedBox(width: 8),
+                Text('アカウント登録済み'),
+              ],
+            ),
+            content: const Text(
+              'このメールアドレスは既に登録されています。\n\nログイン画面に移動しますか？',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(),
+                child: const Text('キャンセル'),
+              ),
+              FilledButton(
+                onPressed: () {
+                  Navigator.of(context).pop(); // ダイアログを閉じる
+                  Navigator.of(context).pushReplacement(
+                    MaterialPageRoute(
+                      builder: (_) => const LoginScreen(),
+                    ),
+                  );
+                },
+                child: const Text('ログインへ'),
+              ),
+            ],
+          ),
+        );
+      } else {
+        // その他のエラーはSnackBarで表示
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(errorMessage),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     } finally {
       if (mounted) {
         setState(() => _isLoading = false);

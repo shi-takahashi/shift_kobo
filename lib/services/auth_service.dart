@@ -25,6 +25,8 @@ class AuthService {
     required String displayName,
   }) async {
     try {
+      print('🔵 [SignUp] サインアップ開始: $email');
+
       // Firebase Authでユーザー作成
       final userCredential = await _auth.createUserWithEmailAndPassword(
         email: email,
@@ -34,8 +36,20 @@ class AuthService {
       final user = userCredential.user;
       if (user == null) return null;
 
+      print('✅ [SignUp] Authenticationユーザー作成成功: ${user.uid}');
+
       // 表示名を設定
       await user.updateDisplayName(displayName);
+      print('✅ [SignUp] 表示名設定成功: $displayName');
+
+      // 認証トークンを確実に取得（Firestoreアクセス前に必須）
+      // これにより request.auth が確実に有効になる
+      await user.reload();
+      final token = await user.getIdToken(true); // 強制リフレッシュ
+      print('✅ [SignUp] 認証トークン取得成功: ${token?.substring(0, 20)}...');
+
+      // トークンが有効になるまで少し待機（安全のため）
+      await Future.delayed(const Duration(milliseconds: 200));
 
       // Firestoreにユーザー情報を保存（初期はチーム未所属）
       final appUser = AppUser(
@@ -53,9 +67,15 @@ class AuthService {
           .doc(user.uid)
           .set(appUser.toFirestore());
 
+      print('✅ [SignUp] Firestoreユーザー情報保存成功');
+
       return user;
     } on FirebaseAuthException catch (e) {
+      print('❌ [SignUp] Firebase認証エラー: ${e.code}');
       throw _handleAuthException(e);
+    } catch (e) {
+      print('❌ [SignUp] 予期しないエラー: $e');
+      rethrow;
     }
   }
 
@@ -155,6 +175,29 @@ class AuthService {
     required String ownerId,
   }) async {
     try {
+      print('🔵 [CreateTeam] チーム作成開始: $teamName');
+
+      // 認証状態を確認（request.auth != null を保証）
+      final currentUser = _auth.currentUser;
+      if (currentUser == null) {
+        print('❌ [CreateTeam] 認証エラー: ログインしていません');
+        throw '認証エラー: ログインしていません。もう一度ログインしてください。';
+      }
+
+      // 認証トークンを確認（request.auth が有効であることを保証）
+      try {
+        final token = await currentUser.getIdToken(false);
+        if (token == null || token.isEmpty) {
+          print('❌ [CreateTeam] 認証トークンが無効です。リフレッシュを試みます。');
+          await currentUser.getIdToken(true); // 強制リフレッシュ
+          await Future.delayed(const Duration(milliseconds: 100));
+        }
+        print('✅ [CreateTeam] 認証トークン確認成功');
+      } catch (e) {
+        print('❌ [CreateTeam] 認証トークン取得エラー: $e');
+        throw '認証エラー: トークンの取得に失敗しました。もう一度ログインしてください。';
+      }
+
       // 既にチームに所属していないかチェック
       final userDoc = await _firestore.collection('users').doc(ownerId).get();
       if (userDoc.exists) {
@@ -181,15 +224,19 @@ class AuthService {
       );
 
       await teamRef.set(team.toFirestore());
+      print('✅ [CreateTeam] チームドキュメント作成成功: ${teamRef.id}');
 
       // ユーザーにチームIDを設定
       await _firestore.collection('users').doc(ownerId).update({
         'teamId': teamRef.id,
         'updatedAt': Timestamp.now(),
       });
+      print('✅ [CreateTeam] ユーザーのteamId更新成功');
 
+      print('✅ [CreateTeam] チーム作成完了: ${team.name} (${team.id})');
       return team;
     } catch (e) {
+      print('❌ [CreateTeam] チーム作成エラー: $e');
       throw '❌ チーム作成に失敗しました: $e';
     }
   }
@@ -278,13 +325,8 @@ class AuthService {
         );
       }
 
-      // 5. usersドキュメントが正しく更新されたことを確認（書き込み完了待ち）
-      await Future.delayed(const Duration(milliseconds: 500));
-      final updatedUserDoc = await _firestore.collection('users').doc(userId).get();
-      final updatedTeamId = updatedUserDoc.data()?['teamId'];
-      print('✅ [joinTeamByCode] teamId更新確認: $updatedTeamId');
-
-      // 6. 参加したTeamオブジェクトを返す
+      // 5. 参加したTeamオブジェクトを返す
+      print('✅ [joinTeamByCode] チーム参加成功: $teamId');
       return Team.fromFirestore(teamDoc);
     } catch (e) {
       if (e.toString().contains('招待コードが見つかりません')) {

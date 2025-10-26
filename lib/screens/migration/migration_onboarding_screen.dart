@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../auth/signup_screen.dart';
+import '../auth/login_screen.dart';
 
 /// オフライン版からのアップデート時に表示するオンボーディング画面
 class MigrationOnboardingScreen extends StatelessWidget {
@@ -183,6 +184,28 @@ class MigrationOnboardingScreen extends StatelessWidget {
                 style: FilledButton.styleFrom(
                   padding: const EdgeInsets.symmetric(vertical: 16),
                 ),
+              ),
+              const SizedBox(height: 16),
+
+              // ログインリンク
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(
+                    '既にアカウントをお持ちの方は',
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+                  TextButton(
+                    onPressed: () {
+                      Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) => const LoginScreen(),
+                        ),
+                      );
+                    },
+                    child: const Text('ログイン'),
+                  ),
+                ],
               ),
               const SizedBox(height: 32),
             ],

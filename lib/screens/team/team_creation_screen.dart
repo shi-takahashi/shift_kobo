@@ -33,6 +33,36 @@ class _TeamCreationScreenState extends State<TeamCreationScreen> {
     super.dispose();
   }
 
+  /// ユーザー情報を取得（リトライ機能付き）
+  ///
+  /// チーム作成直後はFirestoreへの書き込みとキャッシュの同期に時間がかかる場合があるため、
+  /// nullの場合は500ms待ってから再度取得を試みる（最大3回）。
+  Future<dynamic> _getUserWithRetry(String uid) async {
+    const maxRetries = 3;
+    const retryDelay = Duration(milliseconds: 500);
+
+    for (var i = 0; i < maxRetries; i++) {
+      try {
+        final appUser = await _authService.getUser(uid);
+        if (appUser != null) {
+          debugPrint('✅ [TeamCreation] ユーザー情報取得成功（試行${i + 1}回目）');
+          return appUser;
+        }
+      } catch (e) {
+        debugPrint('⚠️ [TeamCreation] ユーザー情報取得エラー（試行${i + 1}回目）: $e');
+      }
+
+      // 最後の試行以外は待機してリトライ
+      if (i < maxRetries - 1) {
+        debugPrint('⏳ [TeamCreation] ${retryDelay.inMilliseconds}ms後にリトライします...');
+        await Future.delayed(retryDelay);
+      }
+    }
+
+    debugPrint('❌ [TeamCreation] ユーザー情報取得失敗（$maxRetries回試行）');
+    return null;
+  }
+
   /// 招待案内ダイアログを表示してホーム画面へ遷移
   Future<void> _showInviteGuideDialog(
     String teamId,
@@ -51,14 +81,14 @@ class _TeamCreationScreenState extends State<TeamCreationScreen> {
 
     if (!mounted) return;
 
-    // AppUserを取得
-    final appUser = await _authService.getUser(widget.userId);
+    // AppUserを取得（リトライ機能付き）
+    final appUser = await _getUserWithRetry(widget.userId);
     if (!mounted) return;
 
     if (appUser == null) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('ユーザー情報の取得に失敗しました')),
+          const SnackBar(content: Text('ユーザー情報の取得に失敗しました。もう一度お試しください。')),
         );
       }
       return;
@@ -126,8 +156,49 @@ class _TeamCreationScreenState extends State<TeamCreationScreen> {
       }
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(e.toString())),
+
+      // エラーメッセージを整形
+      final errorMessage = e.toString();
+      final isAuthError = errorMessage.contains('認証エラー') ||
+          errorMessage.contains('PERMISSION_DENIED') ||
+          errorMessage.contains('Missing or insufficient permissions');
+
+      // エラーダイアログを表示
+      showDialog(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: Row(
+            children: [
+              Icon(Icons.error_outline, color: Colors.red),
+              const SizedBox(width: 8),
+              const Text('チーム作成エラー'),
+            ],
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(errorMessage),
+              if (isAuthError) ...[
+                const SizedBox(height: 16),
+                const Text(
+                  '認証に問題がある可能性があります。もう一度お試しください。',
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: Colors.orange,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ],
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('閉じる'),
+            ),
+          ],
+        ),
       );
     } finally {
       if (mounted) {
