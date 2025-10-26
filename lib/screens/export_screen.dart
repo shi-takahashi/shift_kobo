@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
@@ -106,8 +107,8 @@ class _ExportScreenState extends State<ExportScreen> {
       ),
       body: Column(
         children: [
-          // 操作ボタン
-          if (!_isProcessing)
+          // 操作ボタン（Web版では非表示）
+          if (!kIsWeb && !_isProcessing)
             Container(
               padding: const EdgeInsets.all(8.0),
               child: Row(
@@ -132,6 +133,29 @@ class _ExportScreenState extends State<ExportScreen> {
                       backgroundColor: Colors.green,
                       foregroundColor: Colors.white,
                       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          // Web版での案内メッセージ
+          if (kIsWeb)
+            Container(
+              padding: const EdgeInsets.all(12.0),
+              margin: const EdgeInsets.all(8.0),
+              decoration: BoxDecoration(
+                color: Colors.orange.shade50,
+                border: Border.all(color: Colors.orange.shade200),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: const Row(
+                children: [
+                  Icon(Icons.info_outline, color: Colors.orange, size: 20),
+                  SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'Web版では保存・共有機能は利用できません。\nスクリーンショットをご利用ください。',
+                      style: TextStyle(fontSize: 13, color: Colors.black87),
                     ),
                   ),
                 ],

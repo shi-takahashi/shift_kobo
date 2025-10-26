@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 
 /// ヘルプ画面
@@ -430,10 +431,11 @@ class HelpScreen extends StatelessWidget {
                   'シフトを自動生成する',
                   'カレンダー画面右上の「自動生成」アイコン > 期間と必要人数を設定',
                 ),
-                _buildHowToItem(
-                  'シフト表を出力する',
-                  'ホーム画面の「シフト表」タブ > PNG保存またはExcel出力を選択',
-                ),
+                if (!kIsWeb)
+                  _buildHowToItem(
+                    'シフト表を出力する',
+                    'ホーム画面の「シフト表」タブ > PNG保存またはExcel出力を選択',
+                  ),
                 _buildHowToItem(
                   'スタッフの制約申請を承認・却下する',
                   'ホーム画面の「スタッフ」タブ > 承認待ちバナーをタップ > 申請一覧から承認または却下\n※ スタッフが制約を申請すると通知されます（Android版のみ）',
