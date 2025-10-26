@@ -135,15 +135,6 @@ class _TeamInviteScreenState extends State<TeamInviteScreen> {
                                 color: Theme.of(context).colorScheme.primary,
                               ),
                             ),
-                            const SizedBox(height: 12),
-                            Text(
-                              '※紛らわしい文字は使用していません\n（0/O, 1/I/L, 2/Z, 5/S, 8/B を除外）',
-                              style: TextStyle(
-                                fontSize: 11,
-                                color: Colors.grey[700],
-                              ),
-                              textAlign: TextAlign.center,
-                            ),
                           ],
                         ),
                       ),
