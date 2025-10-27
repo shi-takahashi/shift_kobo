@@ -47,9 +47,7 @@ void main() async {
   // Firebaseの初期化
   try {
     // 環境に応じてFirebase設定を切り替え
-    final firebaseOptions = firebaseEnv == 'prod'
-        ? prod_options.DefaultFirebaseOptions.currentPlatform
-        : dev_options.DefaultFirebaseOptions.currentPlatform;
+    final firebaseOptions = firebaseEnv == 'prod' ? prod_options.DefaultFirebaseOptions.currentPlatform : dev_options.DefaultFirebaseOptions.currentPlatform;
 
     debugPrint('🔥 Firebase環境: $firebaseEnv');
 

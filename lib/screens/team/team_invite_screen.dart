@@ -1,7 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../services/auth_service.dart';
+import '../../services/invitation_service.dart';
+import '../../models/staff.dart';
+import '../../widgets/staff_invitation_dialog.dart';
 
 /// チーム招待画面（管理者用）
 class TeamInviteScreen extends StatefulWidget {
@@ -67,6 +71,83 @@ class _TeamInviteScreenState extends State<TeamInviteScreen> {
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('招待コードをコピーしました')),
     );
+  }
+
+  /// 招待メール送信ダイアログを表示
+  Future<void> _showInvitationDialog() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+
+    try {
+      // ユーザー情報を取得してteamIdを確認
+      final appUser = await _authService.getUser(user.uid);
+      if (appUser?.teamId == null) {
+        throw '❌ チームに所属していません';
+      }
+
+      // Firestoreから直接スタッフ一覧を取得
+      final staffSnapshot = await FirebaseFirestore.instance
+          .collection('teams')
+          .doc(appUser!.teamId!)
+          .collection('staff')
+          .get();
+
+      final staffList = staffSnapshot.docs.map((doc) {
+        final data = doc.data();
+        // TimestampをISO8601文字列に変換
+        final convertedData = {
+          ...data,
+          'id': doc.id,
+          'createdAt': (data['createdAt'] as Timestamp?)?.toDate().toIso8601String(),
+          'updatedAt': (data['updatedAt'] as Timestamp?)?.toDate().toIso8601String(),
+        };
+        return Staff.fromJson(convertedData);
+      }).toList();
+
+      // メールアドレスが登録されているスタッフのみ抽出
+      final invitableStaffs = staffList
+          .where((staff) => staff.email != null && staff.email!.isNotEmpty)
+          .toList();
+
+      if (!mounted) return;
+
+      // メールアドレスが登録されているスタッフが0人の場合は、宛先なしでメーラーを起動
+      if (invitableStaffs.isEmpty) {
+        try {
+          await InvitationService.sendInvitationEmail(
+            recipientEmails: [],
+            teamName: _teamName ?? '',
+            inviteCode: _inviteCode ?? '',
+          );
+
+          if (!mounted) return;
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('メーラーを起動しました')),
+          );
+        } catch (e) {
+          if (!mounted) return;
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('エラー: $e')),
+          );
+        }
+        return;
+      }
+
+      // スタッフがいる場合は選択ダイアログを表示
+      showDialog(
+        context: context,
+        builder: (context) => StaffInvitationDialog(
+          staffList: staffList,
+          teamName: _teamName ?? '',
+          inviteCode: _inviteCode ?? '',
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('スタッフ情報の取得に失敗しました: $e')),
+      );
+    }
   }
 
   @override
@@ -146,6 +227,14 @@ class _TeamInviteScreenState extends State<TeamInviteScreen> {
                       onPressed: _copyInviteCode,
                       icon: const Icon(Icons.copy),
                       label: const Text('招待コードをコピー'),
+                    ),
+                    const SizedBox(height: 12),
+
+                    // 招待メール送信ボタン
+                    OutlinedButton.icon(
+                      onPressed: _showInvitationDialog,
+                      icon: const Icon(Icons.email),
+                      label: const Text('招待メールを送る'),
                     ),
                     const SizedBox(height: 16),
 
