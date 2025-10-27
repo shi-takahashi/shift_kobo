@@ -162,12 +162,6 @@ class _SignupScreenState extends State<SignupScreen> {
                       ),
                   textAlign: TextAlign.center,
                 ),
-                const SizedBox(height: 8),
-                Text(
-                  'オンライン版',
-                  style: Theme.of(context).textTheme.bodyLarge,
-                  textAlign: TextAlign.center,
-                ),
                 const SizedBox(height: 48),
 
                 // メールアドレス入力
@@ -287,8 +281,13 @@ class _SignupScreenState extends State<SignupScreen> {
                         ),
                         SizedBox(height: 8),
                         Text('1. アカウント作成'),
-                        Text('2. 招待コード入力'),
+                        Text('2. チーム作成（1人でOK）または チーム参加'),
                         Text('3. シフト管理を開始'),
+                        SizedBox(height: 8),
+                        Text(
+                          '※ チームは1人で作成・利用できます\n   後からスタッフを招待することも可能',
+                          style: TextStyle(fontSize: 11, color: Colors.grey),
+                        ),
                       ],
                     ),
                   ),

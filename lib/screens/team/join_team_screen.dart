@@ -158,7 +158,7 @@ class _JoinTeamScreenState extends State<JoinTeamScreen> {
 
         // タイトル
         Text(
-          'チームで始めよう',
+          'シフト管理を始めよう',
           style: Theme.of(context).textTheme.headlineMedium?.copyWith(
                 fontWeight: FontWeight.bold,
               ),
@@ -169,8 +169,8 @@ class _JoinTeamScreenState extends State<JoinTeamScreen> {
         // 説明
         Text(
           kIsWeb
-              ? 'シフト工房では、チーム単位でシフトを管理します。\n管理者から受け取った招待コードを入力してチームに参加してください。'
-              : 'シフト工房では、チーム単位でシフトを管理します。\n既存のチームに参加するか、新しいチームを作成してください。',
+              ? '管理者から受け取った招待コードを入力してチームに参加してください。'
+              : '1人で始めるか、既存のチームに参加するかを選択してください。',
           style: const TextStyle(fontSize: 14, color: Colors.grey),
           textAlign: TextAlign.center,
         ),
@@ -202,7 +202,7 @@ class _JoinTeamScreenState extends State<JoinTeamScreen> {
                     ),
                     const SizedBox(height: 8),
                     const Text(
-                      '管理者としてシフト作成・編集が可能',
+                      '1人で始める（後からスタッフ招待可）',
                       style: TextStyle(fontSize: 13, color: Colors.black54),
                       textAlign: TextAlign.center,
                     ),
@@ -290,8 +290,10 @@ class _JoinTeamScreenState extends State<JoinTeamScreen> {
                 ),
                 SizedBox(height: 8),
                 Text(
+                  '• チームは1人でも作成・利用できます\n'
                   '• 管理者：シフト作成・編集・自動生成が可能\n'
-                  '• スタッフ：シフト閲覧・休み希望入力が可能',
+                  '• スタッフ：シフト閲覧・休み希望入力が可能\n'
+                  '• 後からスタッフを招待することも可能',
                   style: TextStyle(fontSize: 13),
                 ),
               ],
