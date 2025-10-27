@@ -158,7 +158,7 @@ class HelpScreen extends StatelessWidget {
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    'アプリは準備中です。アプリが公開されるまでは、SafariやChrome等のWebブラウザで、下記のアドレスを開いてください',
+                    'アプリは準備中です。下記のアドレスからWebアプリをご利用ください',
                     style: TextStyle(
                       fontSize: 13,
                       color: Colors.grey.shade800,
@@ -166,7 +166,7 @@ class HelpScreen extends StatelessWidget {
                   ),
                   const SizedBox(height: 8),
                   SelectableText(
-                    'https://shift-kobo-online-prod.web.app',
+                    'https://shift-kobo-online-prod.web.app/app',
                     style: TextStyle(
                       fontSize: 13,
                       color: Colors.blue.shade700,
@@ -223,61 +223,140 @@ class HelpScreen extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _buildStepItem(
-                  '1',
-                  '招待コードを確認',
-                  'その他 > チーム招待 から8桁の招待コードを確認します',
-                ),
-                _buildStepItem(
-                  '2',
-                  '招待コードをスタッフに共有',
-                  'LINE、メール、口頭などで招待コードをスタッフに伝えます',
-                ),
-                _buildStepItem(
-                  '3',
-                  'スタッフ側の手順を案内',
-                  '以下の手順をスタッフに伝えてください：\n\n'
-                      '【Androidの方】\n'
-                      '・Google Playストアで「シフト工房」を検索してインストール\n\n'
-                      '【iPhoneの方】\n'
-                      '・アプリは準備中です。SafariやChrome等のブラウザで\n'
-                      '　https://shift-kobo-online-prod.web.app を開いてください\n\n'
-                      '【共通】\n'
-                      '・メールアドレスでアカウント作成\n'
-                      '・「既存のチームに参加」を選択\n'
-                      '・招待コードを入力',
-                ),
-                const SizedBox(height: 12),
                 Container(
-                  padding: const EdgeInsets.all(12),
+                  padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
                     color: Colors.green.shade50,
                     borderRadius: BorderRadius.circular(8),
                     border: Border.all(color: Colors.green.shade200),
                   ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Icon(Icons.email, color: Colors.green.shade700, size: 20),
+                          const SizedBox(width: 8),
+                          Text(
+                            '簡単3ステップ',
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.green.shade900,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      _buildSimpleStep('1', 'その他 > チーム招待 を開く'),
+                      _buildSimpleStep('2', '「招待メールを送る」ボタンをタップ'),
+                      _buildSimpleStep('3', 'スタッフを選択してメール送信'),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.blue.shade50,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.blue.shade200),
+                  ),
                   child: Row(
                     children: [
-                      Icon(Icons.lightbulb_outline, color: Colors.green.shade700, size: 20),
+                      Icon(Icons.lightbulb_outline, color: Colors.blue.shade700, size: 20),
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(
-                          'スタッフ登録時に入力したメールアドレスと同じアドレスでアカウント作成すると自動紐付き',
+                          'スタッフは受信したメールの指示に従うだけ！\n招待コードも自動で送信されます',
                           style: TextStyle(
                             fontSize: 12,
-                            color: Colors.green.shade900,
+                            color: Colors.blue.shade900,
                           ),
                         ),
                       ),
                     ],
                   ),
                 ),
+                const SizedBox(height: 16),
+                const Divider(),
+                const SizedBox(height: 16),
+                Text(
+                  '自動紐付けについて',
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.grey.shade800,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'スタッフ登録時に入力したメールアドレスと同じアドレスでアカウント作成すると、自動的に紐付けられます。',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Colors.grey.shade700,
+                  ),
+                ),
                 const SizedBox(height: 12),
-                _buildStepItem(
-                  '4',
-                  '自動紐付けできなかった場合（手動対応）',
-                  'スタッフ管理画面で該当スタッフをタップ > メールアドレス欄に、スタッフがアカウント作成時に入力したメールアドレスを入力 > 保存すると紐付けが完了します',
+                Text(
+                  '手動で紐付ける場合',
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.grey.shade800,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'スタッフ一覧 > 該当スタッフをタップ > メールアドレス欄にスタッフのアドレスを入力 > 保存',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Colors.grey.shade700,
+                  ),
                 ),
               ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSimpleStep(String number, String text) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 24,
+            height: 24,
+            decoration: BoxDecoration(
+              color: Colors.green.shade700,
+              shape: BoxShape.circle,
+            ),
+            child: Center(
+              child: Text(
+                number,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Padding(
+              padding: const EdgeInsets.only(top: 2),
+              child: Text(
+                text,
+                style: const TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
             ),
           ),
         ],
@@ -421,7 +500,7 @@ class HelpScreen extends StatelessWidget {
                 ),
                 _buildHowToItem(
                   'スタッフを招待する（任意）',
-                  'チームでシフトを共有したい場合は招待できます\n※ 詳しくは下の「スタッフを招待する方法」を参照',
+                  'その他 > チーム招待 > 招待メールを送る\n※ 詳しくは下の「スタッフを招待する方法」を参照',
                 ),
                 _buildHowToItem(
                   'シフトを作成する',
@@ -439,55 +518,6 @@ class HelpScreen extends StatelessWidget {
                 _buildHowToItem(
                   'スタッフの制約申請を承認・却下する',
                   'ホーム画面の「スタッフ」タブ > 承認待ちバナーをタップ > 申請一覧から承認または却下\n※ スタッフが制約を申請すると通知されます（Android版のみ）',
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildStepItem(String number, String title, String description) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 16),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            width: 28,
-            height: 28,
-            decoration: BoxDecoration(
-              color: Colors.green.shade700,
-              shape: BoxShape.circle,
-            ),
-            child: Center(
-              child: Text(
-                number,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 14,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: const TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  description,
-                  style: const TextStyle(fontSize: 13),
                 ),
               ],
             ),

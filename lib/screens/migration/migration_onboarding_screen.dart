@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
-import '../auth/signup_screen.dart';
+
 import '../auth/login_screen.dart';
+import '../auth/signup_screen.dart';
 
 /// オフライン版からのアップデート時に表示するオンボーディング画面
 class MigrationOnboardingScreen extends StatelessWidget {
@@ -67,18 +68,6 @@ class MigrationOnboardingScreen extends StatelessWidget {
                       ),
                       SizedBox(height: 12),
                       _FeatureItem(
-                        icon: Icons.people,
-                        text: 'チームでシフトを共有',
-                        description: 'スタッフ全員がシフトを確認できます',
-                      ),
-                      SizedBox(height: 8),
-                      _FeatureItem(
-                        icon: Icons.calendar_today,
-                        text: 'スタッフが休み希望を入力',
-                        description: '管理者はスタッフの希望を確認できます',
-                      ),
-                      SizedBox(height: 8),
-                      _FeatureItem(
                         icon: Icons.sync,
                         text: '複数端末でリアルタイム同期',
                         description: 'スマホ・タブレットで最新データを表示',
@@ -89,13 +78,25 @@ class MigrationOnboardingScreen extends StatelessWidget {
                         text: 'データ自動バックアップ',
                         description: '端末を変えてもデータが消えません',
                       ),
+                      SizedBox(height: 8),
+                      _FeatureItem(
+                        icon: Icons.people,
+                        text: 'チームでシフトを共有（任意）',
+                        description: 'スタッフを招待すると全員が確認できます',
+                      ),
+                      SizedBox(height: 8),
+                      _FeatureItem(
+                        icon: Icons.calendar_today,
+                        text: 'スタッフが休み希望を入力（任意）',
+                        description: '招待したスタッフが希望を入力できます',
+                      ),
                     ],
                   ),
                 ),
               ),
               const SizedBox(height: 16),
 
-              // データ移行の案内
+              // 安心して使えることを強調
               Card(
                 color: Colors.green.shade50,
                 child: const Padding(
@@ -107,27 +108,54 @@ class MigrationOnboardingScreen extends StatelessWidget {
                         children: [
                           Icon(Icons.check_circle, color: Colors.green, size: 24),
                           SizedBox(width: 8),
-                          Text(
-                            '既存データについて',
-                            style: TextStyle(
-                              fontWeight: FontWeight.bold,
-                              fontSize: 16,
+                          Expanded(
+                            child: Text(
+                              '1人でもこれまで通りご利用できます',
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 16,
+                              ),
                             ),
                           ),
                         ],
                       ),
-                      SizedBox(height: 8),
+                      SizedBox(height: 12),
                       Text(
                         '✅ 既存のスタッフ・シフトデータは自動で移行されます',
-                        style: TextStyle(height: 1.5),
+                        style: TextStyle(height: 1.5, fontWeight: FontWeight.w500),
                       ),
                       Text(
-                        '✅ 移行後もこれまで通りご利用いただけます',
-                        style: TextStyle(height: 1.5),
+                        '✅ これまで通り1人で管理・利用できます',
+                        style: TextStyle(height: 1.5, fontWeight: FontWeight.w500),
                       ),
                       Text(
-                        '✅ データは安全にクラウドに保存されます',
-                        style: TextStyle(height: 1.5),
+                        '✅ データは安全にクラウドに自動バックアップ',
+                        style: TextStyle(height: 1.5, fontWeight: FontWeight.w500),
+                      ),
+                      SizedBox(height: 12),
+                      Row(
+                        children: [
+                          Icon(Icons.people_outline, color: Colors.green, size: 20),
+                          SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              'スタッフの招待は任意です',
+                              style: TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w600,
+                                color: Colors.green,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      SizedBox(height: 4),
+                      Text(
+                        '招待すると、スタッフもシフト確認・休み希望入力ができるようになります',
+                        style: TextStyle(
+                          fontSize: 12,
+                          height: 1.5,
+                        ),
                       ),
                     ],
                   ),

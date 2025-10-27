@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../services/auth_service.dart';
@@ -62,15 +61,6 @@ class _TeamInviteScreenState extends State<TeamInviteScreen> {
         Navigator.of(context).pop();
       }
     }
-  }
-
-  void _copyInviteCode() {
-    if (_inviteCode == null) return;
-
-    Clipboard.setData(ClipboardData(text: _inviteCode!));
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('招待コードをコピーしました')),
-    );
   }
 
   /// 招待メール送信ダイアログを表示
@@ -159,12 +149,12 @@ class _TeamInviteScreenState extends State<TeamInviteScreen> {
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : SafeArea(
-              child: Padding(
+              child: SingleChildScrollView(
                 padding: const EdgeInsets.all(24.0),
                 child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
+                    const SizedBox(height: 32),
                     // アイコン
                     Icon(
                       Icons.group_add,
@@ -185,7 +175,7 @@ class _TeamInviteScreenState extends State<TeamInviteScreen> {
 
                     // 説明
                     const Text(
-                      'スタッフに招待コードを共有してください',
+                      '招待コードを共有してください',
                       style: TextStyle(fontSize: 14, color: Colors.grey),
                       textAlign: TextAlign.center,
                     ),
@@ -222,16 +212,8 @@ class _TeamInviteScreenState extends State<TeamInviteScreen> {
                     ),
                     const SizedBox(height: 24),
 
-                    // コピーボタン
-                    FilledButton.icon(
-                      onPressed: _copyInviteCode,
-                      icon: const Icon(Icons.copy),
-                      label: const Text('招待コードをコピー'),
-                    ),
-                    const SizedBox(height: 12),
-
                     // 招待メール送信ボタン
-                    OutlinedButton.icon(
+                    FilledButton.icon(
                       onPressed: _showInvitationDialog,
                       icon: const Icon(Icons.email),
                       label: const Text('招待メールを送る'),
@@ -241,12 +223,12 @@ class _TeamInviteScreenState extends State<TeamInviteScreen> {
                     // 使い方の説明
                     Card(
                       color: Colors.blue.shade50,
-                      child: const Padding(
-                        padding: EdgeInsets.all(16.0),
+                      child: Padding(
+                        padding: const EdgeInsets.all(16.0),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Row(
+                            const Row(
                               children: [
                                 Icon(Icons.info_outline, size: 20),
                                 SizedBox(width: 8),
@@ -259,17 +241,81 @@ class _TeamInviteScreenState extends State<TeamInviteScreen> {
                                 ),
                               ],
                             ),
-                            SizedBox(height: 8),
-                            Text(
-                              '1. 上の招待コードをコピー\n'
-                              '2. LINEやメールでスタッフに送信\n'
-                              '3. スタッフがアプリで招待コードを入力',
-                              style: TextStyle(fontSize: 13),
+                            const SizedBox(height: 12),
+
+                            // 方法1: 招待メール（推奨）
+                            Container(
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
+                                    children: [
+                                      Icon(Icons.email, size: 18, color: Colors.green.shade700),
+                                      const SizedBox(width: 6),
+                                      Text(
+                                        '方法1: 招待メールを送る（おすすめ）',
+                                        style: TextStyle(
+                                          fontSize: 13,
+                                          fontWeight: FontWeight.bold,
+                                          color: Colors.green.shade900,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 6),
+                                  const Text(
+                                    '上の「招待メールを送る」ボタンから、スタッフを選択してメール送信',
+                                    style: TextStyle(fontSize: 12),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+
+                            // 方法2: 招待コードを伝える
+                            Container(
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: const Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
+                                    children: [
+                                      Icon(Icons.chat, size: 18, color: Colors.grey),
+                                      SizedBox(width: 6),
+                                      Expanded(
+                                        child: Text(
+                                          '方法2: 招待コードを口頭で伝える',
+                                          style: TextStyle(
+                                            fontSize: 13,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  SizedBox(height: 6),
+                                  Text(
+                                    '上の招待コードとアプリの利用手順をスタッフに伝える\n'
+                                    '※ 詳しい手順はヘルプ画面の「スタッフを招待する方法」をご確認ください',
+                                    style: TextStyle(fontSize: 12, height: 1.5),
+                                  ),
+                                ],
+                              ),
                             ),
                           ],
                         ),
                       ),
                     ),
+                    const SizedBox(height: 32),
                   ],
                 ),
               ),
