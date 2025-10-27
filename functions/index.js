@@ -1,8 +1,30 @@
-const {onCall, HttpsError} = require("firebase-functions/v2/https");
+const {onCall, onRequest, HttpsError} = require("firebase-functions/v2/https");
 const {onDocumentCreated, onDocumentUpdated} = require("firebase-functions/v2/firestore");
 const admin = require("firebase-admin");
 
 admin.initializeApp();
+
+/**
+ * アプリリダイレクト：User-Agentで判定してAndroidはGoogle Play、それ以外はWebアプリへ
+ */
+exports.appRedirect = onRequest(
+    {
+      region: "asia-northeast1",
+    },
+    (req, res) => {
+      const userAgent = (req.headers["user-agent"] || "").toLowerCase();
+
+      if (userAgent.includes("android")) {
+        // Android → Google Play
+        console.log("🤖 Android User-Agent検出 → Google Play");
+        res.redirect(301, "https://play.google.com/store/apps/details?id=io.github.shitakahashi.shiftkobo");
+      } else {
+        // iOS/その他 → Webアプリ
+        console.log("🍎 iOS/その他 User-Agent検出 → Webアプリ");
+        res.redirect(301, "https://shift-kobo-online-prod.web.app");
+      }
+    },
+);
 
 /**
  * チーム解散：全メンバーのAuthenticationを削除

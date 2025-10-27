@@ -11,6 +11,13 @@
     ],
     "rewrites": [
       {
+        "source": "/app",
+        "function": {
+          "functionId": "appRedirect",
+          "region": "asia-northeast1"
+        }
+      },
+      {
         "source": "**",
         "destination": "/index.html"
       }
