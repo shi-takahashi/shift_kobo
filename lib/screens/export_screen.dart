@@ -413,30 +413,63 @@ class _ExportScreenState extends State<ExportScreen> {
         for (int day = 1; day <= daysInMonth; day++) {
           final date = DateTime(_selectedMonth.year, _selectedMonth.month, day);
           final dayShifts = shifts[date] ?? [];
-          final staffShift = dayShifts.where((s) => s.staffId == staff.id).firstOrNull;
+          final staffShifts = dayShifts.where((s) => s.staffId == staff.id).toList();
 
           String cellValue = '';
-          if (staffShift != null) {
-            // シフトタイプは文字列で保存されている（displayName）
-            // 表示名から対応する設定を検索
-            final setting = shiftTimeProvider.settings
-                .where((s) => s.displayName == staffShift.shiftType)
-                .firstOrNull;
-            if (setting != null) {
-              final shiftChar = setting.displayName.isNotEmpty ? setting.displayName[0] : '?';
+          if (staffShifts.isNotEmpty) {
+            if (staffShifts.length == 1) {
+              // シフトが1つの場合は通常表示
+              final staffShift = staffShifts.first;
+              final setting = shiftTimeProvider.settings
+                  .where((s) => s.displayName == staffShift.shiftType)
+                  .firstOrNull;
+              if (setting != null) {
+                final shiftChar = setting.displayName.isNotEmpty ? setting.displayName[0] : '?';
 
-              // 標準時間と異なるかチェック
-              final actualStartTime = DateFormat('HH:mm').format(staffShift.startTime);
-              final actualEndTime = DateFormat('HH:mm').format(staffShift.endTime);
-              final isDifferentTime = actualStartTime != setting.startTime || actualEndTime != setting.endTime;
+                // 標準時間と異なるかチェック
+                final actualStartTime = DateFormat('HH:mm').format(staffShift.startTime);
+                final actualEndTime = DateFormat('HH:mm').format(staffShift.endTime);
+                final isDifferentTime = actualStartTime != setting.startTime || actualEndTime != setting.endTime;
 
-              if (isDifferentTime) {
-                cellValue = '$shiftChar ($actualStartTime-$actualEndTime)';
+                if (isDifferentTime) {
+                  cellValue = '$shiftChar ($actualStartTime-$actualEndTime)';
+                } else {
+                  cellValue = shiftChar;
+                }
               } else {
-                cellValue = shiftChar;
+                cellValue = '?';
               }
             } else {
-              cellValue = '?';
+              // シフトが複数の場合は「日・夜」のように表示
+              final shiftChars = <String>[];
+              final timeDifferences = <String>[];
+
+              for (final staffShift in staffShifts) {
+                final setting = shiftTimeProvider.settings
+                    .where((s) => s.displayName == staffShift.shiftType)
+                    .firstOrNull;
+                if (setting != null) {
+                  final shiftChar = setting.displayName.isNotEmpty ? setting.displayName[0] : '?';
+
+                  // 標準時間と異なるかチェック
+                  final actualStartTime = DateFormat('HH:mm').format(staffShift.startTime);
+                  final actualEndTime = DateFormat('HH:mm').format(staffShift.endTime);
+                  final isDifferentTime = actualStartTime != setting.startTime || actualEndTime != setting.endTime;
+
+                  if (isDifferentTime) {
+                    timeDifferences.add('$shiftChar($actualStartTime-$actualEndTime)');
+                  } else {
+                    shiftChars.add(shiftChar);
+                  }
+                }
+              }
+
+              // 時間差異がある場合は詳細表示、なければシンプルに
+              if (timeDifferences.isNotEmpty) {
+                cellValue = timeDifferences.join('・');
+              } else {
+                cellValue = shiftChars.join('・');
+              }
             }
           }
           row.add(excel.TextCellValue(cellValue));
@@ -810,30 +843,63 @@ class _ExportScreenState extends State<ExportScreen> {
         for (int day = 1; day <= daysInMonth; day++) {
           final date = DateTime(_selectedMonth.year, _selectedMonth.month, day);
           final dayShifts = shifts[date] ?? [];
-          final staffShift = dayShifts.where((s) => s.staffId == staff.id).firstOrNull;
+          final staffShifts = dayShifts.where((s) => s.staffId == staff.id).toList();
 
           String cellValue = '';
-          if (staffShift != null) {
-            // シフトタイプは文字列で保存されている（displayName）
-            // 表示名から対応する設定を検索
-            final setting = shiftTimeProvider.settings
-                .where((s) => s.displayName == staffShift.shiftType)
-                .firstOrNull;
-            if (setting != null) {
-              final shiftChar = setting.displayName.isNotEmpty ? setting.displayName[0] : '?';
+          if (staffShifts.isNotEmpty) {
+            if (staffShifts.length == 1) {
+              // シフトが1つの場合は通常表示
+              final staffShift = staffShifts.first;
+              final setting = shiftTimeProvider.settings
+                  .where((s) => s.displayName == staffShift.shiftType)
+                  .firstOrNull;
+              if (setting != null) {
+                final shiftChar = setting.displayName.isNotEmpty ? setting.displayName[0] : '?';
 
-              // 標準時間と異なるかチェック
-              final actualStartTime = DateFormat('HH:mm').format(staffShift.startTime);
-              final actualEndTime = DateFormat('HH:mm').format(staffShift.endTime);
-              final isDifferentTime = actualStartTime != setting.startTime || actualEndTime != setting.endTime;
+                // 標準時間と異なるかチェック
+                final actualStartTime = DateFormat('HH:mm').format(staffShift.startTime);
+                final actualEndTime = DateFormat('HH:mm').format(staffShift.endTime);
+                final isDifferentTime = actualStartTime != setting.startTime || actualEndTime != setting.endTime;
 
-              if (isDifferentTime) {
-                cellValue = '$shiftChar ($actualStartTime-$actualEndTime)';
+                if (isDifferentTime) {
+                  cellValue = '$shiftChar ($actualStartTime-$actualEndTime)';
+                } else {
+                  cellValue = shiftChar;
+                }
               } else {
-                cellValue = shiftChar;
+                cellValue = '?';
               }
             } else {
-              cellValue = '?';
+              // シフトが複数の場合は「日・夜」のように表示
+              final shiftChars = <String>[];
+              final timeDifferences = <String>[];
+
+              for (final staffShift in staffShifts) {
+                final setting = shiftTimeProvider.settings
+                    .where((s) => s.displayName == staffShift.shiftType)
+                    .firstOrNull;
+                if (setting != null) {
+                  final shiftChar = setting.displayName.isNotEmpty ? setting.displayName[0] : '?';
+
+                  // 標準時間と異なるかチェック
+                  final actualStartTime = DateFormat('HH:mm').format(staffShift.startTime);
+                  final actualEndTime = DateFormat('HH:mm').format(staffShift.endTime);
+                  final isDifferentTime = actualStartTime != setting.startTime || actualEndTime != setting.endTime;
+
+                  if (isDifferentTime) {
+                    timeDifferences.add('$shiftChar($actualStartTime-$actualEndTime)');
+                  } else {
+                    shiftChars.add(shiftChar);
+                  }
+                }
+              }
+
+              // 時間差異がある場合は詳細表示、なければシンプルに
+              if (timeDifferences.isNotEmpty) {
+                cellValue = timeDifferences.join('・');
+              } else {
+                cellValue = shiftChars.join('・');
+              }
             }
           }
           row.add(excel.TextCellValue(cellValue));
@@ -1046,36 +1112,86 @@ class _ExportScreenState extends State<ExportScreen> {
       for (int day = 1; day <= daysInMonth; day++) {
         final date = DateTime(_selectedMonth.year, _selectedMonth.month, day);
         final dayShifts = shifts[date] ?? [];
-        final staffShift = dayShifts.where((s) => s.staffId == staff.id).firstOrNull;
-        
+        final staffShifts = dayShifts.where((s) => s.staffId == staff.id).toList();
+
         Widget cellContent;
-        if (staffShift != null) {
-          // シフトタイプは文字列で保存されている（displayName）
-          // 表示名から対応する設定を検索
-          final setting = shiftTimeProvider.settings
-              .where((s) => s.displayName == staffShift.shiftType)
-              .firstOrNull;
-          if (setting != null) {
-            final shiftChar = setting.displayName.isNotEmpty ? setting.displayName[0] : '?';
-            final color = setting.shiftType.color;
-            
-            // 標準時間と異なるかチェック
-            final actualStartTime = DateFormat('HH:mm').format(staffShift.startTime);
-            final actualEndTime = DateFormat('HH:mm').format(staffShift.endTime);
-            final isDifferentTime = actualStartTime != setting.startTime || actualEndTime != setting.endTime;
-            
+        if (staffShifts.isNotEmpty) {
+          if (staffShifts.length == 1) {
+            // シフトが1つの場合は通常表示
+            final staffShift = staffShifts.first;
+            final setting = shiftTimeProvider.settings
+                .where((s) => s.displayName == staffShift.shiftType)
+                .firstOrNull;
+            if (setting != null) {
+              final shiftChar = setting.displayName.isNotEmpty ? setting.displayName[0] : '?';
+              final color = setting.shiftType.color;
+
+              // 標準時間と異なるかチェック
+              final actualStartTime = DateFormat('HH:mm').format(staffShift.startTime);
+              final actualEndTime = DateFormat('HH:mm').format(staffShift.endTime);
+              final isDifferentTime = actualStartTime != setting.startTime || actualEndTime != setting.endTime;
+
+              cellContent = Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    shiftChar,
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                      color: color,
+                    ),
+                  ),
+                  if (isDifferentTime) ...[
+                    const SizedBox(width: 2),
+                    Text(
+                      '!',
+                      style: TextStyle(
+                        fontSize: 8,
+                        color: Colors.orange[700],
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
+                ],
+              );
+            } else {
+              cellContent = const Text('?', style: TextStyle(fontSize: 11));
+            }
+          } else {
+            // シフトが複数の場合は「日・夜」のように表示
+            final shiftChars = <String>[];
+            bool hasTimeDifference = false;
+
+            for (final staffShift in staffShifts) {
+              final setting = shiftTimeProvider.settings
+                  .where((s) => s.displayName == staffShift.shiftType)
+                  .firstOrNull;
+              if (setting != null) {
+                final shiftChar = setting.displayName.isNotEmpty ? setting.displayName[0] : '?';
+                shiftChars.add(shiftChar);
+
+                // いずれかのシフトが標準時間と異なるかチェック
+                final actualStartTime = DateFormat('HH:mm').format(staffShift.startTime);
+                final actualEndTime = DateFormat('HH:mm').format(staffShift.endTime);
+                if (actualStartTime != setting.startTime || actualEndTime != setting.endTime) {
+                  hasTimeDifference = true;
+                }
+              }
+            }
+
             cellContent = Row(
               mainAxisSize: MainAxisSize.min,
               children: [
                 Text(
-                  shiftChar,
-                  style: TextStyle(
-                    fontSize: 12,
+                  shiftChars.join('・'),
+                  style: const TextStyle(
+                    fontSize: 11,
                     fontWeight: FontWeight.bold,
-                    color: color,
+                    color: Colors.black,
                   ),
                 ),
-                if (isDifferentTime) ...[
+                if (hasTimeDifference) ...[
                   const SizedBox(width: 2),
                   Text(
                     '!',
@@ -1088,13 +1204,11 @@ class _ExportScreenState extends State<ExportScreen> {
                 ],
               ],
             );
-          } else {
-            cellContent = const Text('?', style: TextStyle(fontSize: 11));
           }
         } else {
           cellContent = const SizedBox.shrink(); // 空セル
         }
-        
+
         cells.add(DataCell(cellContent));
       }
       
