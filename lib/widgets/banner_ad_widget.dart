@@ -44,7 +44,6 @@ class _BannerAdWidgetState extends State<BannerAdWidget> with WidgetsBindingObse
           // キャッシュから広告を取得してみる
           final cachedAd = AdService.getCachedBannerAd();
           if (cachedAd != null) {
-            print('キャッシュされた広告を使用');
             setState(() {
               _bannerAd = cachedAd;
               _isAdLoaded = true;
@@ -72,9 +71,8 @@ class _BannerAdWidgetState extends State<BannerAdWidget> with WidgetsBindingObse
         mounted) {
       final now = DateTime.now();
       // 最後の読み込みから一定時間経過していれば再読み込み
-      if (_lastLoadTime == null || 
+      if (_lastLoadTime == null ||
           now.difference(_lastLoadTime!) > _minimumReloadInterval) {
-        print('アプリがフォアグラウンドに戻りました。バナー広告を再読み込みします。');
         _retryCount = 0;
         _loadBannerAd();
       }
@@ -85,7 +83,6 @@ class _BannerAdWidgetState extends State<BannerAdWidget> with WidgetsBindingObse
   void _loadBannerAd({bool resetSizeIndex = false}) {
     // 既に読み込み中の場合はスキップ
     if (_isLoading) {
-      print('バナー広告: 既に読み込み中のためスキップ');
       return;
     }
     
@@ -109,14 +106,12 @@ class _BannerAdWidgetState extends State<BannerAdWidget> with WidgetsBindingObse
     }
 
     final currentSize = _adSizes[_currentSizeIndex % _adSizes.length];
-    print('バナー広告読み込み開始 (リトライ回数: $_retryCount/$_maxRetries, サイズ: $currentSize)');
 
     _lastLoadTime = DateTime.now();
     
     _bannerAd = AdService.createBannerAd(
       adSize: currentSize,
       onAdLoaded: () {
-        print('バナー広告読み込み成功 (サイズ: $currentSize)');
         if (mounted) {
           setState(() {
             _isAdLoaded = true;
@@ -128,7 +123,6 @@ class _BannerAdWidgetState extends State<BannerAdWidget> with WidgetsBindingObse
         }
       },
       onAdFailedToLoad: () {
-        print('バナー広告読み込み失敗 (リトライ回数: $_retryCount/$_maxRetries, サイズ: $currentSize)');
         _lastFailureTime = DateTime.now();
         
         if (mounted) {
@@ -150,19 +144,16 @@ class _BannerAdWidgetState extends State<BannerAdWidget> with WidgetsBindingObse
           if (_retryCount < _maxRetries) {
             // リトライ間隔を徐々に長くする（指数バックオフ）
             final delay = _initialRetryDelay * (1 << (_retryCount ~/ _adSizes.length));
-            print('バナー広告再読み込みを${delay.inSeconds}秒後に開始します（次のサイズ: ${_adSizes[_currentSizeIndex % _adSizes.length]}）');
-            
+
             _retryTimer = Timer(delay, () {
               if (mounted && !_isAdLoaded && !_isLoading) {
                 _loadBannerAd();
               }
             });
           } else {
-            print('バナー広告: 最大リトライ回数に達しました');
             // 長い待機時間後に再度試行
             _retryTimer = Timer(const Duration(minutes: 2), () {
               if (mounted && !_isAdLoaded && !_isLoading) {
-                print('バナー広告: 2分後の再試行');
                 _retryCount = 0;
                 _currentSizeIndex = 0;
                 _loadBannerAd();

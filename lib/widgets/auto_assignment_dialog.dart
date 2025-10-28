@@ -367,16 +367,12 @@ class _AutoAssignmentDialogState extends State<AutoAssignmentDialog> {
     try {
       final shiftProvider = Provider.of<ShiftProvider>(context, listen: false);
 
-      print('既存シフト削除開始');
       final existingShifts = shiftProvider.getShiftsForMonth(widget.selectedMonth.year, widget.selectedMonth.month);
       if (existingShifts.isNotEmpty) {
         await shiftProvider.batchDeleteShifts(existingShifts);
-        print('既存シフト削除完了: ${existingShifts.length}件');
       }
 
-      print('新規シフト保存開始: ${_previewShifts!.length}件');
       await shiftProvider.batchAddShifts(_previewShifts!);
-      print('新規シフト保存完了');
 
       if (mounted) {
         // Navigator参照を事前に保存
@@ -390,15 +386,12 @@ class _AutoAssignmentDialogState extends State<AutoAssignmentDialog> {
         // 事前読み込み済み広告を即座に表示
         AdService.showInterstitialAd(
           onAdShown: () {
-            print('シフト作成完了後のインタースティシャル広告表示開始');
           },
           onAdClosed: () {
-            print('シフト作成完了後のインタースティシャル広告が閉じられました');
             // 広告終了後に完了メッセージを表示
             _showCompletionMessage(scaffoldMessengerContext, shiftsCount);
           },
           onAdFailedToShow: () {
-            print('シフト作成完了後のインタースティシャル広告の表示に失敗しました');
             // 広告表示失敗時も完了メッセージを表示
             _showCompletionMessage(scaffoldMessengerContext, shiftsCount);
           },

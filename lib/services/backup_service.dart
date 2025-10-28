@@ -14,11 +14,9 @@ class BackupService {
   /// 全データのバックアップを作成（Firestoreから）
   static Future<Map<String, dynamic>> createBackupData(String teamId) async {
     try {
-      print('バックアップ開始... (teamId: $teamId)');
       final firestore = FirebaseFirestore.instance;
 
       // Firestoreからデータを取得
-      print('Firestoreからデータを取得中...');
 
       // スタッフデータ
       final staffSnapshot = await firestore
@@ -26,7 +24,6 @@ class BackupService {
           .doc(teamId)
           .collection('staff')
           .get();
-      print('スタッフ: ${staffSnapshot.docs.length}件');
 
       // シフトデータ
       final shiftsSnapshot = await firestore
@@ -34,7 +31,6 @@ class BackupService {
           .doc(teamId)
           .collection('shifts')
           .get();
-      print('シフト: ${shiftsSnapshot.docs.length}件');
 
       // 制約データ
       final constraintsSnapshot = await firestore
@@ -42,7 +38,6 @@ class BackupService {
           .doc(teamId)
           .collection('constraints')
           .get();
-      print('制約: ${constraintsSnapshot.docs.length}件');
 
       // シフト時間設定
       final shiftTimeSnapshot = await firestore
@@ -71,10 +66,8 @@ class BackupService {
           });
         }
       }
-      print('月間シフト設定: ${shiftRequirements.length}件');
 
       // バックアップデータの構築
-      print('バックアップデータを構築中...');
       final backupData = {
         'version': '2.0.0', // Firestore版
         'created_at': DateTime.now().toIso8601String(),
@@ -138,11 +131,8 @@ class BackupService {
         },
       };
 
-      print('バックアップデータ構築完了');
       return backupData;
     } catch (e, stackTrace) {
-      print('バックアップエラー: $e');
-      print('スタックトレース: $stackTrace');
       throw Exception('バックアップデータの作成に失敗しました: $e');
     }
   }
@@ -183,28 +173,24 @@ class BackupService {
       final filePath = await saveBackupToFile(teamId);
 
       if (filePath != null) {
-        print('バックアップ完了: $filePath');
         return filePath;
       } else {
         print('保存がキャンセルされました');
         return null;
       }
     } catch (e, stackTrace) {
-      print('バックアップ共有エラー: $e');
-      print('スタックトレース: $stackTrace');
       throw Exception('バックアップファイルの共有に失敗しました: $e');
     }
   }
 
   /// バックアップファイルを選択
-  static Future<String?> pickBackupFile() async {
+  static Future<String?> selectBackupFile() async {
     try {
       final result = await FilePicker.platform.pickFiles(
         type: FileType.custom,
         allowedExtensions: ['json'],
         dialogTitle: 'バックアップファイルを選択',
       );
-
       if (result != null && result.files.isNotEmpty) {
         return result.files.first.path;
       }
@@ -241,7 +227,6 @@ class BackupService {
         final batch = firestore.batch();
         final backupIds = <String>{};
 
-        print('シフト時間設定を復元中...');
         for (var settingJson in settingsList) {
           final json = settingJson as Map<String, dynamic>;
           final docId = json['id'] as String?;
@@ -274,7 +259,6 @@ class BackupService {
         }
 
         await batch.commit();
-        print('シフト時間設定復元完了: ${settingsList.length}件');
 
         // オーバーライトモードの場合、バックアップにない既存ドキュメントを削除
         if (overwrite) {
@@ -300,12 +284,10 @@ class BackupService {
       }
 
       if (overwrite) {
-        print('既存データを削除中...');
         // シフト時間設定以外の既存データをバッチ削除
         await _clearFirestoreDataExceptShiftTime(firestore, teamId);
       }
 
-      print('データを復元中...');
 
       // スタッフデータの復元
       if (data['staff'] != null) {
@@ -334,7 +316,6 @@ class BackupService {
         }
 
         await batch.commit();
-        print('スタッフデータ復元完了: ${staffList.length}件');
       }
 
       // シフトデータの復元
@@ -367,7 +348,6 @@ class BackupService {
 
           await batch.commit();
         }
-        print('シフトデータ復元完了: ${shiftsList.length}件');
       }
 
       // 制約データの復元
@@ -392,7 +372,6 @@ class BackupService {
         }
 
         await batch.commit();
-        print('制約データ復元完了: ${constraintsList.length}件');
       }
 
       // シフト時間設定は既に復元済み（上部で処理）
@@ -415,19 +394,10 @@ class BackupService {
             .doc('monthly_requirements')
             .set(requirementsData);
 
-        print('月間設定復元完了: ${requirements.length}件');
       }
 
-      print('復元完了 - 統計:');
-      print('  シフト時間設定: ${data['shift_time_settings']?.length ?? 0}件（先に復元済み）');
-      print('  スタッフ: ${data['staff']?.length ?? 0}件');
-      print('  シフト: ${data['shifts']?.length ?? 0}件');
-      print('  制約: ${data['constraints']?.length ?? 0}件');
-      print('  月間設定: ${data['shift_requirements']?.length ?? 0}件');
 
     } catch (e, stackTrace) {
-      print('復元エラー: $e');
-      print('スタックトレース: $stackTrace');
       throw Exception('データの復元に失敗しました: $e');
     }
   }
@@ -486,7 +456,6 @@ class BackupService {
 
     // シフト時間設定は削除しない（空の状態を避けるため）
 
-    print('既存データ削除完了（シフト時間設定を除く）');
   }
 
   /// Firestoreの既存データをクリア
@@ -556,7 +525,6 @@ class BackupService {
       await batch.commit();
     }
 
-    print('既存データ削除完了');
   }
 
   /// バックアップデータの検証

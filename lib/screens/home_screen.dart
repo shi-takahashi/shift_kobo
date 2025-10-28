@@ -201,27 +201,20 @@ class _HomeScreenState extends State<HomeScreen> {
 
   /// お知らせをチェックして表示
   Future<void> _checkAnnouncements() async {
-    print('📢 _checkAnnouncements() 呼び出し開始');
     if (!mounted) {
-      print('📢 mounted=false のため中断');
       return;
     }
 
     try {
       // 未読のお知らせを取得
-      print('📢 未読お知らせ取得開始...');
       final announcements = await _announcementService.getUnreadAnnouncements(widget.appUser.uid);
 
-      print('📢 取得結果: ${announcements.length}件');
-
       if (!mounted || announcements.isEmpty) {
-        print('📢 表示するお知らせなし（mounted=$mounted, 件数=${announcements.length}）');
         return;
       }
 
       // 最新のお知らせのみ表示（複数ある場合は最新1件のみ）
       final latestAnnouncement = announcements.first;
-      print('📢 お知らせダイアログ表示: ${latestAnnouncement.title}');
 
       // ダイアログ表示
       await showDialog(
@@ -236,10 +229,9 @@ class _HomeScreenState extends State<HomeScreen> {
       );
 
       // 既読マーク
-      print('📢 既読マーク実行');
       await _announcementService.markAsRead(widget.appUser.uid, latestAnnouncement.id);
     } catch (e) {
-      print('⚠️ お知らせチェックエラー: $e');
+      // エラーは無視
     }
   }
 

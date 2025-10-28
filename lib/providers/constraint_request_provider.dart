@@ -42,7 +42,6 @@ class ConstraintRequestProvider extends ChangeNotifier {
   void _subscribeToRequests() {
     if (teamId == null) return;
 
-    print('📋 制約申請購読開始（pending/rejected/approved）');
 
     _requestSubscription?.cancel();
     _requestSubscription = _firestore
@@ -134,7 +133,6 @@ class ConstraintRequestProvider extends ChangeNotifier {
       'updatedAt': FieldValue.serverTimestamp(),
     });
 
-    debugPrint('✅ [ConstraintRequestProvider] リクエスト作成: ${request.id} (isDelete: ${request.isDelete})');
   }
 
   /// リクエストを承認（ステータス更新＋Staffデータに反映）
@@ -145,7 +143,6 @@ class ConstraintRequestProvider extends ChangeNotifier {
   ) async {
     if (teamId == null) return;
 
-    debugPrint('🔍 [承認処理] リクエスト: id=${request.id}, type=${request.requestType}, isDelete=${request.isDelete}');
 
     final batch = _firestore.batch();
 
@@ -174,19 +171,15 @@ class ConstraintRequestProvider extends ChangeNotifier {
     if (request.requestType == ConstraintRequest.typeWeekday) {
       // 曜日の休み希望
       final updatedDaysOff = List<int>.from(staff.preferredDaysOff);
-      debugPrint('🔍 [承認処理/曜日] 現在: $updatedDaysOff');
       if (request.isDelete) {
         // 削除申請の場合：リストから削除
-        debugPrint('✅ [承認処理/曜日] 削除: ${request.weekday}');
         updatedDaysOff.remove(request.weekday);
       } else {
         // 追加申請の場合：リストに追加
-        debugPrint('✅ [承認処理/曜日] 追加: ${request.weekday}');
         if (request.weekday != null && !updatedDaysOff.contains(request.weekday)) {
           updatedDaysOff.add(request.weekday!);
         }
       }
-      debugPrint('🔍 [承認処理/曜日] 更新後: $updatedDaysOff');
       batch.update(staffRef, {
         'preferredDaysOff': updatedDaysOff,
         'updatedAt': FieldValue.serverTimestamp(),
@@ -194,22 +187,18 @@ class ConstraintRequestProvider extends ChangeNotifier {
     } else if (request.requestType == ConstraintRequest.typeSpecificDay) {
       // 特定日の休み希望
       final updatedSpecificDays = List<String>.from(staff.specificDaysOff);
-      debugPrint('🔍 [承認処理/特定日] 現在: $updatedSpecificDays');
       if (request.specificDate != null) {
         final dateStr = request.specificDate!.toIso8601String();
         if (request.isDelete) {
           // 削除申請の場合：リストから削除
-          debugPrint('✅ [承認処理/特定日] 削除: $dateStr');
           updatedSpecificDays.remove(dateStr);
         } else {
           // 追加申請の場合：リストに追加
-          debugPrint('✅ [承認処理/特定日] 追加: $dateStr');
           if (!updatedSpecificDays.contains(dateStr)) {
             updatedSpecificDays.add(dateStr);
           }
         }
       }
-      debugPrint('🔍 [承認処理/特定日] 更新後: $updatedSpecificDays');
       batch.update(staffRef, {
         'specificDaysOff': updatedSpecificDays,
         'updatedAt': FieldValue.serverTimestamp(),
@@ -217,28 +206,22 @@ class ConstraintRequestProvider extends ChangeNotifier {
     } else if (request.requestType == ConstraintRequest.typeShiftType) {
       // シフトタイプの勤務不可
       final updatedShiftTypes = List<String>.from(staff.unavailableShiftTypes);
-      debugPrint('🔍 [承認処理/シフトタイプ] 現在: $updatedShiftTypes');
       if (request.isDelete) {
         // 削除申請の場合：リストから削除
-        debugPrint('✅ [承認処理/シフトタイプ] 削除: ${request.shiftType}');
         updatedShiftTypes.remove(request.shiftType);
       } else {
         // 追加申請の場合：リストに追加
-        debugPrint('✅ [承認処理/シフトタイプ] 追加: ${request.shiftType}');
         if (request.shiftType != null && !updatedShiftTypes.contains(request.shiftType)) {
           updatedShiftTypes.add(request.shiftType!);
         }
       }
-      debugPrint('🔍 [承認処理/シフトタイプ] 更新後: $updatedShiftTypes');
       batch.update(staffRef, {
         'unavailableShiftTypes': updatedShiftTypes,
         'updatedAt': FieldValue.serverTimestamp(),
       });
     } else if (request.requestType == ConstraintRequest.typeMaxShiftsPerMonth) {
       // 月間最大シフト数の変更
-      debugPrint('🔍 [承認処理/月間最大シフト数] 現在: ${staff.maxShiftsPerMonth}');
       if (request.maxShiftsPerMonth != null) {
-        debugPrint('✅ [承認処理/月間最大シフト数] 変更: ${request.maxShiftsPerMonth}');
         batch.update(staffRef, {
           'maxShiftsPerMonth': request.maxShiftsPerMonth,
           'updatedAt': FieldValue.serverTimestamp(),
@@ -249,7 +232,6 @@ class ConstraintRequestProvider extends ChangeNotifier {
     // バッチコミット
     await batch.commit();
 
-    debugPrint('✅ [ConstraintRequestProvider] リクエスト承認: ${request.id}');
   }
 
   /// リクエストを却下（ステータス更新＋却下理由設定）
@@ -273,7 +255,6 @@ class ConstraintRequestProvider extends ChangeNotifier {
       'updatedAt': FieldValue.serverTimestamp(),
     });
 
-    debugPrint('✅ [ConstraintRequestProvider] リクエスト却下: ${request.id}');
   }
 
   /// リクエストを削除
@@ -287,7 +268,6 @@ class ConstraintRequestProvider extends ChangeNotifier {
         .doc(requestId)
         .delete();
 
-    debugPrint('✅ [ConstraintRequestProvider] リクエスト削除: $requestId');
   }
 
   /// 特定スタッフの全リクエストを削除（アカウント削除時に使用）
@@ -304,7 +284,6 @@ class ConstraintRequestProvider extends ChangeNotifier {
           .get();
 
       if (snapshot.docs.isEmpty) {
-        debugPrint('ℹ️ [ConstraintRequestProvider] スタッフ $staffId のリクエストはありません');
         return;
       }
 
@@ -316,9 +295,7 @@ class ConstraintRequestProvider extends ChangeNotifier {
 
       await batch.commit();
 
-      debugPrint('✅ [ConstraintRequestProvider] スタッフ $staffId の全リクエスト削除完了（${snapshot.docs.length}件）');
     } catch (e) {
-      debugPrint('⚠️ [ConstraintRequestProvider] スタッフリクエスト削除エラー: $e');
       rethrow;
     }
   }

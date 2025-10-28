@@ -156,13 +156,10 @@ class StaffProvider extends ChangeNotifier {
           'updatedAt': FieldValue.serverTimestamp(),
         });
 
-        print('✅ スタッフ手動紐付け成功: $email <-> $userId');
       } else {
-        print('ℹ️ スタッフ手動紐付けスキップ: メールアドレス $email に一致するチームスタッフが見つかりません');
       }
     } catch (e) {
       // 紐付け失敗してもスタッフ更新は成功扱い（エラーを投げない）
-      print('⚠️ スタッフ手動紐付けエラー: $e');
     }
   }
 
@@ -221,9 +218,7 @@ class StaffProvider extends ChangeNotifier {
         'updatedAt': FieldValue.serverTimestamp(),
       });
 
-      print('✅ スタッフ紐付け解除成功: $staffId');
     } catch (e) {
-      print('⚠️ スタッフ紐付け解除エラー: $e');
       rethrow;
     }
   }
@@ -257,34 +252,25 @@ class StaffProvider extends ChangeNotifier {
 
       if (userId != null) {
         // 紐付け済みスタッフの場合
-        print('🗑️ スタッフアカウント削除開始（アカウント付き）: $staffId, userId: $userId');
 
         // 1. constraint_requests/ 削除（ConstraintRequestProvider経由）
         await deleteRequestsByStaffId(staffId);
-        print('✅ constraint_requests削除完了: $staffId');
 
         // 2. Authentication削除（AuthService経由、Cloud Functions）
         // 注意: users/{userId} を削除する前に Authentication を削除する
         await deleteStaffAccount(userId);
-        print('✅ Authentication削除完了: $userId');
 
         // 3. users/{userId} 削除
         await _firestore.collection('users').doc(userId).delete();
-        print('✅ usersドキュメント削除完了: $userId');
 
         // 4. staffs/{staffId} 削除
         await deleteStaff(staffId);
-        print('✅ staffドキュメント削除完了: $staffId');
       } else {
         // 紐付けなしスタッフの場合、スタッフデータのみ削除
-        print('🗑️ スタッフデータ削除開始（アカウントなし）: $staffId');
         await deleteStaff(staffId);
-        print('✅ staffドキュメント削除完了: $staffId');
       }
 
-      print('✅ スタッフ削除完了: $staffId');
     } catch (e) {
-      print('❌ スタッフ削除エラー: $staffId, $e');
       rethrow;
     }
   }
