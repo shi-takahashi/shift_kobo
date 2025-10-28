@@ -435,9 +435,8 @@ class HelpScreen extends StatelessWidget {
                       ),
                       const SizedBox(height: 8),
                       Text(
-                        '• シフトの編集・削除はできません（閲覧のみ）\n'
-                        '• スタッフの追加・削除はできません\n'
-                        '• シフト自動作成はできません',
+                        '• シフトの作成・変更はできません（閲覧のみ）\n'
+                        '• スタッフの登録・削除はできません',
                         style: TextStyle(
                           fontSize: 12,
                           color: Colors.orange.shade900,
