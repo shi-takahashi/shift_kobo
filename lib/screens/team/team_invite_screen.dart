@@ -305,7 +305,7 @@ class _TeamInviteScreenState extends State<TeamInviteScreen> {
                                   SizedBox(height: 6),
                                   Text(
                                     '上の招待コードとアプリの利用手順をスタッフに伝える\n'
-                                    '※ 詳しい手順はヘルプ画面の「スタッフを招待する方法」をご確認ください',
+                                    '※ アプリの利用手順はヘルプ画面の「アプリを始める」をご確認ください',
                                     style: TextStyle(fontSize: 12, height: 1.5),
                                   ),
                                 ],

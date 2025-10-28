@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 
 /// チーム作成後の招待案内ダイアログ
 class InviteGuideDialog extends StatelessWidget {
@@ -53,11 +52,11 @@ class InviteGuideDialog extends StatelessWidget {
                 children: [
                   Row(
                     children: [
-                      Icon(Icons.check_circle, color: Colors.blue.shade700),
+                      Icon(Icons.play_circle_outline, color: Colors.blue.shade700),
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(
-                          'このまま1人で使えます',
+                          '基本的な使い方',
                           style: TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.bold,
@@ -69,10 +68,22 @@ class InviteGuideDialog extends StatelessWidget {
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    'カレンダーからシフトを作成したり、スタッフを追加して管理できます',
+                    'まずは以下の手順で始めましょう',
                     style: TextStyle(
                       fontSize: 13,
                       color: Colors.blue.shade900,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    '1. スタッフタブからスタッフを登録\n'
+                    '2. シフト画面でシフトを自動作成\n'
+                    '3. 必要に応じてシフトを調整\n'
+                    '4. シフト表を出力して共有',
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: Colors.blue.shade800,
+                      height: 1.5,
                     ),
                   ),
                 ],
@@ -97,7 +108,7 @@ class InviteGuideDialog extends StatelessWidget {
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(
-                          'スタッフを招待すると便利（任意）',
+                          'さらに便利に使うには',
                           style: TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.bold,
@@ -109,7 +120,7 @@ class InviteGuideDialog extends StatelessWidget {
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    'スタッフを招待すると、全員でシフトを共有したり、休み希望を入力してもらえます',
+                    'スタッフをアプリに招待すると、全員でシフトを共有したり、休み希望を直接入力してもらえます',
                     style: TextStyle(
                       fontSize: 13,
                       color: Colors.green.shade900,

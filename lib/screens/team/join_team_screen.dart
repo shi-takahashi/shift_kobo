@@ -1,6 +1,6 @@
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
-import 'package:firebase_auth/firebase_auth.dart';
+
 import '../../services/auth_service.dart';
 import '../../widgets/auth_gate.dart';
 import 'team_creation_screen.dart';
@@ -132,9 +132,7 @@ class _JoinTeamScreenState extends State<JoinTeamScreen> {
       body: SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(24.0),
-          child: !_showInviteCodeInput
-              ? _buildChoiceView()
-              : _buildInviteCodeInputView(),
+          child: !_showInviteCodeInput ? _buildChoiceView() : _buildInviteCodeInputView(),
         ),
       ),
     );
@@ -168,9 +166,7 @@ class _JoinTeamScreenState extends State<JoinTeamScreen> {
 
         // 説明
         Text(
-          kIsWeb
-              ? '管理者から受け取った招待コードを入力してチームに参加してください。'
-              : '1人で始めるか、既存のチームに参加するかを選択してください。',
+          kIsWeb ? '管理者から受け取った招待コードを入力してチームに参加してください。' : '新しいチームを作成するか、既存のチームに参加するかを選択してください。',
           style: const TextStyle(fontSize: 14, color: Colors.grey),
           textAlign: TextAlign.center,
         ),
@@ -202,7 +198,7 @@ class _JoinTeamScreenState extends State<JoinTeamScreen> {
                     ),
                     const SizedBox(height: 8),
                     const Text(
-                      '1人で始める（後からスタッフ招待可）',
+                      '管理者の場合（後からスタッフ招待可）',
                       style: TextStyle(fontSize: 13, color: Colors.black54),
                       textAlign: TextAlign.center,
                     ),
@@ -290,10 +286,10 @@ class _JoinTeamScreenState extends State<JoinTeamScreen> {
                 ),
                 SizedBox(height: 8),
                 Text(
-                  '• チームは1人でも作成・利用できます\n'
-                  '• 管理者：シフト作成・編集・自動生成が可能\n'
+                  '• チームは管理者とスタッフで構成されます\n'
+                  '• 管理者：スタッフ登録・シフト作成が可能\n'
                   '• スタッフ：シフト閲覧・休み希望入力が可能\n'
-                  '• 後からスタッフを招待することも可能',
+                  '• チームに管理者は必須、スタッフは任意で招待',
                   style: TextStyle(fontSize: 13),
                 ),
               ],

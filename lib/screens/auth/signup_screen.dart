@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+
 import '../../services/auth_service.dart';
 import '../team/join_team_screen.dart';
 import '../team/team_creation_screen.dart';
@@ -85,8 +86,7 @@ class _SignupScreenState extends State<SignupScreen> {
       final errorMessage = e.toString();
 
       // 「既にメールアドレスが使用されている」エラーの場合
-      if (errorMessage.contains('このメールアドレスは既に使用されています') ||
-          errorMessage.contains('email-already-in-use')) {
+      if (errorMessage.contains('このメールアドレスは既に使用されています') || errorMessage.contains('email-already-in-use')) {
         // ログイン画面への誘導ダイアログを表示
         showDialog(
           context: context,
@@ -195,9 +195,7 @@ class _SignupScreenState extends State<SignupScreen> {
                     border: const OutlineInputBorder(),
                     suffixIcon: IconButton(
                       icon: Icon(
-                        _obscurePassword
-                            ? Icons.visibility
-                            : Icons.visibility_off,
+                        _obscurePassword ? Icons.visibility : Icons.visibility_off,
                       ),
                       onPressed: () {
                         setState(() => _obscurePassword = !_obscurePassword);
@@ -226,13 +224,10 @@ class _SignupScreenState extends State<SignupScreen> {
                     border: const OutlineInputBorder(),
                     suffixIcon: IconButton(
                       icon: Icon(
-                        _obscurePasswordConfirm
-                            ? Icons.visibility
-                            : Icons.visibility_off,
+                        _obscurePasswordConfirm ? Icons.visibility : Icons.visibility_off,
                       ),
                       onPressed: () {
-                        setState(
-                            () => _obscurePasswordConfirm = !_obscurePasswordConfirm);
+                        setState(() => _obscurePasswordConfirm = !_obscurePasswordConfirm);
                       },
                     ),
                   ),
@@ -281,11 +276,11 @@ class _SignupScreenState extends State<SignupScreen> {
                         ),
                         SizedBox(height: 8),
                         Text('1. アカウント作成'),
-                        Text('2. チーム作成（1人でOK）または チーム参加'),
+                        Text('2. チーム作成 または チーム参加'),
                         Text('3. シフト管理を開始'),
                         SizedBox(height: 8),
                         Text(
-                          '※ チームは1人で作成・利用できます\n   後からスタッフを招待することも可能',
+                          '※ チームは1人から作成・利用できます\n   後からスタッフを招待することも可能',
                           style: TextStyle(fontSize: 11, color: Colors.grey),
                         ),
                       ],

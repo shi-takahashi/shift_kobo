@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+
 import '../../services/auth_service.dart';
 import '../../widgets/invite_guide_dialog.dart';
 import '../home_screen.dart';
@@ -159,9 +160,8 @@ class _TeamCreationScreenState extends State<TeamCreationScreen> {
 
       // エラーメッセージを整形
       final errorMessage = e.toString();
-      final isAuthError = errorMessage.contains('認証エラー') ||
-          errorMessage.contains('PERMISSION_DENIED') ||
-          errorMessage.contains('Missing or insufficient permissions');
+      final isAuthError =
+          errorMessage.contains('認証エラー') || errorMessage.contains('PERMISSION_DENIED') || errorMessage.contains('Missing or insufficient permissions');
 
       // エラーダイアログを表示
       showDialog(
@@ -299,7 +299,7 @@ class _TeamCreationScreenState extends State<TeamCreationScreen> {
                         SizedBox(height: 8),
                         Text('• あなたは管理者として登録されます'),
                         Text('• スタッフの登録・シフト作成ができます'),
-                        Text('• 将来的にスタッフを招待できます'),
+                        Text('• 登録したスタッフをチームに招待できます'),
                       ],
                     ),
                   ),
