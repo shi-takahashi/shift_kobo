@@ -396,9 +396,26 @@ class _StaffEditDialogState extends State<StaffEditDialog> {
               keyboardType: TextInputType.emailAddress,
               validator: (value) {
                 if (value != null && value.isNotEmpty) {
+                  // メールアドレス形式チェック
                   final emailRegex = RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$');
                   if (!emailRegex.hasMatch(value)) {
                     return '正しいメールアドレスを入力してください';
+                  }
+
+                  // チーム内での重複チェック
+                  final staffProvider = Provider.of<StaffProvider>(context, listen: false);
+                  final duplicateStaff = staffProvider.staffList.where((staff) {
+                    // 編集モードの場合は自分自身を除外
+                    if (widget.existingStaff != null && staff.id == widget.existingStaff!.id) {
+                      return false;
+                    }
+                    // メールアドレスが一致するスタッフを検索
+                    return staff.email != null &&
+                           staff.email!.toLowerCase() == value.toLowerCase();
+                  }).toList();
+
+                  if (duplicateStaff.isNotEmpty) {
+                    return '${duplicateStaff.first.name}と同じメールアドレスです';
                   }
                 }
                 return null;
