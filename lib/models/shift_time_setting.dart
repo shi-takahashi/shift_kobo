@@ -70,7 +70,7 @@ extension ShiftTypeExtension on ShiftType {
       case ShiftType.shift5:
         return Colors.teal;
       case ShiftType.shift6:
-        return Colors.teal;
+        return Colors.green;
       case ShiftType.shift7:
         return Colors.brown;
       case ShiftType.shift8:
