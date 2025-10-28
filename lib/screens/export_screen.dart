@@ -403,17 +403,17 @@ class _ExportScreenState extends State<ExportScreen> {
       sheet.appendRow(headers);
 
       // スタッフ行
-      final staffWithShifts = _getStaffWithShifts(shifts, staffProvider);
-      for (final staff in staffWithShifts) {
-        final staffData = staffProvider.getStaffById(staff.id);
+      final staffIds = _getStaffIdsWithShifts(shifts);
+      for (final staffId in staffIds) {
+        final staffData = staffProvider.getStaffById(staffId);
         final row = <excel.CellValue?>[
-          excel.TextCellValue(_getStaffDisplayName(staffData, staff.id))
+          excel.TextCellValue(_getStaffDisplayName(staffData, staffId))
         ];
 
         for (int day = 1; day <= daysInMonth; day++) {
           final date = DateTime(_selectedMonth.year, _selectedMonth.month, day);
           final dayShifts = shifts[date] ?? [];
-          final staffShifts = dayShifts.where((s) => s.staffId == staff.id).toList();
+          final staffShifts = dayShifts.where((s) => s.staffId == staffId).toList();
 
           String cellValue = '';
           if (staffShifts.isNotEmpty) {
@@ -560,11 +560,10 @@ class _ExportScreenState extends State<ExportScreen> {
   Future<void> _showSaveDialog() async {
     // データがない場合のチェック
     final shiftProvider = Provider.of<ShiftProvider>(context, listen: false);
-    final staffProvider = Provider.of<StaffProvider>(context, listen: false);
     final shifts = shiftProvider.getMonthlyShiftMap(_selectedMonth.year, _selectedMonth.month);
-    final staffWithShifts = _getStaffWithShifts(shifts, staffProvider);
-    
-    if (staffWithShifts.isEmpty) {
+    final staffIds = _getStaffIdsWithShifts(shifts);
+
+    if (staffIds.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('${DateFormat('yyyy年MM月').format(_selectedMonth)}のシフトデータがありません'),
@@ -681,11 +680,10 @@ class _ExportScreenState extends State<ExportScreen> {
   Future<void> _showShareDialog() async {
     // データがない場合のチェック
     final shiftProvider = Provider.of<ShiftProvider>(context, listen: false);
-    final staffProvider = Provider.of<StaffProvider>(context, listen: false);
     final shifts = shiftProvider.getMonthlyShiftMap(_selectedMonth.year, _selectedMonth.month);
-    final staffWithShifts = _getStaffWithShifts(shifts, staffProvider);
-    
-    if (staffWithShifts.isEmpty) {
+    final staffIds = _getStaffIdsWithShifts(shifts);
+
+    if (staffIds.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('${DateFormat('yyyy年MM月').format(_selectedMonth)}のシフトデータがありません'),
@@ -833,17 +831,17 @@ class _ExportScreenState extends State<ExportScreen> {
       sheet.appendRow(headers);
 
       // スタッフ行
-      final staffWithShifts = _getStaffWithShifts(shifts, staffProvider);
-      for (final staff in staffWithShifts) {
-        final staffData = staffProvider.getStaffById(staff.id);
+      final staffIds = _getStaffIdsWithShifts(shifts);
+      for (final staffId in staffIds) {
+        final staffData = staffProvider.getStaffById(staffId);
         final row = <excel.CellValue?>[
-          excel.TextCellValue(_getStaffDisplayName(staffData, staff.id))
+          excel.TextCellValue(_getStaffDisplayName(staffData, staffId))
         ];
 
         for (int day = 1; day <= daysInMonth; day++) {
           final date = DateTime(_selectedMonth.year, _selectedMonth.month, day);
           final dayShifts = shifts[date] ?? [];
-          final staffShifts = dayShifts.where((s) => s.staffId == staff.id).toList();
+          final staffShifts = dayShifts.where((s) => s.staffId == staffId).toList();
 
           String cellValue = '';
           if (staffShifts.isNotEmpty) {
@@ -947,12 +945,12 @@ class _ExportScreenState extends State<ExportScreen> {
       _selectedMonth.year,
       _selectedMonth.month,
     );
-    
-    // その月にシフトがあるスタッフを抽出
-    final staffWithShifts = _getStaffWithShifts(shifts, staffProvider);
-    
+
+    // その月にシフトがあるスタッフIDを抽出
+    final staffIds = _getStaffIdsWithShifts(shifts);
+
     // シフトがない場合のメッセージ表示
-    if (staffWithShifts.isEmpty) {
+    if (staffIds.isEmpty) {
       return Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -987,13 +985,13 @@ class _ExportScreenState extends State<ExportScreen> {
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
       child: SingleChildScrollView(
-        child: _buildCalendarTable(shifts, staffWithShifts),
+        child: _buildCalendarTable(shifts, staffIds, staffProvider),
       ),
     );
   }
 
-  // その月にシフトがあるスタッフを抽出（スタッフID順）
-  List<Staff> _getStaffWithShifts(Map<DateTime, List<Shift>> shifts, StaffProvider staffProvider) {
+  // その月にシフトがあるスタッフIDを抽出
+  List<String> _getStaffIdsWithShifts(Map<DateTime, List<Shift>> shifts) {
     final staffIds = <String>{};
 
     // その月の全シフトからスタッフIDを収集
@@ -1003,28 +1001,20 @@ class _ExportScreenState extends State<ExportScreen> {
       }
     }
 
-    // スタッフIDに該当するスタッフを取得（登録順＝ID順で並び替え）
-    final staffWithShifts = <Staff>[];
-    for (final staff in staffProvider.staffList) {
-      if (staffIds.contains(staff.id)) {
-        staffWithShifts.add(staff);
-      }
-    }
-
-    return staffWithShifts;
+    return staffIds.toList();
   }
 
-  /// スタッフ名を取得（削除済みスタッフの場合は匿名化表示）
+  /// スタッフ名を取得（削除済みスタッフの場合は「不明」表示）
   String _getStaffDisplayName(Staff? staff, String staffId) {
     if (staff == null) {
-      return '不明なスタッフ (ID: ${staffId.substring(0, 8)})';
+      return '不明';
     }
     return staff.name;
   }
 
-  Widget _buildCalendarTable(Map<DateTime, List<Shift>> shifts, List<Staff> staffWithShifts) {
+  Widget _buildCalendarTable(Map<DateTime, List<Shift>> shifts, List<String> staffIds, StaffProvider staffProvider) {
     final daysInMonth = DateTime(_selectedMonth.year, _selectedMonth.month + 1, 0).day;
-    
+
     return DataTable(
       columnSpacing: 8,
       headingRowHeight: 40,
@@ -1035,7 +1025,7 @@ class _ExportScreenState extends State<ExportScreen> {
         width: 1,
       ),
       columns: _buildDateColumns(daysInMonth),
-      rows: _buildStaffRows(daysInMonth, shifts, staffWithShifts),
+      rows: _buildStaffRows(daysInMonth, shifts, staffIds, staffProvider),
     );
   }
 
@@ -1093,17 +1083,16 @@ class _ExportScreenState extends State<ExportScreen> {
     return columns;
   }
 
-  List<DataRow> _buildStaffRows(int daysInMonth, Map<DateTime, List<Shift>> shifts, List<Staff> staffWithShifts) {
+  List<DataRow> _buildStaffRows(int daysInMonth, Map<DateTime, List<Shift>> shifts, List<String> staffIds, StaffProvider staffProvider) {
     final shiftTimeProvider = Provider.of<ShiftTimeProvider>(context, listen: false);
-    final staffProvider = Provider.of<StaffProvider>(context, listen: false);
     final rows = <DataRow>[];
 
-    for (final staff in staffWithShifts) {
-      final staffData = staffProvider.getStaffById(staff.id);
+    for (final staffId in staffIds) {
+      final staffData = staffProvider.getStaffById(staffId);
       final cells = <DataCell>[
         DataCell(
           Text(
-            _getStaffDisplayName(staffData, staff.id),
+            _getStaffDisplayName(staffData, staffId),
             style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
           ),
         ),
@@ -1112,7 +1101,7 @@ class _ExportScreenState extends State<ExportScreen> {
       for (int day = 1; day <= daysInMonth; day++) {
         final date = DateTime(_selectedMonth.year, _selectedMonth.month, day);
         final dayShifts = shifts[date] ?? [];
-        final staffShifts = dayShifts.where((s) => s.staffId == staff.id).toList();
+        final staffShifts = dayShifts.where((s) => s.staffId == staffId).toList();
 
         Widget cellContent;
         if (staffShifts.isNotEmpty) {
@@ -1223,10 +1212,10 @@ class _ExportScreenState extends State<ExportScreen> {
       _selectedMonth.year,
       _selectedMonth.month,
     );
-    
-    // その月にシフトがあるスタッフを抽出
-    final staffWithShifts = _getStaffWithShifts(shifts, staffProvider);
-    
+
+    // その月にシフトがあるスタッフIDを抽出
+    final staffIds = _getStaffIdsWithShifts(shifts);
+
     // スクリーンショット用に全体が表示されるように作成
     return Container(
       padding: const EdgeInsets.all(16),
@@ -1248,7 +1237,7 @@ class _ExportScreenState extends State<ExportScreen> {
           // カレンダーテーブル（固定幅で全体表示）
           Container(
             constraints: const BoxConstraints(minWidth: 800, maxWidth: 1200),
-            child: _buildCalendarTable(shifts, staffWithShifts),
+            child: _buildCalendarTable(shifts, staffIds, staffProvider),
           ),
         ],
       ),

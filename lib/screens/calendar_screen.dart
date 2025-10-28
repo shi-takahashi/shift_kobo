@@ -963,10 +963,10 @@ class _CalendarScreenState extends State<CalendarScreen> {
     );
   }
 
-  /// スタッフ名を取得（削除済みスタッフの場合は匿名化表示）
+  /// スタッフ名を取得（削除済みスタッフの場合はIDを含めて表示）
   String _getStaffDisplayName(Staff? staff, String staffId) {
     if (staff == null) {
-      return '不明なスタッフ (ID: ${staffId.substring(0, 8)})';
+      return '不明 (ID:${staffId.substring(0, 8)})';
     }
     return staff.name;
   }
@@ -1026,7 +1026,7 @@ class _ShiftTile extends StatelessWidget {
               ),
             ),
             title: Text(
-              staff != null ? staff.name : '不明なスタッフ (ID: ${shift.staffId.substring(0, 8)})',
+              staff != null ? staff.name : '不明 (ID:${shift.staffId.substring(0, 8)})',
               style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 15),
             ),
             subtitle: Row(
