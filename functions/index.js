@@ -21,7 +21,7 @@ exports.appRedirect = onRequest(
       } else {
         // iOS/その他 → Webアプリ
         console.log("🍎 iOS/その他 User-Agent検出 → Webアプリ");
-        res.redirect(301, "https://shift-kobo-online-prod.web.app");
+        res.redirect(301, "https://shift-kobo-online-prod.web.app/web/");
       }
     },
 );

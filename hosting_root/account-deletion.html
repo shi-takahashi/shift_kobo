@@ -1,0 +1,405 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>アカウント削除 - シフト工房</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Hiragino Kaku Gothic ProN', 'Hiragino Sans', Meiryo, sans-serif;
+            line-height: 1.8;
+            color: #333;
+            background-color: #f8f9fa;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: white;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+
+        header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 40px 0;
+            text-align: center;
+            margin-bottom: 40px;
+            border-radius: 8px;
+        }
+
+        h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            font-weight: 300;
+        }
+
+        .subtitle {
+            font-size: 1.1em;
+            opacity: 0.9;
+        }
+
+        .section {
+            margin-bottom: 40px;
+        }
+
+        .section h2 {
+            color: #667eea;
+            font-size: 1.6em;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #667eea;
+        }
+
+        .section h3 {
+            color: #555;
+            font-size: 1.3em;
+            margin-bottom: 16px;
+            margin-top: 24px;
+        }
+
+        .section p {
+            margin-bottom: 16px;
+        }
+
+        .section ul {
+            margin-left: 20px;
+            margin-bottom: 16px;
+        }
+
+        .section li {
+            margin-bottom: 12px;
+        }
+
+        .section ol {
+            margin-left: 20px;
+            margin-bottom: 16px;
+        }
+
+        .section ol li {
+            margin-bottom: 12px;
+        }
+
+        .warning {
+            background-color: #fff3e0;
+            padding: 20px;
+            border-left: 4px solid #ff9800;
+            margin: 20px 0;
+            border-radius: 4px;
+        }
+
+        .warning strong {
+            color: #e65100;
+        }
+
+        .info {
+            background-color: #e3f2fd;
+            padding: 20px;
+            border-left: 4px solid #2196f3;
+            margin: 20px 0;
+            border-radius: 4px;
+        }
+
+        .method-card {
+            background-color: #f5f5f5;
+            padding: 24px;
+            border-radius: 8px;
+            margin: 24px 0;
+            border: 1px solid #e0e0e0;
+        }
+
+        .method-card h3 {
+            color: #667eea;
+            margin-top: 0;
+        }
+
+        .button {
+            display: inline-block;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 14px 28px;
+            border-radius: 6px;
+            text-decoration: none;
+            margin: 16px 8px 16px 0;
+            font-weight: bold;
+            transition: transform 0.2s, box-shadow 0.2s;
+            box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
+        }
+
+        .button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+            text-decoration: none;
+        }
+
+        .button-secondary {
+            background: #666;
+        }
+
+        .contact-info {
+            background-color: #f5f5f5;
+            padding: 24px;
+            border-radius: 8px;
+            margin: 32px 0;
+        }
+
+        .contact-info h3 {
+            color: #333;
+            margin-bottom: 16px;
+        }
+
+        .contact-info p {
+            margin-bottom: 8px;
+        }
+
+        .contact-info a {
+            color: #667eea;
+            text-decoration: none;
+            font-weight: bold;
+        }
+
+        .contact-info a:hover {
+            text-decoration: underline;
+        }
+
+        footer {
+            text-align: center;
+            padding: 40px 20px;
+            color: #666;
+            border-top: 1px solid #eee;
+            margin-top: 40px;
+        }
+
+        footer a {
+            color: #667eea;
+            text-decoration: none;
+        }
+
+        footer a:hover {
+            text-decoration: underline;
+        }
+
+        .step {
+            background-color: #fff;
+            padding: 16px;
+            margin: 12px 0;
+            border-left: 4px solid #667eea;
+            border-radius: 4px;
+        }
+
+        .step strong {
+            color: #667eea;
+            font-size: 1.1em;
+        }
+
+        @media (max-width: 600px) {
+            .container {
+                padding: 10px;
+            }
+
+            header {
+                padding: 30px 20px;
+                margin-bottom: 30px;
+            }
+
+            h1 {
+                font-size: 2em;
+            }
+
+            .section {
+                margin-bottom: 30px;
+            }
+
+            .button {
+                display: block;
+                text-align: center;
+                margin: 12px 0;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🗑️ アカウント削除</h1>
+            <div class="subtitle">シフト工房のアカウントを削除する方法</div>
+        </header>
+
+        <div class="warning">
+            <strong>⚠️ 重要な注意事項</strong>
+            <p>アカウントを削除すると、以下のデータが<strong>完全に削除</strong>されます。削除後の復元は<strong>できません</strong>。</p>
+            <ul>
+                <li>アカウント情報（メールアドレス、パスワード等）</li>
+                <li>ユーザー設定データ</li>
+                <li>申請した休み希望データ</li>
+                <li>スタッフ情報との紐付け</li>
+                <li><strong>管理者の場合</strong>: チーム全体のデータ（すべてのスタッフ、シフト、設定）が削除される場合があります</li>
+            </ul>
+        </div>
+
+        <div class="section">
+            <h2>アカウント削除の方法</h2>
+            <p>シフト工房では、以下の3つの方法でアカウントを削除できます：</p>
+        </div>
+
+        <div class="method-card">
+            <h3>方法1️⃣：Androidアプリから削除（推奨）</h3>
+            <p>最も簡単で迅速な方法です。アプリ内から数ステップで削除できます。</p>
+
+            <div class="step">
+                <strong>ステップ1:</strong> アプリを起動し、下部のタブから「その他」をタップ
+            </div>
+            <div class="step">
+                <strong>ステップ2:</strong> 画面を下にスクロールして「アカウント削除」ボタンをタップ
+            </div>
+            <div class="step">
+                <strong>ステップ3:</strong> 確認ダイアログが表示されるので、内容をよく読んで「削除」をタップ
+            </div>
+            <div class="step">
+                <strong>ステップ4:</strong> セキュリティのため、パスワードを再入力
+            </div>
+            <div class="step">
+                <strong>ステップ5:</strong> アカウントが即座に削除されます
+            </div>
+
+            <div class="info">
+                <strong>💡 ヒント:</strong> 削除前に、重要なデータ（シフト表など）をPNGやExcel形式で保存しておくことをおすすめします。
+            </div>
+        </div>
+
+        <div class="method-card">
+            <h3>方法2️⃣：Web版アプリから削除</h3>
+            <p>iOSユーザーや、アプリをアンインストールした方はこちらの方法をご利用ください。</p>
+
+            <div class="step">
+                <strong>ステップ1:</strong> 下のボタンからWeb版アプリにアクセス
+            </div>
+            <div class="step">
+                <strong>ステップ2:</strong> アカウントにログイン
+            </div>
+            <div class="step">
+                <strong>ステップ3:</strong> 「その他」タブ > 「アカウント削除」をクリック
+            </div>
+            <div class="step">
+                <strong>ステップ4:</strong> 画面の指示に従って削除を完了
+            </div>
+
+            <a href="https://shift-kobo-online-prod.web.app" class="button" target="_blank">
+                🌐 Web版アプリを開く
+            </a>
+        </div>
+
+        <div class="method-card">
+            <h3>方法3️⃣：メールでリクエスト</h3>
+            <p>アプリにログインできない場合や、サポートが必要な場合はメールでご連絡ください。</p>
+
+            <p><strong>送信先:</strong> <a href="mailto:takapps.dev@gmail.com">takapps.dev@gmail.com</a></p>
+
+            <p><strong>メール本文に記載する内容:</strong></p>
+            <ul>
+                <li>件名: 「アカウント削除リクエスト」</li>
+                <li>登録メールアドレス</li>
+                <li>削除理由（任意）</li>
+            </ul>
+
+            <div class="info">
+                <strong>📧 処理期間:</strong> メールでのリクエストは、可能な限り速やかに対応いたします。削除完了後、確認メールをお送りします。
+            </div>
+
+            <a href="mailto:takapps.dev@gmail.com?subject=アカウント削除リクエスト&body=登録メールアドレス:%0D%0A%0D%0A削除理由（任意）: " class="button">
+                📧 メールを送信
+            </a>
+        </div>
+
+        <div class="section">
+            <h2>削除されるデータの詳細</h2>
+
+            <h3>スタッフがアカウント削除する場合</h3>
+            <ul>
+                <li>✅ アカウント情報（メールアドレス、パスワード等）</li>
+                <li>✅ ユーザー設定データ</li>
+                <li>✅ 申請した休み希望データ</li>
+                <li>✅ スタッフ情報との紐付け</li>
+                <li>❌ チーム共有データ（他のメンバーが作成したデータは削除されません）</li>
+            </ul>
+
+            <h3>管理者がアカウント削除する場合</h3>
+
+            <p><strong>唯一の管理者の場合:</strong></p>
+            <ul>
+                <li>✅ チーム全体のデータ（すべてのスタッフ、シフト、設定）</li>
+                <li>✅ チームメンバー全員のアカウント</li>
+                <li>✅ チームに関連するすべてのデータ</li>
+            </ul>
+
+            <p><strong>複数管理者がいる場合:</strong></p>
+            <ul>
+                <li>✅ 自分のアカウント情報</li>
+                <li>✅ 自分のユーザー設定データ</li>
+                <li>✅ スタッフ情報との紐付け</li>
+                <li>❌ チーム全体のデータ（他の管理者が引き継ぎます）</li>
+            </ul>
+
+            <div class="warning">
+                <strong>⚠️ 管理者の方へ:</strong> 唯一の管理者の場合、アカウント削除でチーム全体が削除されます。削除前に<strong>他のメンバーを管理者に昇格</strong>することを強く推奨します。
+            </div>
+        </div>
+
+        <div class="section">
+            <h2>よくある質問</h2>
+
+            <h3>Q. 削除したアカウントは復元できますか？</h3>
+            <p>A. <strong>いいえ、復元できません。</strong>削除は即座に実行され、すべてのデータが完全に削除されます。</p>
+
+            <h3>Q. 過去のシフトデータはどうなりますか？</h3>
+            <p>A. 削除されたスタッフのシフトは「不明なスタッフ」として匿名化表示されます（管理者が削除した場合を除く）。</p>
+
+            <h3>Q. 削除にどれくらい時間がかかりますか？</h3>
+            <p>A. アプリ/Web版からの削除は<strong>即座</strong>に実行されます。メールでのリクエストは、可能な限り速やかに対応いたします。</p>
+
+            <h3>Q. 削除後に同じメールアドレスで再登録できますか？</h3>
+            <p>A. はい、削除後は同じメールアドレスで新しいアカウントを作成できます。ただし、削除されたデータは復元されません。</p>
+        </div>
+
+        <div class="contact-info">
+            <h3>📞 サポート・お問い合わせ</h3>
+            <p>アカウント削除に関するご質問やサポートが必要な場合は、お気軽にご連絡ください：</p>
+            <p><strong>Email:</strong> <a href="mailto:takapps.dev@gmail.com">takapps.dev@gmail.com</a></p>
+        </div>
+
+        <footer>
+            <p><strong>📱 シフト工房について</strong></p>
+            <p>シフト工房は、スタッフの勤務スケジュールを効率的に管理するための無料アプリです。</p>
+            <p style="margin-top: 20px;">
+                <a href="privacy-policy.html">プライバシーポリシー</a> |
+                <a href="https://shift-kobo-online-prod.web.app" target="_blank">Web版アプリ</a>
+            </p>
+            <p style="margin-top: 20px; font-size: 0.9em; color: #888;">
+                © 2025 Shift Kobo / シフト工房
+            </p>
+        </footer>
+    </div>
+
+    <script>
+        // スムーズスクロール
+        document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+            anchor.addEventListener('click', function (e) {
+                e.preventDefault();
+                const target = document.querySelector(this.getAttribute('href'));
+                if (target) {
+                    target.scrollIntoView({
+                        behavior: 'smooth'
+                    });
+                }
+            });
+        });
+    </script>
+</body>
+</html>

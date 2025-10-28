@@ -7,6 +7,22 @@
 
 ---
 
+## 🌐 URL構成
+
+本番環境のURL構成：
+
+- **/** → ランディングページ（アプリ紹介）
+- **/web/** → Webアプリ本体
+- **/app** → Cloud Function（振り分け）
+  - Android → Google Play Store
+  - iOS/その他 → /web/ へリダイレクト
+- **/privacy-policy.html** → プライバシーポリシー
+- **/account-deletion.html** → アカウント削除方法
+
+**ストアの掲載情報**: `https://shift-kobo-online-prod.web.app` を登録
+
+---
+
 ## 🚀 デプロイ手順
 
 ### 開発環境（テスト用）にデプロイ
@@ -15,7 +31,11 @@
 # 1. Web版をビルド（開発環境用、Service Worker無効）
 flutter build web --release --pwa-strategy=none
 
-# 2. 開発環境にデプロイ
+# 2. hosting_rootにコピー
+rm -rf hosting_root/web
+cp -r build/web hosting_root/web
+
+# 3. 開発環境にデプロイ
 firebase deploy --only hosting
 ```
 
@@ -32,24 +52,63 @@ firebase deploy --only hosting
 # 1. 本番環境に切り替え
 firebase use shift-kobo-online-prod
 
-# 2. Web版をビルド（本番環境用、Service Worker無効）
-flutter build web --release --dart-define=FIREBASE_ENV=prod --pwa-strategy=none
+# 2. Web版をビルド（本番環境用、Service Worker無効、base-href指定）
+flutter build web --release --dart-define=FIREBASE_ENV=prod --pwa-strategy=none --base-href /web/
 
-# 3. 本番環境にデプロイ
+# 3. hosting_rootにコピー
+rm -rf hosting_root/web
+cp -r build/web hosting_root/web
+
+# 4. 本番環境にデプロイ
 firebase deploy --only hosting
 
-# 4. 開発環境に戻す（重要！）
+# 5. 開発環境に戻す（重要！）
 firebase use shift-kobo-online
 ```
 
 デプロイ完了後、以下のURLにアクセス:
-- https://shift-kobo-online-prod.web.app
+- https://shift-kobo-online-prod.web.app (ランディングページ)
+- https://shift-kobo-online-prod.web.app/web/ (Webアプリ)
 
 **接続先**: 本番環境のFirebaseプロジェクト（shift-kobo-online-prod）
 
 **⚠️ 重要**:
 - 本番環境ビルドでは `--dart-define=FIREBASE_ENV=prod` を必ず指定してください
+- 本番環境ビルドでは `--base-href /web/` を必ず指定してください
 - 本番環境へのデプロイ後は、必ず開発環境に戻してください
+
+---
+
+## 📂 hosting_root構成
+
+```
+hosting_root/
+├── index.html                  # ランディングページ
+├── privacy-policy.html         # プライバシーポリシー
+├── account-deletion.html       # アカウント削除方法
+└── web/                        # Webアプリ本体
+    ├── index.html
+    ├── main.dart.js
+    ├── flutter.js
+    └── ...
+```
+
+**注意**: `hosting_root/`は手動管理です。ビルド後に`build/web`を`hosting_root/web/`にコピーする必要があります。
+
+---
+
+## 🔄 静的ページの更新
+
+プライバシーポリシーやアカウント削除方法を更新する場合：
+
+```bash
+# docsディレクトリのファイルを編集後、hosting_rootにコピー
+cp docs/privacy-policy.html hosting_root/privacy-policy.html
+cp docs/account-deletion.html hosting_root/account-deletion.html
+
+# デプロイ
+firebase deploy --only hosting
+```
 
 ---
 
@@ -91,7 +150,7 @@ firebase projects:list
 ```bash
 flutter clean
 flutter pub get
-flutter build web --release
+flutter build web --release --dart-define=FIREBASE_ENV=prod --base-href /web/
 ```
 
 ### デプロイに失敗する場合
@@ -104,6 +163,12 @@ firebase login
 # 再度デプロイ
 firebase deploy --only hosting
 ```
+
+### Webアプリが表示されない場合
+
+1. ブラウザのキャッシュをクリア（Cmd+Shift+R または Ctrl+Shift+R）
+2. シークレットモードで確認
+3. `--base-href /web/` を指定してビルドし直す
 
 ### どの環境にデプロイしたか忘れた場合
 
@@ -127,8 +192,8 @@ firebase hosting:channel:list
 
 | 操作 | コマンド |
 |------|----------|
-| 開発環境にデプロイ | `flutter build web --release --pwa-strategy=none && firebase deploy --only hosting` |
-| 本番環境にデプロイ | `firebase use shift-kobo-online-prod && flutter build web --release --dart-define=FIREBASE_ENV=prod --pwa-strategy=none && firebase deploy --only hosting && firebase use shift-kobo-online` |
+| 開発環境にデプロイ | `flutter build web --release --pwa-strategy=none && rm -rf hosting_root/web && cp -r build/web hosting_root/web && firebase deploy --only hosting` |
+| 本番環境にデプロイ | `firebase use shift-kobo-online-prod && flutter build web --release --dart-define=FIREBASE_ENV=prod --pwa-strategy=none --base-href /web/ && rm -rf hosting_root/web && cp -r build/web hosting_root/web && firebase deploy --only hosting && firebase use shift-kobo-online` |
 | 現在の環境確認 | `firebase use` |
 | 開発環境に切り替え | `firebase use shift-kobo-online` |
 | 本番環境に切り替え | `firebase use shift-kobo-online-prod` |
@@ -141,9 +206,10 @@ firebase hosting:channel:list
 |------|----------|----------|
 | Firebase Project | shift-kobo-online | shift-kobo-online-prod |
 | Hosting URL | https://shift-kobo-online.web.app | https://shift-kobo-online-prod.web.app |
-| ビルドコマンド | `flutter build web --release --pwa-strategy=none` | `flutter build web --release --dart-define=FIREBASE_ENV=prod --pwa-strategy=none` |
+| ビルドコマンド | `flutter build web --release --pwa-strategy=none` | `flutter build web --release --dart-define=FIREBASE_ENV=prod --pwa-strategy=none --base-href /web/` |
 | 用途 | テスト・開発 | 本番リリース |
 | データ | テストデータ | 本番データ |
+| URL構成 | / → Webアプリ | / → ランディングページ<br>/web/ → Webアプリ |
 
 ---
 

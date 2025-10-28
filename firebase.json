@@ -3,7 +3,7 @@
     "source": "functions"
   },
   "hosting": {
-    "public": "build/web",
+    "public": "hosting_root",
     "ignore": [
       "firebase.json",
       "**/.*",
@@ -18,8 +18,8 @@
         }
       },
       {
-        "source": "**",
-        "destination": "/index.html"
+        "source": "/web/**",
+        "destination": "/web/index.html"
       }
     ],
     "headers": [

@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="シフト工房 - スタッフのシフト管理を簡単に。自動作成、休み希望管理、シフト表出力まで。">
+  <title>シフト工房 - シフト管理アプリ</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      line-height: 1.6;
+      color: #333;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+
+    .container {
+      max-width: 600px;
+      background: white;
+      border-radius: 20px;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+      padding: 50px 40px;
+      text-align: center;
+    }
+
+    h1 {
+      font-size: 2.5em;
+      color: #667eea;
+      margin-bottom: 10px;
+    }
+
+    .tagline {
+      font-size: 1.2em;
+      color: #666;
+      margin-bottom: 30px;
+    }
+
+    .description {
+      text-align: left;
+      margin: 30px 0;
+      padding: 20px;
+      background: #f8f9fa;
+      border-radius: 10px;
+    }
+
+    .description h2 {
+      font-size: 1.3em;
+      color: #667eea;
+      margin-bottom: 15px;
+    }
+
+    .features {
+      list-style: none;
+      padding: 0;
+    }
+
+    .features li {
+      padding: 8px 0;
+      border-bottom: 1px solid #e0e0e0;
+      text-align: left;
+    }
+
+    .features li:last-child {
+      border-bottom: none;
+    }
+
+    .features li:before {
+      content: "✓ ";
+      color: #667eea;
+      font-weight: bold;
+      margin-right: 10px;
+    }
+
+    .buttons {
+      margin-top: 30px;
+    }
+
+    .btn {
+      display: inline-block;
+      padding: 15px 40px;
+      margin: 10px;
+      border-radius: 50px;
+      text-decoration: none;
+      font-weight: bold;
+      font-size: 1.1em;
+      transition: all 0.3s;
+    }
+
+    .btn-primary {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+    }
+
+    .btn-primary:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 20px rgba(102, 126, 234, 0.6);
+    }
+
+    .btn-secondary {
+      background: white;
+      color: #667eea;
+      border: 2px solid #667eea;
+    }
+
+    .btn-secondary:hover {
+      background: #f0f0f0;
+      transform: translateY(-2px);
+    }
+
+    .links {
+      margin-top: 30px;
+      padding-top: 20px;
+      border-top: 1px solid #e0e0e0;
+    }
+
+    .links a {
+      color: #667eea;
+      text-decoration: none;
+      margin: 0 15px;
+      font-size: 0.9em;
+    }
+
+    .links a:hover {
+      text-decoration: underline;
+    }
+
+    @media (max-width: 600px) {
+      .container {
+        padding: 30px 20px;
+      }
+
+      h1 {
+        font-size: 2em;
+      }
+
+      .btn {
+        display: block;
+        margin: 10px 0;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>シフト工房</h1>
+    <p class="tagline">スタッフのシフト管理を簡単に</p>
+
+    <div class="description">
+      <h2>主な機能</h2>
+      <ul class="features">
+        <li>シフトの自動作成</li>
+        <li>休み希望の管理・承認</li>
+        <li>スタッフの勤務条件設定</li>
+        <li>シフト表の出力・共有</li>
+        <li>チームでの共同管理</li>
+      </ul>
+    </div>
+
+    <div class="buttons">
+      <a href="/app" class="btn btn-primary" id="downloadBtn">アプリをダウンロード</a>
+      <a href="/web/" class="btn btn-secondary">Webアプリを使う</a>
+    </div>
+
+    <div class="links">
+      <a href="/privacy-policy.html">プライバシーポリシー</a>
+      <a href="/account-deletion.html">アカウント削除方法</a>
+    </div>
+  </div>
+
+  <script>
+    // User-Agentでプラットフォームを判定してボタンテキストを変更
+    const userAgent = navigator.userAgent.toLowerCase();
+    const downloadBtn = document.getElementById('downloadBtn');
+
+    if (userAgent.includes('android')) {
+      downloadBtn.textContent = 'Google Playからダウンロード';
+    } else if (userAgent.includes('iphone') || userAgent.includes('ipad')) {
+      downloadBtn.textContent = 'Webアプリを使う（iOS）';
+      downloadBtn.href = '/web/';
+    }
+  </script>
+</body>
+</html>
