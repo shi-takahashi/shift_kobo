@@ -184,7 +184,7 @@ class BackupService {
   }
 
   /// バックアップファイルを選択
-  static Future<String?> selectBackupFile() async {
+  static Future<String?> pickBackupFile() async {
     try {
       final result = await FilePicker.platform.pickFiles(
         type: FileType.custom,
