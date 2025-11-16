@@ -1,11 +1,21 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
-import 'login_screen.dart';
+import '../../services/auth_service.dart';
+import '../home_screen.dart';
 import 'signup_screen.dart';
+import 'role_selection_screen.dart';
 
 /// オンライン版からの新規ユーザー向けウェルカム画面
-class WelcomeScreen extends StatelessWidget {
+class WelcomeScreen extends StatefulWidget {
   const WelcomeScreen({super.key});
+
+  @override
+  State<WelcomeScreen> createState() => _WelcomeScreenState();
+}
+
+class _WelcomeScreenState extends State<WelcomeScreen> {
+  bool _isLoading = false;
 
   @override
   Widget build(BuildContext context) {
@@ -45,131 +55,124 @@ class WelcomeScreen extends StatelessWidget {
               ),
               const SizedBox(height: 32),
 
-              // 1人でも十分価値がある
+              // 主な機能
               Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: Colors.green.shade50,
+                  color: Colors.blue.shade50,
                   borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: Colors.green.shade200),
+                  border: Border.all(color: Colors.blue.shade200),
                 ),
-                child: Column(
+                child: const Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Row(
                       children: [
-                        Icon(Icons.check_circle, color: Colors.green.shade700, size: 24),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: Text(
-                            '管理者1人でも使えます',
-                            style: TextStyle(
-                              fontWeight: FontWeight.bold,
-                              fontSize: 16,
-                              color: Colors.green.shade900,
-                            ),
+                        Icon(Icons.star, color: Colors.blue, size: 24),
+                        SizedBox(width: 8),
+                        Text(
+                          '主な機能',
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 16,
+                            color: Colors.blue,
                           ),
                         ),
                       ],
                     ),
-                    const SizedBox(height: 12),
-                    const _FeatureItem(
+                    SizedBox(height: 12),
+                    _FeatureItem(
                       icon: Icons.auto_awesome,
                       text: '自動シフト作成',
-                      description: 'スタッフの制約を考慮して最適なシフトを自動生成',
-                      color: Colors.green,
+                      description: 'スタッフの希望を考慮して最適なシフトを自動生成',
+                      color: Colors.blue,
                     ),
-                    const SizedBox(height: 8),
-                    const _FeatureItem(
+                    SizedBox(height: 8),
+                    _FeatureItem(
                       icon: Icons.table_chart,
-                      text: 'シフト表を簡単に作成・共有',
-                      description: 'PNG・Excel形式で出力して配布できます',
-                      color: Colors.green,
+                      text: 'シフト表の出力',
+                      description: 'PNG・Excel形式で簡単に出力できます',
+                      color: Colors.blue,
+                    ),
+                    SizedBox(height: 8),
+                    _FeatureItem(
+                      icon: Icons.sync,
+                      text: 'チームで共有（オプション）',
+                      description: 'メンバーとリアルタイムで最新のシフトを共有',
+                      color: Colors.blue,
                     ),
                   ],
                 ),
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: 32),
 
-              // プラスアルファの機能
-              Card(
-                color: Colors.blue.shade50,
-                child: const Padding(
-                  padding: EdgeInsets.all(16),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Icon(Icons.add_circle, color: Colors.blue, size: 24),
-                          SizedBox(width: 8),
-                          Expanded(
-                            child: Text(
-                              'スタッフを招待するともっと便利',
-                              style: TextStyle(
-                                fontWeight: FontWeight.bold,
-                                fontSize: 16,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                      SizedBox(height: 12),
-                      _FeatureItem(
-                        icon: Icons.sync,
-                        text: 'リアルタイムでシフト共有',
-                        description: 'スタッフ全員が最新のシフトを確認',
-                        color: Colors.blue,
-                      ),
-                      SizedBox(height: 8),
-                      _FeatureItem(
-                        icon: Icons.calendar_today,
-                        text: '休み希望の入力・承認',
-                        description: 'スタッフが直接希望を入力できます',
-                        color: Colors.blue,
-                      ),
-                    ],
-                  ),
+              // メインボタン: とりあえず試してみる（匿名ログイン）
+              FilledButton.icon(
+                onPressed: _isLoading ? null : _tryAnonymously,
+                icon: const Icon(Icons.play_arrow),
+                label: const Text('とりあえず試してみる'),
+                style: FilledButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 16),
                 ),
               ),
-              const SizedBox(height: 48),
+              const SizedBox(height: 8),
 
-              // アカウント作成ボタン
-              FilledButton.icon(
-                onPressed: () {
+              // 注意書き
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 8),
+                child: Text(
+                  '※ すぐに使い始められます',
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: Colors.grey[600],
+                      ),
+                  textAlign: TextAlign.center,
+                ),
+              ),
+              const SizedBox(height: 24),
+
+              // サブボタン: アカウント作成（データ引き継ぎ目的）
+              OutlinedButton.icon(
+                onPressed: _isLoading ? null : () {
                   Navigator.of(context).pushReplacement(
                     MaterialPageRoute(
                       builder: (_) => const SignupScreen(),
                     ),
                   );
                 },
-                icon: const Icon(Icons.arrow_forward),
-                label: const Text('アカウント作成して始める'),
-                style: FilledButton.styleFrom(
+                icon: const Icon(Icons.app_registration),
+                label: const Text('アカウント登録'),
+                style: OutlinedButton.styleFrom(
                   padding: const EdgeInsets.symmetric(vertical: 16),
                 ),
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: 8),
 
-              // ログインリンク
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Text(
-                    '既にアカウントをお持ちの方は',
-                    style: Theme.of(context).textTheme.bodySmall,
-                  ),
-                  TextButton(
-                    onPressed: () {
-                      Navigator.of(context).push(
-                        MaterialPageRoute(
-                          builder: (_) => const LoginScreen(),
-                        ),
-                      );
-                    },
-                    child: const Text('ログイン'),
-                  ),
-                ],
+              // アカウント登録の説明
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 8),
+                child: Text(
+                  '機種変更してもデータを引き継ぎたい方',
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: Colors.grey[600],
+                      ),
+                  textAlign: TextAlign.center,
+                ),
+              ),
+              const SizedBox(height: 24),
+
+              // 戻るリンク
+              Center(
+                child: TextButton.icon(
+                  onPressed: _isLoading ? null : () {
+                    Navigator.of(context).pushReplacement(
+                      MaterialPageRoute(
+                        builder: (_) => const RoleSelectionScreen(),
+                      ),
+                    );
+                  },
+                  icon: const Icon(Icons.arrow_back, size: 18),
+                  label: const Text('最初の画面に戻る'),
+                ),
               ),
               const SizedBox(height: 32),
             ],
@@ -177,6 +180,84 @@ class WelcomeScreen extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  /// 匿名ログインを実行
+  Future<void> _tryAnonymously() async {
+    setState(() => _isLoading = true);
+
+    try {
+      final authService = context.read<AuthService>();
+      final user = await authService.signInAnonymously();
+
+      if (user == null) {
+        throw Exception('匿名ログインに失敗しました');
+      }
+
+      // ユーザー情報を取得
+      final appUser = await authService.getUser(user.uid);
+      if (appUser == null) {
+        throw Exception('ユーザー情報の取得に失敗しました');
+      }
+
+      // HomeScreenに直接遷移（全ての画面をクリア）
+      if (mounted) {
+        Navigator.of(context).pushAndRemoveUntil(
+          MaterialPageRoute(
+            builder: (context) => HomeScreen(appUser: appUser),
+          ),
+          (route) => false,
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        // エラーの詳細をダイアログで表示
+        showDialog(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Text('エラー'),
+            content: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    '匿名ログインに失敗しました。',
+                    style: TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 16),
+                  const Text('考えられる原因:'),
+                  const SizedBox(height: 8),
+                  const Text('• Firebase Consoleで匿名認証が無効になっている'),
+                  const Text('• ネットワーク接続エラー'),
+                  const SizedBox(height: 16),
+                  const Text('エラー詳細:'),
+                  const SizedBox(height: 4),
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: Colors.grey[200],
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: Text(
+                      e.toString(),
+                      style: const TextStyle(fontSize: 12, fontFamily: 'monospace'),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('閉じる'),
+              ),
+            ],
+          ),
+        );
+        setState(() => _isLoading = false);
+      }
+    }
   }
 }
 

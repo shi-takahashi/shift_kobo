@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../models/app_user.dart';
 import '../../services/auth_service.dart';
 import '../team/join_team_screen.dart';
 import '../team/team_creation_screen.dart';
@@ -56,6 +57,29 @@ class _SignupScreenState extends State<SignupScreen> {
 
       if (user == null) {
         throw '新規登録に失敗しました';
+      }
+
+      // 認証トークンが完全に反映され、Firestoreにアクセスできることを確認
+      // リトライ付きでユーザー情報取得を試みる（最大5回、500msごと）
+      AppUser? appUser;
+      for (var i = 0; i < 5; i++) {
+        try {
+          appUser = await _authService.getUser(user.uid);
+          if (appUser != null) {
+            print('✅ [Signup] Firestoreアクセス確認成功（${i + 1}回目）');
+            break;
+          }
+        } catch (e) {
+          print('⚠️ [Signup] Firestoreアクセス確認失敗（${i + 1}回目）: $e');
+        }
+
+        if (i < 4) {
+          await Future.delayed(const Duration(milliseconds: 500));
+        }
+      }
+
+      if (appUser == null) {
+        throw 'アカウントは作成されましたが、データの初期化に失敗しました。アプリを再起動してください。';
       }
 
       if (!mounted) return;
@@ -277,7 +301,7 @@ class _SignupScreenState extends State<SignupScreen> {
                         SizedBox(height: 8),
                         Text('1. アカウント作成'),
                         Text('2. チーム作成 または チーム参加'),
-                        Text('3. シフト管理を開始'),
+                        Text('3. シフト管理 または 共有を開始'),
                         SizedBox(height: 8),
                         Text(
                           '※ チームは1人から作成・利用できます\n   後からスタッフを招待することも可能',

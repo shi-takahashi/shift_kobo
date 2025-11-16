@@ -48,8 +48,8 @@ class AuthService {
       final token = await user.getIdToken(true); // 強制リフレッシュ
       print('✅ [SignUp] 認証トークン取得成功: ${token?.substring(0, 20)}...');
 
-      // トークンが有効になるまで少し待機（安全のため）
-      await Future.delayed(const Duration(milliseconds: 200));
+      // トークンが有効になるまで待機（Firestore Security Rulesでのアクセス許可に必要）
+      await Future.delayed(const Duration(milliseconds: 500));
 
       // Firestoreにユーザー情報を保存（初期はチーム未所属）
       final appUser = AppUser(
@@ -119,6 +119,18 @@ class AuthService {
     } catch (e) {
       throw '❌ ユーザー情報の取得に失敗しました: $e';
     }
+  }
+
+  /// ユーザー情報をリアルタイムで監視
+  Stream<AppUser?> getUserStream(String uid) {
+    return _firestore
+        .collection('users')
+        .doc(uid)
+        .snapshots()
+        .map((doc) {
+      if (!doc.exists) return null;
+      return AppUser.fromFirestore(doc);
+    });
   }
 
   /// 8文字のランダム招待コード生成（重複チェック付き）
@@ -308,6 +320,39 @@ class AuthService {
         'role': 'member', // スタッフとして参加
         'updatedAt': FieldValue.serverTimestamp(),
       }, SetOptions(merge: true));
+
+      // 認証トークンを強制更新し、Firestoreにアクセスできることを確認
+      final currentUser = _auth.currentUser;
+      if (currentUser != null) {
+        await currentUser.reload();
+        await currentUser.getIdToken(true); // 強制リフレッシュ
+        print('✅ [joinTeamByCode] 認証トークン更新完了');
+
+        // teamIdが反映されたか確認（リトライ付き、最大5回）
+        bool tokenReflected = false;
+        for (var i = 0; i < 5; i++) {
+          try {
+            // usersドキュメントを読み取ってteamIdが反映されているか確認
+            final userDoc = await _firestore.collection('users').doc(userId).get();
+            final userTeamId = userDoc.data()?['teamId'];
+            if (userTeamId == teamId) {
+              print('✅ [joinTeamByCode] teamId反映確認成功（${i + 1}回目）');
+              tokenReflected = true;
+              break;
+            }
+          } catch (e) {
+            print('⚠️ [joinTeamByCode] teamId反映確認失敗（${i + 1}回目）: $e');
+          }
+
+          if (i < 4) {
+            await Future.delayed(const Duration(milliseconds: 500));
+          }
+        }
+
+        if (!tokenReflected) {
+          print('⚠️ [joinTeamByCode] teamIdの反映確認に失敗しましたが、処理を続行します');
+        }
+      }
 
       // 3. teamsコレクションのmemberIdsに追加
       await _firestore.collection('teams').doc(teamId).update({
@@ -601,6 +646,154 @@ class AuthService {
     }
     await batch.commit();
     print('✅ サブコレクション削除成功: $subcollection (${snapshot.docs.length}件)');
+  }
+
+  /// 匿名ログイン + デフォルトチーム自動作成
+  Future<User?> signInAnonymously() async {
+    try {
+      print('🔵 [SignInAnonymously] 匿名ログイン開始');
+
+      // Firebase匿名認証
+      final userCredential = await _auth.signInAnonymously();
+      final user = userCredential.user;
+      if (user == null) return null;
+
+      print('✅ [SignInAnonymously] 匿名ユーザー作成成功: ${user.uid}');
+
+      // 認証トークンを確実に取得
+      await user.reload();
+      final token = await user.getIdToken(true);
+      print('✅ [SignInAnonymously] 認証トークン取得成功');
+
+      // トークンが有効になるまで少し待機
+      await Future.delayed(const Duration(milliseconds: 200));
+
+      // デフォルトチーム「マイワークスペース」を作成（名前は空文字）
+      final team = await _createDefaultTeam(user.uid);
+      print('✅ [SignInAnonymously] デフォルトチーム作成成功: ${team.id}');
+
+      // AppUserをFirestoreに保存（email: null, teamId: デフォルトチームID）
+      final appUser = AppUser(
+        uid: user.uid,
+        email: null,  // 匿名なのでnull
+        displayName: 'ゲスト',
+        role: UserRole.admin,
+        teamId: team.id,  // デフォルトチームに所属
+        createdAt: DateTime.now(),
+        updatedAt: DateTime.now(),
+      );
+
+      await _firestore
+          .collection('users')
+          .doc(user.uid)
+          .set(appUser.toFirestore());
+
+      print('✅ [SignInAnonymously] Firestoreユーザー情報保存成功');
+
+      // 書き込みが確実に反映されるまで確認（AuthGateのStreamBuilderが反応する前に）
+      await _firestore.collection('users').doc(user.uid).get();
+      print('✅ [SignInAnonymously] ユーザードキュメント読み取り確認完了');
+
+      return user;
+    } on FirebaseAuthException catch (e) {
+      print('❌ [SignInAnonymously] Firebase認証エラー: ${e.code}');
+      throw _handleAuthException(e);
+    } catch (e) {
+      print('❌ [SignInAnonymously] 予期しないエラー: $e');
+      rethrow;
+    }
+  }
+
+  /// デフォルトチームを作成
+  Future<Team> _createDefaultTeam(String ownerId) async {
+    final team = Team(
+      id: '',
+      name: '',  // 空文字（アカウント登録時に入力）
+      ownerId: ownerId,
+      adminIds: [ownerId],
+      memberIds: [ownerId],
+      inviteCode: await _generateUniqueInviteCode(),
+      createdAt: DateTime.now(),
+      updatedAt: DateTime.now(),
+    );
+
+    final docRef = await _firestore.collection('teams').add(team.toFirestore());
+    print('✅ [_createDefaultTeam] デフォルトチーム作成: ${docRef.id}');
+    return team.copyWith(id: docRef.id);
+  }
+
+  /// 匿名ユーザーをメールアドレスでアップグレード
+  /// ★UIDは変わらない = データは完全に引き継がれる★
+  Future<User?> upgradeAnonymousToEmail({
+    required String email,
+    required String password,
+    required String teamName,
+  }) async {
+    final user = _auth.currentUser;
+
+    // 匿名ユーザーかチェック
+    if (user == null || !user.isAnonymous) {
+      throw '匿名ユーザーではありません';
+    }
+
+    print('🔄 [Upgrade] 匿名 → メール登録');
+    print('🔄 [Upgrade] 現在のUID: ${user.uid}（変わりません）');
+
+    // メールアドレスを紐付け（★重要: UIDは変わらない★）
+    final credential = EmailAuthProvider.credential(
+      email: email,
+      password: password,
+    );
+
+    try {
+      await user.linkWithCredential(credential);
+      print('✅ [Upgrade] linkWithCredential成功');
+
+      // 認証トークンを強制更新（Security Rulesで request.auth.token.email が必要な場合）
+      await user.reload();
+      final token = await user.getIdToken(true); // 強制リフレッシュ
+      print('✅ [Upgrade] 認証トークン更新成功');
+
+      // トークンが反映されるまで少し待機
+      await Future.delayed(const Duration(milliseconds: 200));
+
+      // displayNameを自動設定（@より前）
+      final displayName = email.split('@')[0];
+      await user.updateDisplayName(displayName);
+
+      // Firestoreのusersドキュメントを更新
+      await _firestore.collection('users').doc(user.uid).update({
+        'email': email,
+        'displayName': displayName,  // 自動設定
+        'updatedAt': Timestamp.now(),
+      });
+
+      // チーム名を更新（空文字 → 入力値）
+      final appUser = await getUser(user.uid);
+      if (appUser?.teamId != null) {
+        await _firestore.collection('teams').doc(appUser!.teamId).update({
+          'name': teamName,
+          'updatedAt': Timestamp.now(),
+        });
+        print('✅ [Upgrade] チーム名更新: $teamName');
+
+        // メールアドレスでスタッフとの自動紐付けを試行
+        await _autoLinkStaffByEmail(
+          teamId: appUser.teamId!,
+          userId: user.uid,
+          email: email,
+        );
+      }
+
+      print('✅ [Upgrade] 完了！UID: ${user.uid}（データはそのまま）');
+
+      return user;
+    } on FirebaseAuthException catch (e) {
+      if (e.code == 'email-already-in-use') {
+        throw 'このメールアドレスは既に使用されています';
+      }
+      throw _handleAuthException(e);
+    }
   }
 
   /// 認証エラーの処理

@@ -20,6 +20,14 @@ import '../providers/shift_time_provider.dart';
 import '../providers/monthly_requirements_provider.dart';
 import '../providers/constraint_request_provider.dart';
 
+/// ホーム画面のタブ
+enum HomeTab {
+  myPage,   // マイページ
+  shift,    // シフト
+  staff,    // スタッフ（管理者のみ）
+  settings, // その他
+}
+
 class HomeScreen extends StatefulWidget {
   final AppUser appUser;
   final bool showWelcomeDialog;
@@ -35,80 +43,94 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  int _selectedIndex = 0;
+  HomeTab _selectedTab = HomeTab.shift; // デフォルトはシフトタブ
   bool _hasShownFirstTimeHelp = false;
   bool _hasCheckedInitialTab = false; // 初期タブ選択チェック済みフラグ
   final AnnouncementService _announcementService = AnnouncementService();
 
-  /// 権限に応じてタブ画面を取得
-  List<Widget> get _screens {
+  /// 表示可能なタブのリストを取得
+  List<HomeTab> get _availableTabs {
+    final tabs = <HomeTab>[];
+
+    // 匿名ユーザーはマイページを非表示
+    if (widget.appUser.email != null) {
+      tabs.add(HomeTab.myPage);
+    }
+
+    tabs.add(HomeTab.shift);
+
+    // 管理者のみスタッフタブを表示
     if (widget.appUser.isAdmin) {
-      // 管理者: マイページ、シフト、スタッフ、設定
-      return [
-        MyPageScreen(appUser: widget.appUser),
-        CalendarScreen(appUser: widget.appUser),
-        StaffListScreen(appUser: widget.appUser),
-        SettingsScreen(appUser: widget.appUser),
-      ];
-    } else {
-      // スタッフ: マイページ、シフト、設定
-      return [
-        MyPageScreen(appUser: widget.appUser),
-        CalendarScreen(appUser: widget.appUser),
-        SettingsScreen(appUser: widget.appUser),
-      ];
+      tabs.add(HomeTab.staff);
+    }
+
+    tabs.add(HomeTab.settings);
+
+    return tabs;
+  }
+
+  /// 選択中のタブのインデックスを取得
+  int get _selectedIndex {
+    final tabs = _availableTabs;
+    final index = tabs.indexOf(_selectedTab);
+    return index >= 0 ? index : 0;
+  }
+
+  /// タブに対応する画面を取得
+  Widget _getScreen(HomeTab tab) {
+    switch (tab) {
+      case HomeTab.myPage:
+        return MyPageScreen(appUser: widget.appUser);
+      case HomeTab.shift:
+        return CalendarScreen(appUser: widget.appUser);
+      case HomeTab.staff:
+        return StaffListScreen(appUser: widget.appUser);
+      case HomeTab.settings:
+        return SettingsScreen(appUser: widget.appUser);
     }
   }
 
-  /// 権限に応じてタブタイトルを取得
-  List<String> get _titles {
-    if (widget.appUser.isAdmin) {
-      return ['マイページ', 'シフト', 'スタッフ', 'その他'];
-    } else {
-      return ['マイページ', 'シフト', 'その他'];
+  /// タブに対応するタイトルを取得
+  String _getTitle(HomeTab tab) {
+    switch (tab) {
+      case HomeTab.myPage:
+        return 'マイページ';
+      case HomeTab.shift:
+        return 'シフト';
+      case HomeTab.staff:
+        return 'スタッフ';
+      case HomeTab.settings:
+        return 'その他';
     }
   }
 
-  /// 権限に応じてナビゲーション項目を取得
-  List<NavigationDestination> _navigationDestinations(int pendingCount) {
-    if (widget.appUser.isAdmin) {
-      return [
-        const NavigationDestination(
+  /// タブに対応するナビゲーション項目を取得
+  NavigationDestination _getNavigationDestination(HomeTab tab, int pendingCount) {
+    switch (tab) {
+      case HomeTab.myPage:
+        return const NavigationDestination(
           icon: Icon(Icons.person, size: 22),
           label: 'マイページ',
-        ),
-        const NavigationDestination(
+        );
+      case HomeTab.shift:
+        return const NavigationDestination(
           icon: Icon(Icons.calendar_month, size: 22),
           label: 'シフト',
-        ),
-        NavigationDestination(
+        );
+      case HomeTab.staff:
+        return NavigationDestination(
           icon: Badge(
             label: Text('$pendingCount'),
             isLabelVisible: pendingCount > 0,
             child: const Icon(Icons.people, size: 22),
           ),
           label: 'スタッフ',
-        ),
-        const NavigationDestination(
+        );
+      case HomeTab.settings:
+        return const NavigationDestination(
           icon: Icon(Icons.more_horiz, size: 22),
           label: 'その他',
-        ),
-      ];
-    } else {
-      return const [
-        NavigationDestination(
-          icon: Icon(Icons.person, size: 22),
-          label: 'マイページ',
-        ),
-        NavigationDestination(
-          icon: Icon(Icons.calendar_month, size: 22),
-          label: 'シフト',
-        ),
-        NavigationDestination(
-          icon: Icon(Icons.more_horiz, size: 22),
-          label: 'その他',
-        ),
-      ];
+        );
     }
   }
 
@@ -277,28 +299,41 @@ class _HomeScreenState extends State<HomeScreen> {
             );
           }
 
-          // 初期タブ選択（管理者でスタッフ情報がない場合はシフトタブへ）
+          // 初期タブ選択
           if (!_hasCheckedInitialTab) {
             _hasCheckedInitialTab = true;
-            if (widget.appUser.isAdmin) {
-              // 管理者の場合、スタッフ情報があるか確認
+
+            // デフォルトはシフトタブ
+            HomeTab initialTab = HomeTab.shift;
+
+            // 登録済みユーザーかつ管理者の場合、スタッフ情報があればマイページを初期選択
+            if (widget.appUser.email != null && widget.appUser.isAdmin) {
               final myUid = widget.appUser.uid;
+              final myEmail = widget.appUser.email?.toLowerCase();
               final myStaff = staffProvider.staff
                   .where((staff) =>
                       (staff.userId != null && staff.userId == myUid) ||
-                      (staff.email != null && staff.email!.toLowerCase() == widget.appUser.email.toLowerCase()))
+                      (myEmail != null && staff.email != null && staff.email!.toLowerCase() == myEmail))
                   .firstOrNull;
 
-              // スタッフ情報がない場合はシフトタブ(index: 1)を初期選択
-              if (myStaff == null) {
-                WidgetsBinding.instance.addPostFrameCallback((_) {
-                  if (mounted) {
-                    setState(() {
-                      _selectedIndex = 1; // シフトタブ
-                    });
-                  }
-                });
+              // スタッフ情報があればマイページを初期選択
+              if (myStaff != null) {
+                initialTab = HomeTab.myPage;
               }
+            } else if (widget.appUser.email != null && !widget.appUser.isAdmin) {
+              // スタッフの場合はマイページを初期選択
+              initialTab = HomeTab.myPage;
+            }
+
+            // 初期タブが利用可能か確認（匿名ユーザーの場合myPageは利用不可）
+            if (_availableTabs.contains(initialTab)) {
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                if (mounted) {
+                  setState(() {
+                    _selectedTab = initialTab;
+                  });
+                }
+              });
             }
 
             // データロード完了後、お知らせをチェック
@@ -307,10 +342,13 @@ class _HomeScreenState extends State<HomeScreen> {
             });
           }
 
+          final availableTabs = _availableTabs;
+          final pendingCount = requestProvider.pendingRequests.length;
+
           return Scaffold(
             appBar: AppBar(
               backgroundColor: Theme.of(context).colorScheme.inversePrimary,
-              title: Text(_titles[_selectedIndex], style: const TextStyle(fontSize: 18)),
+              title: Text(_getTitle(_selectedTab), style: const TextStyle(fontSize: 18)),
               toolbarHeight: 48, // デフォルト56 → 48に縮小
               actions: [
                 IconButton(
@@ -324,7 +362,7 @@ class _HomeScreenState extends State<HomeScreen> {
         body: Column(
           children: [
             Expanded(
-              child: _screens[_selectedIndex],
+              child: _getScreen(_selectedTab),
             ),
             // バナー広告
             const BannerAdWidget(),
@@ -333,12 +371,16 @@ class _HomeScreenState extends State<HomeScreen> {
         bottomNavigationBar: NavigationBar(
         height: 65, // デフォルト80 → 65に縮小
         onDestinationSelected: (int index) {
-          setState(() {
-            _selectedIndex = index;
-          });
+          if (index >= 0 && index < availableTabs.length) {
+            setState(() {
+              _selectedTab = availableTabs[index];
+            });
+          }
         },
         selectedIndex: _selectedIndex,
-        destinations: _navigationDestinations(requestProvider.pendingRequests.length),
+        destinations: availableTabs
+            .map((tab) => _getNavigationDestination(tab, pendingCount))
+            .toList(),
         ),
         floatingActionButton: _buildFloatingActionButton(),
           );

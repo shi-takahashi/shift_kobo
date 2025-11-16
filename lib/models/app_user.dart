@@ -9,7 +9,7 @@ enum UserRole {
 /// アプリユーザー（Firebase Authと紐づく）
 class AppUser {
   final String uid;           // Firebase Auth UID
-  final String email;         // メールアドレス
+  final String? email;        // メールアドレス（匿名ユーザーはnull）
   final String displayName;   // 表示名
   final UserRole role;        // 権限
   final String? teamId;       // 所属チームID（未所属の場合はnull）
@@ -21,7 +21,7 @@ class AppUser {
 
   AppUser({
     required this.uid,
-    required this.email,
+    this.email,                // nullable
     required this.displayName,
     required this.role,
     this.teamId,
@@ -41,7 +41,7 @@ class AppUser {
     final data = doc.data() as Map<String, dynamic>;
     return AppUser(
       uid: doc.id,
-      email: data['email'] ?? '',
+      email: data['email'],  // nullableなのでそのまま
       displayName: data['displayName'] ?? '',
       role: UserRole.values.firstWhere(
         (e) => e.name == data['role'],

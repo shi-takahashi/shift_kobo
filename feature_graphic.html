@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>シフト工房 - フィーチャー グラフィック</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', 'Noto Sans JP', sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            background: #f0f0f0;
+        }
+
+        .container {
+            width: 1024px;
+            height: 500px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            display: flex;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .left-section {
+            flex: 1;
+            padding: 60px 50px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            color: white;
+            z-index: 2;
+        }
+
+        .title {
+            font-size: 72px;
+            font-weight: bold;
+            margin-bottom: 10px;
+            letter-spacing: 2px;
+        }
+
+        .subtitle {
+            font-size: 24px;
+            margin-bottom: 40px;
+            opacity: 0.95;
+        }
+
+        .features {
+            list-style: none;
+            margin-bottom: 40px;
+        }
+
+        .features li {
+            font-size: 20px;
+            margin-bottom: 12px;
+            padding-left: 25px;
+            position: relative;
+        }
+
+        .features li:before {
+            content: '✓';
+            position: absolute;
+            left: 0;
+            font-weight: bold;
+        }
+
+        .tagline {
+            font-size: 22px;
+            font-weight: 500;
+            margin-bottom: 8px;
+        }
+
+        .footer-text {
+            font-size: 18px;
+            opacity: 0.9;
+        }
+
+        .right-section {
+            flex: 1;
+            padding: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 2;
+        }
+
+        .calendar-card {
+            background: white;
+            border-radius: 12px;
+            padding: 30px;
+            width: 100%;
+            max-width: 420px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2);
+        }
+
+        .calendar-header {
+            background: #5b8cde;
+            color: white;
+            padding: 15px;
+            text-align: center;
+            border-radius: 8px;
+            font-size: 24px;
+            font-weight: bold;
+            margin-bottom: 20px;
+        }
+
+        .calendar-grid {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            gap: 12px;
+        }
+
+        .day-header {
+            text-align: center;
+            font-size: 14px;
+            color: #666;
+            font-weight: 500;
+            padding: 8px 0;
+        }
+
+        .day-cell {
+            aspect-ratio: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .day-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+        }
+
+        .dot-orange { background: #ff9800; }
+        .dot-blue { background: #2196f3; }
+        .dot-purple { background: #9c27b0; }
+        .dot-green { background: #4caf50; }
+        .dot-black { background: #333; }
+
+        /* 背景デコレーション */
+        .bg-decoration {
+            position: absolute;
+            width: 300px;
+            height: 300px;
+            border-radius: 50%;
+            opacity: 0.1;
+        }
+
+        .bg-decoration-1 {
+            background: white;
+            top: -100px;
+            right: -50px;
+        }
+
+        .bg-decoration-2 {
+            background: white;
+            bottom: -150px;
+            left: 100px;
+            width: 400px;
+            height: 400px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- 背景デコレーション -->
+        <div class="bg-decoration bg-decoration-1"></div>
+        <div class="bg-decoration bg-decoration-2"></div>
+
+        <!-- 左側：テキスト -->
+        <div class="left-section">
+            <div class="title">シフト工房</div>
+            <div class="subtitle">スタッフ勤務管理アプリ</div>
+
+            <ul class="features">
+                <li>自動シフト割り当て</li>
+                <li>チーム管理・招待</li>
+                <li>休み希望申請・承認</li>
+                <li>クラウド同期</li>
+            </ul>
+
+            <div class="tagline">公平で効率的なシフト作成を実現</div>
+            <div class="footer-text">基本無料・広告表示あり</div>
+        </div>
+
+        <!-- 右側：カレンダー -->
+        <div class="right-section">
+            <div class="calendar-card">
+                <div class="calendar-header">2025年 10月</div>
+                <div class="calendar-grid">
+                    <!-- 曜日ヘッダー -->
+                    <div class="day-header">日</div>
+                    <div class="day-header">月</div>
+                    <div class="day-header">火</div>
+                    <div class="day-header">水</div>
+                    <div class="day-header">木</div>
+                    <div class="day-header">金</div>
+                    <div class="day-header">土</div>
+
+                    <!-- 空白セル -->
+                    <div class="day-cell"></div>
+                    <div class="day-cell"></div>
+                    <div class="day-cell"></div>
+
+                    <!-- 日付とドット -->
+                    <div class="day-cell"><div class="day-dot dot-orange"></div></div>
+                    <div class="day-cell"></div>
+                    <div class="day-cell"></div>
+                    <div class="day-cell"></div>
+
+                    <div class="day-cell"></div>
+                    <div class="day-cell"><div class="day-dot dot-green"></div></div>
+                    <div class="day-cell"></div>
+                    <div class="day-cell"><div class="day-dot dot-orange"></div></div>
+                    <div class="day-cell"></div>
+                    <div class="day-cell"></div>
+                    <div class="day-cell"></div>
+
+                    <div class="day-cell"><div class="day-dot dot-blue"></div></div>
+                    <div class="day-cell"></div>
+                    <div class="day-cell"><div class="day-dot dot-purple"></div></div>
+                    <div class="day-cell"></div>
+                    <div class="day-cell"><div class="day-dot dot-black"></div></div>
+                    <div class="day-cell"></div>
+                    <div class="day-cell"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

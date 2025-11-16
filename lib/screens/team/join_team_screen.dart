@@ -102,10 +102,29 @@ class _JoinTeamScreenState extends State<JoinTeamScreen> {
 
       setState(() => _isLoading = false);
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(e.toString()),
-          backgroundColor: Colors.red,
+      // エラーダイアログで詳細を表示
+      showDialog(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Row(
+            children: [
+              Icon(Icons.error, color: Colors.red),
+              SizedBox(width: 8),
+              Text('エラー'),
+            ],
+          ),
+          content: SingleChildScrollView(
+            child: Text(
+              e.toString(),
+              style: const TextStyle(fontSize: 14),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('閉じる'),
+            ),
+          ],
         ),
       );
     }

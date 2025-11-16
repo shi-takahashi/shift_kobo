@@ -10,7 +10,6 @@ import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../models/app_user.dart';
-import '../models/team.dart';
 import '../providers/constraint_request_provider.dart';
 import '../providers/monthly_requirements_provider.dart';
 import '../providers/shift_provider.dart';
@@ -20,6 +19,7 @@ import '../services/auth_service.dart';
 import '../services/backup_service.dart';
 import '../services/notification_service.dart';
 import '../widgets/auth_gate.dart';
+import 'auth/register_account_screen.dart';
 import 'help_screen.dart';
 import 'monthly_shift_settings_screen.dart';
 import 'shift_time_settings_screen.dart';
@@ -119,13 +119,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ),
         ),
 
-        // 所属チーム情報
-        if (widget.appUser.teamId != null)
+        // 所属チーム情報（登録済みユーザーのみ）
+        if (widget.appUser.teamId != null && widget.appUser.email != null)
           StreamBuilder<DocumentSnapshot>(
-            stream: FirebaseFirestore.instance
-                .collection('teams')
-                .doc(widget.appUser.teamId!)
-                .snapshots(),
+            stream: FirebaseFirestore.instance.collection('teams').doc(widget.appUser.teamId!).snapshots(),
             builder: (context, snapshot) {
               if (snapshot.hasData && snapshot.data?.data() != null) {
                 final teamName = (snapshot.data!.data() as Map<String, dynamic>)['name'] as String?;
@@ -143,8 +140,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
             },
           ),
 
-        // チーム招待メニュー（管理者のみ）
-        if (FirebaseAuth.instance.currentUser != null && widget.appUser.isAdmin)
+        // チーム招待メニュー（管理者かつ登録済みユーザーのみ）
+        if (FirebaseAuth.instance.currentUser != null && widget.appUser.isAdmin && widget.appUser.email != null)
           ListTile(
             leading: const Icon(Icons.group_add),
             title: const Text('チーム招待'),
@@ -153,16 +150,111 @@ class _SettingsScreenState extends State<SettingsScreen> {
             onTap: _navigateToTeamInvite,
           ),
 
+        // アカウント登録ボタン（匿名ユーザーのみ）
+        if (FirebaseAuth.instance.currentUser != null && widget.appUser.email == null)
+          Card(
+            margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            color: Colors.green.shade50,
+            child: InkWell(
+              onTap: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (context) => const RegisterAccountScreen(),
+                  ),
+                );
+              },
+              borderRadius: BorderRadius.circular(12),
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Icon(Icons.app_registration, color: Colors.green.shade700, size: 24),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            'アカウント登録',
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.green.shade900,
+                            ),
+                          ),
+                        ),
+                        Icon(Icons.chevron_right, color: Colors.green.shade700),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    Text(
+                      'データを保護するため、登録をおすすめします。',
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: Colors.green.shade800,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Colors.blue.shade50,
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: Colors.blue.shade200),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(Icons.info_outline, color: Colors.blue.shade700, size: 18),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              '登録しない場合、端末故障・紛失時にデータを復旧できません',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: Colors.blue.shade900,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    Text(
+                      '登録すると以下の機能が使えます：',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Colors.green.shade800,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    _buildFeatureBullet(
+                      'ログインすることで、他のスマホでも継続利用できる',
+                      Colors.green.shade700,
+                    ),
+                    const SizedBox(height: 4),
+                    _buildFeatureBullet(
+                      'スタッフを招待して、リアルタイムにシフトを共有できる',
+                      Colors.green.shade700,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+
         // ログインユーザー情報
-        if (FirebaseAuth.instance.currentUser != null)
+        if (FirebaseAuth.instance.currentUser != null && widget.appUser.email != null)
           ListTile(
             leading: const Icon(Icons.account_circle),
             title: const Text('ログイン中'),
             subtitle: Text(FirebaseAuth.instance.currentUser!.email ?? ''),
           ),
 
-        // ログアウトボタン
-        if (FirebaseAuth.instance.currentUser != null)
+        // ログアウトボタン（登録済みユーザーのみ）
+        if (FirebaseAuth.instance.currentUser != null && widget.appUser.email != null)
           ListTile(
             leading: const Icon(Icons.logout, color: Colors.red),
             title: const Text(
@@ -227,8 +319,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
           const Divider(),
         ],
 
-        // Push通知設定（アプリ版のみ）
-        if (!kIsWeb && FirebaseAuth.instance.currentUser != null) ...[
+        // Push通知設定（アプリ版 & 登録済みユーザーのみ）
+        if (!kIsWeb && FirebaseAuth.instance.currentUser != null && widget.appUser.email != null) ...[
           const Padding(
             padding: EdgeInsets.all(16.0),
             child: Text(
@@ -308,14 +400,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         secondary: const Icon(Icons.notification_add),
                         title: const Text('新しい申請の通知'),
                         subtitle: Text(
-                          isNotificationEnabled
-                              ? 'スタッフが申請・取り消しをしたときに通知'
-                              : '端末の設定で通知を許可してください',
+                          isNotificationEnabled ? 'スタッフが申請・取り消しをしたときに通知' : '端末の設定で通知を許可してください',
                         ),
                         value: _notificationSettings['requestCreated'] ?? true,
-                        onChanged: isNotificationEnabled
-                            ? (value) => _updateNotificationSetting('requestCreated', value)
-                            : null, // 無効化
+                        onChanged: isNotificationEnabled ? (value) => _updateNotificationSetting('requestCreated', value) : null, // 無効化
                       ),
                     // スタッフ向け通知設定
                     if (!widget.appUser.isAdmin)
@@ -323,12 +411,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         secondary: const Icon(Icons.notifications_active),
                         title: const Text('申請結果の通知'),
                         subtitle: Text(
-                          isNotificationEnabled
-                              ? '制約申請が承認・却下されたときに通知'
-                              : '端末の設定で通知を許可してください',
+                          isNotificationEnabled ? '制約申請が承認・却下されたときに通知' : '端末の設定で通知を許可してください',
                         ),
-                        value: (_notificationSettings['requestApproved'] ?? true) &&
-                               (_notificationSettings['requestRejected'] ?? true),
+                        value: (_notificationSettings['requestApproved'] ?? true) && (_notificationSettings['requestRejected'] ?? true),
                         onChanged: isNotificationEnabled
                             ? (value) async {
                                 // 承認と却下の両方を同じ値に設定
@@ -454,14 +539,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
         const SizedBox(height: 24),
         const Divider(thickness: 2, height: 1),
         const SizedBox(height: 24),
-        ListTile(
-          leading: const Icon(Icons.delete_forever, color: Colors.red),
-          title: const Text(
-            'アカウント削除',
-            style: TextStyle(color: Colors.red),
+        // アカウント削除（登録済みユーザーのみ）
+        if (widget.appUser.email != null)
+          ListTile(
+            leading: const Icon(Icons.delete_forever, color: Colors.red),
+            title: const Text(
+              'アカウント削除',
+              style: TextStyle(color: Colors.red),
+            ),
+            onTap: _showDeleteAccountDialog,
           ),
-          onTap: _showDeleteAccountDialog,
-        ),
       ],
     );
   }
@@ -548,7 +635,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
         }
       }
     } finally {
-      controller.dispose();
+      // ダイアログのアニメーションが完了してからdisposeする
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        controller.dispose();
+      });
     }
   }
 
@@ -1000,13 +1090,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
         throw 'ログインしていません';
       }
 
-      // セキュリティのため、必ず再認証を要求
+      // セキュリティのため、最初に再認証を要求（データ削除前）
       if (!isRetry) {
-        // アカウント削除処理を先に実行
-        final userDoc = await FirebaseFirestore.instance
-            .collection('users')
-            .doc(user.uid)
-            .get();
+        throw FirebaseAuthException(
+          code: 'requires-recent-login',
+          message: 'アカウント削除にはパスワードの確認が必要です',
+        );
+      }
+
+      // 再認証成功後、削除処理を実行
+      if (isRetry) {
+        final userDoc = await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
 
         if (!userDoc.exists) {
           throw 'ユーザー情報が見つかりません';
@@ -1018,13 +1112,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
         }
 
         // 紐付けられたstaffIdを検索
-        final staffQuery = await FirebaseFirestore.instance
-            .collection('teams')
-            .doc(teamId)
-            .collection('staff')
-            .where('userId', isEqualTo: user.uid)
-            .limit(1)
-            .get();
+        final staffQuery =
+            await FirebaseFirestore.instance.collection('teams').doc(teamId).collection('staff').where('userId', isEqualTo: user.uid).limit(1).get();
 
         final staffId = staffQuery.docs.isNotEmpty ? staffQuery.docs.first.id : null;
 
@@ -1043,66 +1132,48 @@ class _SettingsScreenState extends State<SettingsScreen> {
           await staffProvider.unlinkStaffUser(staffId);
         }
 
-        // 3. users/{userId} 削除
-        await FirebaseFirestore.instance.collection('users').doc(user.uid).delete();
+        // 3. UI処理（ローディング非表示、成功ダイアログ）
+        // ※ usersドキュメント削除前に表示（削除するとAuthGateが反応してcontextが無効になる）
+        if (mounted) {
+          Navigator.of(context).pop(); // ローディング非表示
+        }
 
-        // セキュリティのため、必ず再認証を要求
-        throw FirebaseAuthException(
-          code: 'requires-recent-login',
-          message: 'アカウント削除にはパスワードの確認が必要です',
-        );
-      }
-
-      if (isRetry) {
-        // 再認証後の再試行：Authenticationのみ削除
-        // （Firestore削除処理は既に完了しているため）
-        await user.delete();
-        print('✅ Authenticationアカウント削除成功（再試行）');
-      }
-
-      // ローディング非表示
-      if (mounted) {
-        Navigator.of(context).pop();
-      }
-
-      // 削除完了メッセージを表示
-      if (mounted) {
-        await showDialog(
-          context: context,
-          barrierDismissible: false,
-          builder: (context) => AlertDialog(
-            title: Row(
-              children: [
-                Icon(Icons.check_circle, color: Colors.green.shade700),
-                const SizedBox(width: 8),
-                const Flexible(
-                  child: Text('アカウントを削除しました'),
+        if (mounted) {
+          await showDialog(
+            context: context,
+            barrierDismissible: false,
+            builder: (context) => AlertDialog(
+              title: Row(
+                children: [
+                  Icon(Icons.check_circle, color: Colors.green.shade700),
+                  const SizedBox(width: 8),
+                  const Flexible(
+                    child: Text('アカウントを削除しました'),
+                  ),
+                ],
+              ),
+              content: const Text(
+                'アカウントの削除が完了しました。\n'
+                'ご利用ありがとうございました。',
+              ),
+              actions: [
+                FilledButton(
+                  onPressed: () {
+                    Navigator.of(context).pop();
+                  },
+                  child: const Text('閉じる'),
                 ),
               ],
             ),
-            content: const Text(
-              'アカウントの削除が完了しました。\n'
-              'ご利用ありがとうございました。',
-            ),
-            actions: [
-              FilledButton(
-                onPressed: () {
-                  Navigator.of(context).pop();
-                },
-                child: const Text('閉じる'),
-              ),
-            ],
-          ),
-        );
-      }
+          );
+        }
 
-      // 削除成功後、AuthGateに遷移（全画面をクリア）
-      // アカウント削除によりauthStateChangesが発火し、AuthGateがウェルカム画面に遷移する
-      if (mounted) {
-        Navigator.of(context).pushAndRemoveUntil(
-          MaterialPageRoute(builder: (_) => const AuthGate()),
-          (route) => false,
-        );
+        // 4. users/{userId} 削除
+        // ※ ダイアログを閉じた後に削除（この時点でAuthGateが反応して画面遷移する）
+        await FirebaseFirestore.instance.collection('users').doc(user.uid).delete();
+
+        // 5. Authenticationアカウント削除（最後に実行）
+        await user.delete();
       }
     } on FirebaseAuthException catch (e) {
       // ローディング非表示
@@ -1200,10 +1271,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
       if (isRetry) {
         // 再認証後の処理
-        final userDoc = await FirebaseFirestore.instance
-            .collection('users')
-            .doc(user.uid)
-            .get();
+        final userDoc = await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
 
         if (!userDoc.exists) {
           throw 'ユーザー情報が見つかりません';
@@ -1214,58 +1282,60 @@ class _SettingsScreenState extends State<SettingsScreen> {
           throw 'チーム情報が見つかりません';
         }
 
-        // 1. Cloud Functionsでチーム解散（他のメンバーのAuthenticationを削除）
-        await authService.deleteTeamAndAccount(teamId);
-        print('✅ チーム解散完了（Cloud Functions）');
+        // 1. UI処理（ローディング非表示、成功ダイアログ）
+        // ※ Cloud Functions実行前に表示（実行後はcontextが無効になる可能性あり）
+        if (mounted) {
+          Navigator.of(context).pop(); // ローディング非表示
+        }
 
-        // 2. 自分のAuthenticationを削除
-        await user.delete();
-        print('✅ 自分のAuthenticationアカウント削除成功');
-      }
-
-      // ローディング非表示
-      if (mounted) {
-        Navigator.of(context).pop();
-      }
-
-      // 削除完了メッセージを表示
-      if (mounted) {
-        await showDialog(
-          context: context,
-          barrierDismissible: false,
-          builder: (context) => AlertDialog(
-            title: Row(
-              children: [
-                Icon(Icons.check_circle, color: Colors.green.shade700),
-                const SizedBox(width: 8),
-                const Flexible(
-                  child: Text('チームを解散しました'),
+        if (mounted) {
+          await showDialog(
+            context: context,
+            barrierDismissible: false,
+            builder: (context) => AlertDialog(
+              title: Row(
+                children: [
+                  Icon(Icons.check_circle, color: Colors.green.shade700),
+                  const SizedBox(width: 8),
+                  const Flexible(
+                    child: Text('チームを解散しました'),
+                  ),
+                ],
+              ),
+              content: const Text(
+                'チームとアカウントの削除が完了しました。\n'
+                'ご利用ありがとうございました。',
+              ),
+              actions: [
+                FilledButton(
+                  onPressed: () {
+                    Navigator.of(context).pop();
+                  },
+                  child: const Text('閉じる'),
                 ),
               ],
             ),
-            content: const Text(
-              'チームとアカウントの削除が完了しました。\n'
-              'ご利用ありがとうございました。',
-            ),
-            actions: [
-              FilledButton(
-                onPressed: () {
-                  Navigator.of(context).pop();
-                },
-                child: const Text('閉じる'),
-              ),
-            ],
-          ),
-        );
-      }
+          );
+        }
 
-      // 削除成功後、AuthGateに遷移（全画面をクリア）
-      // アカウント削除によりauthStateChangesが発火し、AuthGateがウェルカム画面に遷移する
-      if (mounted) {
-        Navigator.of(context).pushAndRemoveUntil(
-          MaterialPageRoute(builder: (_) => const AuthGate()),
-          (route) => false,
-        );
+        // 2. Cloud Functionsでチーム解散（他のメンバーのAuthenticationを削除）
+        // ※ usersドキュメント削除前に実行（Cloud Functionsがusersを参照する可能性があるため）
+        await authService.deleteTeamAndAccount(teamId);
+
+        // 3. 自分のusersドキュメント削除
+        // ※ この時点でAuthGateが反応してRoleSelectionScreenに遷移
+        await FirebaseFirestore.instance.collection('users').doc(user.uid).delete();
+
+        // 4. 自分のAuthenticationを削除（最後に実行）
+        await user.delete();
+
+        // 5. トップ画面に遷移（全画面をクリア）
+        if (mounted) {
+          Navigator.of(context).pushAndRemoveUntil(
+            MaterialPageRoute(builder: (_) => const AuthGate()),
+            (route) => false,
+          );
+        }
       }
     } on FirebaseAuthException catch (e) {
       // ローディング非表示
@@ -1457,7 +1527,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           FilledButton.icon(
             onPressed: () async {
               Navigator.of(dialogContext).pop();
-              await _performBackup(context);  // 外側のcontextを使用
+              await _performBackup(context); // 外側のcontextを使用
             },
             icon: const Icon(Icons.backup),
             label: const Text('バックアップ'),
@@ -1730,5 +1800,29 @@ class _SettingsScreenState extends State<SettingsScreen> {
         );
       }
     }
+  }
+
+  /// 機能の箇条書きを作成するヘルパー
+  Widget _buildFeatureBullet(String text, Color color) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(top: 4),
+          child: Icon(Icons.check_circle, size: 16, color: color),
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Text(
+            text,
+            style: TextStyle(
+              fontSize: 13,
+              color: color,
+              height: 1.4,
+            ),
+          ),
+        ),
+      ],
+    );
   }
 }

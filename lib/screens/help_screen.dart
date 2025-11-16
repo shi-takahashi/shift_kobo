@@ -15,10 +15,8 @@ class HelpScreen extends StatelessWidget {
         padding: const EdgeInsets.all(16),
         children: [
           _buildWelcomeCard(),
-          const SizedBox(height: 16),
-          _buildIOSWebGuideCard(),
           const SizedBox(height: 24),
-          _buildSectionTitle('管理者向け'),
+          _buildSectionTitle('基本的な使い方'),
           const SizedBox(height: 8),
           _buildBasicFeaturesCard(),
           const SizedBox(height: 16),
@@ -49,7 +47,7 @@ class HelpScreen extends StatelessWidget {
                 Icon(Icons.help_outline, color: Colors.blue.shade700),
                 const SizedBox(width: 8),
                 Text(
-                  'シフト工房の使い方',
+                  'シフト工房について',
                   style: TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.bold,
@@ -60,8 +58,11 @@ class HelpScreen extends StatelessWidget {
             ),
             const SizedBox(height: 8),
             const Text(
-              'シフト工房は、チーム単位でシフトを管理するアプリです。\n管理者とスタッフで役割が異なります。',
-              style: TextStyle(fontSize: 14),
+              'シフト工房は、シフト作成を自動化・効率化するアプリです。\n\n'
+              '• スタッフの希望を考慮した自動シフト作成\n'
+              '• PNG・Excel形式での出力\n'
+              '• スタッフを招待してリアルタイム共有（任意）',
+              style: TextStyle(fontSize: 14, height: 1.5),
             ),
           ],
         ),
@@ -69,9 +70,9 @@ class HelpScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildIOSWebGuideCard() {
+  Widget _buildAccountRegistrationBenefitsCard() {
     return Card(
-      color: Colors.blue.shade50,
+      color: Colors.green.shade50,
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
@@ -79,115 +80,120 @@ class HelpScreen extends StatelessWidget {
           children: [
             Row(
               children: [
-                Icon(Icons.smartphone, color: Colors.blue.shade700, size: 24),
+                Icon(Icons.recommend, color: Colors.green.shade700, size: 24),
                 const SizedBox(width: 8),
-                Text(
-                  'アプリを始める',
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.blue.shade900,
+                Expanded(
+                  child: Text(
+                    'アカウント登録をおすすめします',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.green.shade900,
+                    ),
                   ),
                 ),
               ],
             ),
-            const SizedBox(height: 16),
-
-            // Androidユーザー向け
+            const SizedBox(height: 12),
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: Colors.white,
+                color: Colors.blue.shade50,
                 borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: Colors.green.shade200),
+                border: Border.all(color: Colors.blue.shade200),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Row(
                     children: [
-                      Icon(Icons.android, color: Colors.green.shade700, size: 20),
+                      Icon(Icons.info_outline, color: Colors.blue.shade700, size: 20),
                       const SizedBox(width: 8),
-                      Text(
-                        'Androidの方',
-                        style: TextStyle(
-                          fontSize: 15,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.green.shade900,
+                      Expanded(
+                        child: Text(
+                          'データを保護するため、登録をおすすめします',
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.blue.shade900,
+                          ),
                         ),
                       ),
                     ],
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    'Google Playストアから「シフト工房」で検索してアプリをインストール',
+                    'アカウント登録しない場合、端末の故障・紛失、誤ってアプリを削除した場合などにデータを復旧できません。',
                     style: TextStyle(
                       fontSize: 13,
                       color: Colors.grey.shade800,
+                      height: 1.4,
                     ),
                   ),
                 ],
               ),
             ),
             const SizedBox(height: 12),
+            Text(
+              'アカウント登録していない方は、設定画面から登録できます。',
+              style: TextStyle(
+                fontSize: 14,
+                color: Colors.green.shade900,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const SizedBox(height: 16),
 
-            // iPhoneユーザー向け
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
                 color: Colors.white,
                 borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: Colors.orange.shade200),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Row(
-                    children: [
-                      Icon(Icons.apple, color: Colors.orange.shade700, size: 20),
-                      const SizedBox(width: 8),
-                      Text(
-                        'iPhoneの方',
-                        style: TextStyle(
-                          fontSize: 15,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.orange.shade900,
-                        ),
+                  _buildBenefitItem(
+                    Icons.phone_android,
+                    '機種変更してもデータを復元できる',
+                    '誤ってアプリを削除しても安心',
+                  ),
+                  const SizedBox(height: 12),
+                  _buildBenefitItem(
+                    Icons.group_add,
+                    'スタッフを招待できる',
+                    'リアルタイムでシフト情報を共有',
+                  ),
+                  const SizedBox(height: 12),
+                  _buildBenefitItem(
+                    Icons.sync,
+                    '休み希望の申請・承認機能',
+                    'スタッフが直接希望を入力できる',
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.green.shade100,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.green.shade300),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.arrow_forward, color: Colors.green.shade700, size: 20),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      '設定画面の「アカウント登録」からご登録ください',
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: Colors.green.shade900,
+                        fontWeight: FontWeight.w600,
                       ),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    'アプリは準備中です。下記のアドレスからWebアプリをご利用ください',
-                    style: TextStyle(
-                      fontSize: 13,
-                      color: Colors.grey.shade800,
                     ),
-                  ),
-                  const SizedBox(height: 8),
-                  SelectableText(
-                    'https://shift-kobo-online-prod.web.app/app',
-                    style: TextStyle(
-                      fontSize: 13,
-                      color: Colors.blue.shade700,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Row(
-                    children: [
-                      Icon(Icons.bookmark_outline, size: 16, color: Colors.grey.shade700),
-                      const SizedBox(width: 6),
-                      Expanded(
-                        child: Text(
-                          'ブックマークに保存すると便利です',
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: Colors.grey.shade700,
-                          ),
-                        ),
-                      ),
-                    ],
                   ),
                 ],
               ),
@@ -195,6 +201,37 @@ class HelpScreen extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildBenefitItem(IconData icon, String title, String description) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(icon, color: Colors.green.shade700, size: 20),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                title,
+                style: const TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              Text(
+                description,
+                style: TextStyle(
+                  fontSize: 12,
+                  color: Colors.grey.shade700,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 
@@ -214,7 +251,7 @@ class HelpScreen extends StatelessWidget {
       child: ExpansionTile(
         leading: const Icon(Icons.group_add, color: Colors.green),
         title: const Text(
-          'スタッフを招待する方法',
+          'チーム共有機能について（要アカウント登録）',
           style: TextStyle(fontWeight: FontWeight.bold),
         ),
         children: [
@@ -223,6 +260,69 @@ class HelpScreen extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.orange.shade50,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.orange.shade200),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Icon(Icons.info_outline, color: Colors.orange.shade700, size: 20),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              'アカウント登録について',
+                              style: TextStyle(
+                                fontSize: 14,
+                                color: Colors.orange.shade900,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        'チーム共有機能（スタッフ招待、休み希望申請・承認など）を使うには、アカウント登録が必要です。',
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: Colors.orange.shade900,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        'また、アカウント登録しない場合、端末の故障・紛失、誤ってアプリを削除した場合などにデータを復旧できません。',
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: Colors.grey.shade800,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        '設定画面の「アカウント登録」から登録できます。',
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: Colors.grey.shade800,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  'スタッフを招待する',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.grey.shade800,
+                  ),
+                ),
+                const SizedBox(height: 12),
                 Container(
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
@@ -262,18 +362,116 @@ class HelpScreen extends StatelessWidget {
                     borderRadius: BorderRadius.circular(8),
                     border: Border.all(color: Colors.blue.shade200),
                   ),
-                  child: Row(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Icon(Icons.lightbulb_outline, color: Colors.blue.shade700, size: 20),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          'スタッフは受信したメールの指示に従うだけ！\n招待コードも自動で送信されます',
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: Colors.blue.shade900,
+                      Row(
+                        children: [
+                          Icon(Icons.lightbulb_outline, color: Colors.blue.shade700, size: 20),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              'スタッフ側の手順',
+                              style: TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.blue.shade900,
+                              ),
+                            ),
                           ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        '招待メールの指示に従って参加できます：\n'
+                        '1. 最初の画面で「招待を受けて参加する」を選択\n'
+                        '2. メールアドレス・パスワードを入力してアカウント登録\n'
+                        '3. 招待コードを入力して参加完了',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Colors.grey.shade800,
+                          height: 1.4,
                         ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 16),
+                const Divider(),
+                const SizedBox(height: 16),
+                // iPhoneユーザー向け
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.orange.shade200),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Icon(Icons.apple, color: Colors.orange.shade700, size: 20),
+                          const SizedBox(width: 8),
+                          Text(
+                            'iPhoneユーザーのスタッフへ',
+                            style: TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.orange.shade900,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        'iPhone版アプリは準備中です。下記のWebアプリをご利用ください',
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: Colors.grey.shade800,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      SelectableText(
+                        'https://shift-kobo-online-prod.web.app/app',
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: Colors.blue.shade700,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Row(
+                        children: [
+                          Icon(Icons.bookmark_outline, size: 16, color: Colors.grey.shade700),
+                          const SizedBox(width: 6),
+                          Expanded(
+                            child: Text(
+                              'ブックマークに保存すると便利です',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: Colors.grey.shade700,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      Row(
+                        children: [
+                          Icon(Icons.info_outline, size: 16, color: Colors.grey.shade700),
+                          const SizedBox(width: 6),
+                          Expanded(
+                            child: Text(
+                              '招待メールを送った場合は、メール内のリンクからアクセスできます',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: Colors.grey.shade700,
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
                     ],
                   ),
@@ -312,6 +510,96 @@ class HelpScreen extends StatelessWidget {
                   style: TextStyle(
                     fontSize: 12,
                     color: Colors.grey.shade700,
+                  ),
+                ),
+                const SizedBox(height: 24),
+                const Divider(),
+                const SizedBox(height: 16),
+                Text(
+                  '休み希望の申請・承認',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.grey.shade800,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  'スタッフを招待すると、スタッフが休み希望や制約を申請できるようになります。\n管理者は申請を承認・却下できます。',
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: Colors.grey.shade700,
+                    height: 1.4,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.purple.shade50,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Icon(Icons.person, color: Colors.purple.shade700, size: 18),
+                          const SizedBox(width: 8),
+                          Text(
+                            'スタッフ側',
+                            style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.purple.shade900,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        'マイページから休み希望を入力 > 申請ボタンをタップ',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Colors.grey.shade800,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.indigo.shade50,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Icon(Icons.admin_panel_settings, color: Colors.indigo.shade700, size: 18),
+                          const SizedBox(width: 8),
+                          Text(
+                            '管理者側',
+                            style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.indigo.shade900,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        'スタッフタブ > 承認待ちバナーをタップ > 申請一覧から承認または却下\n※ Android版ではPush通知でお知らせされます',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Colors.grey.shade800,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ],
@@ -459,7 +747,7 @@ class HelpScreen extends StatelessWidget {
       child: ExpansionTile(
         leading: const Icon(Icons.star, color: Colors.purple),
         title: const Text(
-          '基本機能の使い方（管理者）',
+          'シフト管理の基本',
           style: TextStyle(fontWeight: FontWeight.bold),
         ),
         children: [
@@ -468,38 +756,9 @@ class HelpScreen extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  margin: const EdgeInsets.only(bottom: 16),
-                  decoration: BoxDecoration(
-                    color: Colors.blue.shade50,
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: Colors.blue.shade200),
-                  ),
-                  child: Row(
-                    children: [
-                      Icon(Icons.info_outline, color: Colors.blue.shade700, size: 20),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          '管理者1人でも使えます。スタッフ招待は任意です。',
-                          style: TextStyle(
-                            fontSize: 13,
-                            color: Colors.blue.shade900,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
                 _buildHowToItem(
                   'スタッフを追加する',
                   'ホーム画面の「スタッフ」タブ > 「スタッフを追加」ボタンから登録',
-                ),
-                _buildHowToItem(
-                  'スタッフを招待する（任意）',
-                  'その他 > チーム招待 > 招待メールを送る\n※ 詳しくは下の「スタッフを招待する方法」を参照',
                 ),
                 _buildHowToItem(
                   'シフトを自動生成する',
@@ -514,10 +773,6 @@ class HelpScreen extends StatelessWidget {
                     'シフト表を出力する',
                     'ホーム画面の「シフト表」タブ > PNG保存またはExcel出力を選択',
                   ),
-                _buildHowToItem(
-                  'スタッフの制約申請を承認・却下する',
-                  'ホーム画面の「スタッフ」タブ > 承認待ちバナーをタップ > 申請一覧から承認または却下\n※ スタッフが制約を申請すると通知されます（Android版のみ）',
-                ),
               ],
             ),
           ),

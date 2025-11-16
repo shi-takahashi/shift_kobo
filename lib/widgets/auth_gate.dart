@@ -1,9 +1,11 @@
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:hive_flutter/hive_flutter.dart';
+import '../models/app_user.dart';
 import '../models/staff.dart';
 import '../models/shift.dart';
-import '../screens/auth/welcome_screen.dart';
+import '../screens/auth/role_selection_screen.dart';
 import '../screens/home_screen.dart';
 import '../screens/team/team_creation_screen.dart';
 import '../screens/team/join_team_screen.dart';
@@ -115,11 +117,21 @@ class AuthGate extends StatelessWidget {
 
             // ログイン済み
             if (authSnapshot.hasData && authSnapshot.data != null) {
-              // チーム所属チェック
-              return FutureBuilder(
-                future: _getUserWithRetry(authSnapshot.data!.uid),
+              final uid = authSnapshot.data!.uid;
+              // チーム所属チェック（リアルタイム監視）
+              return StreamBuilder<AppUser?>(
+                stream: FirebaseFirestore.instance
+                    .collection('users')
+                    .doc(uid)
+                    .snapshots()
+                    .map((doc) {
+                  if (!doc.exists) return null;
+                  return AppUser.fromFirestore(doc);
+                }),
                 builder: (context, userSnapshot) {
-                  if (userSnapshot.connectionState == ConnectionState.waiting) {
+                  // 初回読み込み中、またはデータ待ちの場合はローディング
+                  if (userSnapshot.connectionState == ConnectionState.waiting ||
+                      !userSnapshot.hasData) {
                     return const Scaffold(
                       body: Center(
                         child: CircularProgressIndicator(),
@@ -128,28 +140,12 @@ class AuthGate extends StatelessWidget {
                   }
 
                   final appUser = userSnapshot.data;
-                  debugPrint('🔍 [AuthGate] appUser: $appUser');
-                  debugPrint('🔍 [AuthGate] teamId: ${appUser?.teamId}');
 
-                  // usersドキュメントが存在しない場合（削除されたユーザー）
-                  // ログアウトして新規ユーザー画面に誘導
+                  // usersドキュメントが存在しない場合（アカウント削除直後など）
+                  // ※ Authentication削除が進行中の可能性があるため、signOut()を呼ばずに直接遷移
+                  // ※ authStateChangesが発火すれば自動的に未ログイン状態として再処理される
                   if (appUser == null) {
-                    debugPrint('⚠️ [AuthGate] usersドキュメントが存在しません。ログアウトします。');
-                    return FutureBuilder(
-                      future: AuthService().signOut(),
-                      builder: (context, signOutSnapshot) {
-                        // ログアウト完了後、WelcomeScreenを表示
-                        if (signOutSnapshot.connectionState == ConnectionState.done) {
-                          return const WelcomeScreen();
-                        }
-                        // ログアウト中はローディング表示
-                        return const Scaffold(
-                          body: Center(
-                            child: CircularProgressIndicator(),
-                          ),
-                        );
-                      },
-                    );
+                    return const RoleSelectionScreen();
                   }
 
                   if (appUser.teamId == null) {
@@ -174,8 +170,8 @@ class AuthGate extends StatelessWidget {
               );
             }
 
-            // 既存データなし、未ログインの場合 → ウェルカム画面（新規ユーザー向け）
-            return const WelcomeScreen();
+            // 既存データなし、未ログインの場合 → 役割選択画面（新規ユーザー向け）
+            return const RoleSelectionScreen();
           },
         );
       },

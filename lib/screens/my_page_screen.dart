@@ -62,7 +62,7 @@ class _MyPageScreenState extends State<MyPageScreen> {
       debugPrint('⚠️ [MyPage] userIdで紐付け失敗、メールアドレスで再試行');
       // userIdで見つからない場合、メールアドレスで照合（フォールバック）
       final userEmail = widget.appUser.email;
-      if (userEmail.isNotEmpty) {
+      if (userEmail != null && userEmail.isNotEmpty) {
         try {
           final foundStaff = staffProvider.staff.firstWhere(
             (staff) => staff.email != null && staff.email!.toLowerCase() == userEmail.toLowerCase(),
@@ -380,7 +380,7 @@ class _MyPageScreenState extends State<MyPageScreen> {
                             '1. スタッフ管理画面を開く\n'
                             '2. ご自身をスタッフとして登録\n'
                             '3. メールアドレスに以下を設定:\n'
-                            '   ${widget.appUser.email}',
+                            '   ${widget.appUser.email ?? '（未設定）'}',
                             style: TextStyle(
                               fontSize: 13,
                               color: Colors.blue[800],
@@ -431,7 +431,7 @@ class _MyPageScreenState extends State<MyPageScreen> {
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: Text(
-                      widget.appUser.email,
+                      widget.appUser.email ?? '（メールアドレス未設定）',
                       style: TextStyle(
                         fontSize: 13,
                         color: Colors.grey[700],
@@ -539,7 +539,7 @@ class _MyPageScreenState extends State<MyPageScreen> {
                         ),
                       ),
                       Text(
-                        myStaff.email ?? widget.appUser.email,
+                        myStaff.email ?? widget.appUser.email ?? '',
                         style: TextStyle(
                           fontSize: 14,
                           color: Colors.grey[600],

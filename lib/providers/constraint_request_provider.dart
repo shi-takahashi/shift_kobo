@@ -90,6 +90,13 @@ class ConstraintRequestProvider extends ChangeNotifier {
       }
 
       notifyListeners();
+    }, onError: (error) {
+      debugPrint('⚠️ [ConstraintRequestProvider] データ読み込みエラー: $error');
+      // エラーが発生してもローディングを完了させる
+      if (_isLoading) {
+        _isLoading = false;
+        notifyListeners();
+      }
     });
   }
 

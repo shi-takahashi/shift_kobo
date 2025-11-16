@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:hive_flutter/hive_flutter.dart';
+import 'package:provider/provider.dart';
 import 'package:shift_kobo/utils/test_data_helper.dart';
 
 import 'firebase_options.dart' as dev_options;
@@ -13,6 +14,7 @@ import 'models/shift_constraint.dart';
 import 'models/shift_time_setting.dart';
 import 'models/staff.dart';
 import 'services/ad_service.dart';
+import 'services/auth_service.dart';
 import 'widgets/auth_gate.dart';
 
 // ビルド時に環境を指定: --dart-define=FIREBASE_ENV=prod
@@ -76,22 +78,25 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'シフト工房',
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.blue),
-        useMaterial3: true,
+    return Provider<AuthService>(
+      create: (_) => AuthService(),
+      child: MaterialApp(
+        title: 'シフト工房',
+        theme: ThemeData(
+          colorScheme: ColorScheme.fromSeed(seedColor: Colors.blue),
+          useMaterial3: true,
+        ),
+        localizationsDelegates: const [
+          GlobalMaterialLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+        ],
+        supportedLocales: const [
+          Locale('ja', 'JP'),
+        ],
+        locale: const Locale('ja', 'JP'),
+        home: const AuthGate(), // 認証状態に応じて画面を切り替え
       ),
-      localizationsDelegates: const [
-        GlobalMaterialLocalizations.delegate,
-        GlobalWidgetsLocalizations.delegate,
-        GlobalCupertinoLocalizations.delegate,
-      ],
-      supportedLocales: const [
-        Locale('ja', 'JP'),
-      ],
-      locale: const Locale('ja', 'JP'),
-      home: const AuthGate(), // 認証状態に応じて画面を切り替え
     );
   }
 }
