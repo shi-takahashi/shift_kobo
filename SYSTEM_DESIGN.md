@@ -49,9 +49,9 @@
 |-----|------|
 | Firebase Authentication | ユーザー認証（Email/Password、匿名認証） |
 | Cloud Firestore | NoSQLデータベース |
-| Cloud Functions | サーバーサイド処理（チーム解散、アカウント削除） |
+| Cloud Functions | サーバーサイド処理（チーム解散、アカウント削除、Push通知） |
 | Firebase Hosting | Web版ホスティング |
-| Firebase Messaging (FCM) | Push通知（実装予定） |
+| Firebase Messaging (FCM) | Push通知（アプリ版限定、実装済み） |
 
 ### ローカルストレージ
 | 技術 | 用途 |
@@ -175,7 +175,7 @@ shift_kobo/
 │   │   ├── shift_assignment_service.dart # シフト自動割り当て
 │   │   ├── ad_service.dart              # AdMob広告
 │   │   ├── migration_service.dart       # Hive→Firestore移行
-│   │   ├── notification_service.dart    # Push通知（実装予定）
+│   │   ├── notification_service.dart    # Push通知（アプリ版限定）
 │   │   └── invitation_service.dart      # チーム招待
 │   │
 │   ├── screens/                         # 画面
@@ -528,18 +528,54 @@ FirebaseFirestore.instance.settings = const Settings(
 #### 3. Cloud Functions
 - **チーム解散**: チーム全体のデータ削除（GDPR対応）
 - **スタッフアカウント削除**: Admin SDK使用（クライアントからは削除不可）
+- **Push通知**: Firestoreトリガーで自動送信
 
 ```javascript
 // functions/index.js
+
+// チーム解散
 exports.deleteTeamAndAllAccounts = onCall(async (request) => {
   // チーム全体を削除
   // 全メンバーのAuthenticationを削除（GDPR対応）
 });
+
+// 申請作成時の通知（管理者へ）
+exports.onConstraintRequestCreated = onDocumentCreated(
+  { document: "teams/{teamId}/constraint_requests/{requestId}" },
+  async (event) => {
+    // 管理者全員にPush通知を送信
+  }
+);
+
+// 申請承認/却下時の通知（スタッフへ）
+exports.onConstraintRequestUpdated = onDocumentUpdated(
+  { document: "teams/{teamId}/constraint_requests/{requestId}" },
+  async (event) => {
+    // 申請者にPush通知を送信
+  }
+);
 ```
 
 #### 4. Firebase Hosting（Web版）
 - **URL**: `https://shift-kobo-online.web.app`
 - **デプロイ**: `firebase deploy --only hosting`
+
+#### 5. Firebase Messaging (FCM)
+- **アプリ版のみ実装**（Web版では無効化）
+- **通知の種類**:
+  - 管理者向け: スタッフが休み希望申請した
+  - スタッフ向け: 休み希望が承認/却下された
+- **Cloud Functions トリガー**:
+  - `onConstraintRequestCreated`: 申請作成時に管理者へ通知
+  - `onConstraintRequestUpdated`: 承認/却下時にスタッフへ通知
+
+```dart
+// FCM初期化（アプリ版のみ）
+if (!kIsWeb) {
+  await NotificationService.requestPermission();
+  await NotificationService.syncToken();
+}
+```
 
 ---
 
@@ -630,25 +666,35 @@ exports.deleteTeamAndAllAccounts = onCall(async (request) => {
     │   status: pending                  │
     │                                    │
     │                              ┌─────▼─────────┐
-    │                              │ 3. 申請一覧表示 │
-    │                              │   (承認画面)    │
+    │                              │ 3. Push通知受信│
+    │                              │   (FCM)        │
     │                              └─────┬─────────┘
     │                                    │
     │                              ┌─────▼─────────┐
-    │                              │ 4. 承認/却下   │
+    │                              │ 4. 申請一覧表示│
+    │                              │   (承認画面)   │
     │                              └─────┬─────────┘
     │                                    │
     │                              ┌─────▼─────────┐
-    │                              │ 5. Firestore更新│
+    │                              │ 5. 承認/却下   │
+    │                              └─────┬─────────┘
+    │                                    │
+    │                              ┌─────▼─────────┐
+    │                              │ 6. Firestore更新│
     │                              │ status: approved│
     │◄─────────────────────────────┤ or rejected    │
+    │                              └─────┬─────────┘
+    │                                    │
+    │                              ┌─────▼─────────┐
+    │                              │ 7. Push通知送信│
+    │                              │   (FCM)        │
     │                              └────────────────┘
     │
-    ├─ 6. リアルタイム更新
-    │   (StreamBuilder)
+    ├─ 8. Push通知受信
+    │   (承認/却下)
     │
-    ├─ 7. Push通知受信
-        （実装予定）
+    ├─ 9. リアルタイム更新
+        (StreamBuilder)
 ```
 
 ### 4. チーム作成・参加フロー
@@ -1011,7 +1057,7 @@ debugPrint('⚠️ 警告: $warning');
 
 ## 今後の拡張予定
 
-1. **Push通知実装**（FCM）
+1. ~~**Push通知実装**（FCM）~~ → ✅ **実装済み**
 2. **一括承認機能**
 3. **自動承認設定**
 4. **祝日勤務不可設定**
