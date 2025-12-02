@@ -1,133 +1,200 @@
-# シフト表自動作成アプリ（MVP開発計画）
+# シフト工房
 
-## 概要
-Flutter を用いて、シフト表を自動で作成できるアプリを開発します。  
-MVP（Minimum Viable Product）として最小限の機能を実装し、リリース後にユーザーの反応を見て改善・方向性を検討します。
-
-- **使用技術**: Flutter（Dart）
-- **対応OS**: iOS / Android
+スタッフのシフトを自動で作成・管理するFlutterアプリケーション
 
 ---
 
-## 目的
-- シフト作成を自動化し、管理者・スタッフ双方の負担を軽減
-- MVPで早期リリース → ユーザー反応を見て改善・ピボット判断
+## 📱 概要
+
+**シフト工房**は、管理者のシフト作成を支援するアプリです。スタッフの制約条件を考慮した公平なシフト自動生成と、チームでのオンライン共有機能を提供します。
+
+### 主要機能
+- ✅ **シフト自動割り当て**: 制約条件を考慮した公平な自動生成
+- ✅ **手動編集**: 自動生成されたシフトの調整
+- ✅ **チーム管理**: 複数ユーザーでのデータ共有
+- ✅ **休み希望承認フロー**: スタッフが申請→管理者が承認
+- ✅ **Push通知**: 申請・承認の通知（アプリ版限定）
+- ✅ **シフト表エクスポート**: Excel/画像形式での出力
+
+### 技術スタック
+- **Frontend**: Flutter 3.24.3, Dart
+- **Backend**: Firebase (Authentication, Firestore, Functions, Hosting, Messaging)
+- **状態管理**: Provider
+- **収益化**: AdMob（Android版）
+
+### プラットフォーム
+- **Android版**: Google Play配信（AdMob広告あり）
+- **Web版**: Firebase Hosting（広告なし、iOSユーザー向け）
+- **iOS版**: 将来対応予定
 
 ---
 
-## 基本機能（MVP）
-1. **カレンダーUI**
-    - 日付ごとにシフトを表示
-    - 利用予定プラグイン: [table_calendar](https://pub.dev/packages/table_calendar)
+## 📚 ドキュメント
 
-2. **自動割り当て機能**
-    - 人数・条件に基づいてシフトを自動生成
-    - 休み希望などの制約も反映
+### 開発・運用ドキュメント
 
-3. **手動編集**
-    - 自動作成後にユーザーが調整可能（例: タップ、ドラッグ&ドロップ）
-
-4. **保存・共有**
-    - シフト表を **画像 / PDF / Excel** で保存・共有
-    - LINE / メールなどで送信可能
-
-5. **広告表示**
-    - AdMob によるバナー広告 / インタースティシャル広告を表示
+| ドキュメント | 用途 |
+|------------|------|
+| **[CLAUDE.md](CLAUDE.md)** | 開発進捗サマリー（最重要、まずここを読む） |
+| **[SYSTEM_DESIGN.md](SYSTEM_DESIGN.md)** | システム設計書（アーキテクチャ、技術仕様） |
+| **[WEB_DEPLOY.md](WEB_DEPLOY.md)** | Web版デプロイ手順（開発/本番環境） |
+| **[firestore_security_rules.md](firestore_security_rules.md)** | Firestore Security Rules仕様 |
+| **[ANNOUNCEMENT_GUIDE.md](ANNOUNCEMENT_GUIDE.md)** | お知らせ機能の運用マニュアル |
 
 ---
 
-## 開発ステップ（詳細）
-1. **プロジェクト準備**
-    - Flutter プロジェクト作成
-    - 必要パッケージ導入（`table_calendar`, `provider`, `pdf`, `excel`, `screenshot` など）
+## 🚀 開発環境セットアップ
 
-2. **UI基盤構築**
-    - ホーム画面のレイアウト
-    - カレンダー画面の作成
-    - シフト入力/編集用ダイアログの雛形
+### 必要な環境
+- Flutter 3.24.3以上
+- Dart Stable
+- Firebase CLI
+- Android Studio / Xcode（プラットフォームに応じて）
 
-3. **カレンダー表示**"
-    - `table_calendar` を利用して月ごとのシフト表を表示
-    - イベント（シフト情報）の簡易表示
+### セットアップ手順
 
-4. **シフトデータ管理**
-    - シフト情報のデータモデル設計
-    - ローカル保存（`shared_preferences` or `hive`）
+```bash
+# 1. リポジトリクローン
+git clone <repository-url>
+cd shift_kobo
 
-5. **自動割り当てアルゴリズム**
-    - スタッフ人数・シフト枠を考慮した割当ロジック
-    - 休み希望や制約条件の反映
-    - 簡易テスト（小規模データで検証）
+# 2. 依存関係インストール
+flutter pub get
 
-6. **手動編集機能**
-    - シフト枠をタップして編集
-    - ドラッグ&ドロップによる割り当て変更
-    - Undo / Redo（シンプルな履歴管理）
+# 3. モデル生成（Hive Adapter）
+flutter pub run build_runner build --delete-conflicting-outputs
 
-7. **保存・共有機能**
-    - スクリーンショット保存（PNG）
-    - PDF出力（`pdf` パッケージ）
-    - Excel出力（`excel` パッケージ）
-    - 共有機能（LINE / メール送信）
-
-8. **AdMob広告導入**
-    - Firebase / AdMob のセットアップ
-    - バナー広告の配置（カレンダー下部）
-    - インタースティシャル広告（シフト保存時など）
-    - テスト広告で動作確認
-    - リリース前に広告ユニットID差し替え
-
-9. **UI調整 & 最終確認**
-    - レイアウトやデザイン微調整
-    - アイコン作成、テーマカラー設定
-    - ダークモード対応（可能なら）
-
-10. **テスト & ストアリリース準備**
-    - 単体テスト & 実機テスト
-    - スクリーンショット作成
-    - プライバシーポリシー準備（広告利用のため必須）
-    - App Store / Google Play 申請
+# 4. 実行
+flutter run                      # Android/iOS
+flutter run -d chrome            # Web版（開発）
+```
 
 ---
 
-## 想定リリースまでの時間配分（例）
-- プロジェクト準備 & UI基盤: 15h
-- カレンダー表示: 15h
-- シフト自動割り当て: 20h
-- 手動編集UI: 15h
-- 保存/共有機能: 15h
-- AdMob広告導入: 10h
-- UI調整 & デバッグ: 10h
-- ストア申請 & テスト: 10h
+## 🛠️ よく使うコマンド
 
-合計: **約100時間**
+### 実行・ビルド
+
+```bash
+# アプリ版実行（開発環境）
+flutter run
+
+# Web版実行（開発環境）
+flutter run -d chrome
+
+# Android版ビルド（本番環境）
+flutter build apk --release --dart-define=FIREBASE_ENV=prod
+
+# Web版ビルド（本番環境）
+flutter build web --release --dart-define=FIREBASE_ENV=prod --pwa-strategy=none --base-href /web/
+```
+
+### Web版デプロイ
+
+```bash
+# 開発環境にデプロイ
+flutter build web --release --pwa-strategy=none
+rm -rf hosting_root/web && cp -r build/web hosting_root/web
+firebase deploy --only hosting
+
+# 本番環境にデプロイ
+firebase use shift-kobo-online-prod
+flutter build web --release --dart-define=FIREBASE_ENV=prod --pwa-strategy=none --base-href /web/
+rm -rf hosting_root/web && cp -r build/web hosting_root/web
+firebase deploy --only hosting
+firebase use shift-kobo-online  # 開発環境に戻す
+```
+
+詳細は **[WEB_DEPLOY.md](WEB_DEPLOY.md)** を参照。
+
+### その他
+
+```bash
+# コード解析
+flutter analyze
+
+# クリーンビルド
+flutter clean
+flutter pub get
+
+# モデル再生成
+flutter pub run build_runner build --delete-conflicting-outputs
+
+# Firebase環境確認
+firebase use
+
+# Firebase環境切り替え
+firebase use shift-kobo-online        # 開発環境
+firebase use shift-kobo-online-prod   # 本番環境
+```
 
 ---
 
-## GitHub Pages 設定手順
+## 📂 ディレクトリ構成
 
-プライバシーポリシーのWeb版を公開するため、GitHub Pagesを設定してください：
+```
+shift_kobo/
+├── lib/
+│   ├── main.dart                    # エントリーポイント
+│   ├── models/                      # データモデル
+│   ├── providers/                   # 状態管理（Provider）
+│   ├── services/                    # サービス層
+│   ├── screens/                     # 画面
+│   ├── widgets/                     # 共通ウィジェット
+│   └── utils/                       # ユーティリティ
+├── functions/                       # Cloud Functions
+├── web/                             # Web版設定
+├── android/                         # Android固有設定
+├── ios/                             # iOS固有設定
+├── docs/                            # ドキュメント
+└── hosting_root/                    # Firebase Hosting用
+```
 
-### 1. GitHubリポジトリ設定
-1. GitHubのリポジトリページにアクセス
-2. `Settings` タブをクリック
-3. 左サイドバーの `Pages` をクリック
-
-### 2. GitHub Pages有効化
-1. `Source` で `Deploy from a branch` を選択
-2. `Branch` で `main` を選択
-3. フォルダーは `/docs` を選択
-4. `Save` をクリック
-
-### 3. 公開URL確認
-- 設定後、`https://shi-takahashi.github.io/shift_kobo/privacy-policy.html` でアクセス可能
-- アプリ内の「詳細版を見る」ボタンから自動的にこのURLが開かれます
-
-### 4. カスタムドメイン（任意）
-- 独自ドメインを使用する場合は、`Custom domain` で設定可能
+詳細は **[SYSTEM_DESIGN.md](SYSTEM_DESIGN.md)** を参照。
 
 ---
 
-## 今後の展開（MVPリリース後）
-- ユーザーの利用状況や要望に応じて改善
-- 将来的には「クラウド同期」「シフト希望入力フォーム」「通知機能」など拡張も検討
+## 🔐 環境管理
+
+### Firebase環境
+
+| 環境 | プロジェクトID | 用途 |
+|-----|---------------|------|
+| **開発環境** | `shift-kobo-online` | テスト・開発 |
+| **本番環境** | `shift-kobo-online-prod` | 本番リリース |
+
+### ビルド時の環境指定
+
+```bash
+# 開発環境（デフォルト）
+flutter run
+
+# 本番環境
+flutter build apk --release --dart-define=FIREBASE_ENV=prod
+```
+
+---
+
+## 📖 プライバシーポリシー
+
+- **開発環境**: https://shift-kobo-online.web.app/privacy-policy.html
+- **本番環境**: https://shift-kobo-online-prod.web.app/privacy-policy.html
+
+---
+
+## 📝 ライセンス
+
+Private（個人開発プロジェクト）
+
+---
+
+## 🔗 関連リンク
+
+- **Firebase Console（開発）**: https://console.firebase.google.com/project/shift-kobo-online
+- **Firebase Console（本番）**: https://console.firebase.google.com/project/shift-kobo-online-prod
+- **Web版（開発）**: https://shift-kobo-online.web.app
+- **Web版（本番）**: https://shift-kobo-online-prod.web.app/web/
+
+---
+
+**最終更新**: 2025-12-02
