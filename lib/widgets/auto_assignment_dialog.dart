@@ -1,14 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../models/shift_type.dart' as old_shift_type;
-import '../models/shift_time_setting.dart';
-import '../providers/shift_provider.dart';
-import '../providers/staff_provider.dart';
-import '../providers/shift_time_provider.dart';
-import '../providers/monthly_requirements_provider.dart';
-import '../services/shift_assignment_service.dart';
-import '../services/ad_service.dart';
+
 import '../models/shift.dart';
+import '../models/shift_time_setting.dart';
+import '../providers/monthly_requirements_provider.dart';
+import '../providers/shift_provider.dart';
+import '../providers/shift_time_provider.dart';
+import '../providers/staff_provider.dart';
+import '../services/ad_service.dart';
+import '../services/shift_assignment_service.dart';
 
 class AutoAssignmentDialog extends StatefulWidget {
   final DateTime selectedMonth;
@@ -29,16 +29,16 @@ class _AutoAssignmentDialogState extends State<AutoAssignmentDialog> {
   bool _isProcessing = false;
   String? _errorMessage;
   List<Shift>? _previewShifts;
-  
+
   // 旧ShiftType（文字列）から新ShiftType（enum）へのマッピング
   static Map<String, ShiftType> get _shiftTypeMapping => {
-    '早番': ShiftType.shift1,
-    '日勤': ShiftType.shift2,
-    '遅番': ShiftType.shift3,
-    '夜勤': ShiftType.shift4,
-    '終日': ShiftType.shift5,
-  };
-  
+        '早番': ShiftType.shift1,
+        '日勤': ShiftType.shift2,
+        '遅番': ShiftType.shift3,
+        '夜勤': ShiftType.shift4,
+        '終日': ShiftType.shift5,
+      };
+
   String _getStringFromShiftType(ShiftType shiftType, ShiftTimeSetting setting) {
     // ShiftTimeSettingのdisplayNameを直接使用
     return setting.displayName;
@@ -50,20 +50,20 @@ class _AutoAssignmentDialogState extends State<AutoAssignmentDialog> {
     _startDate = DateTime(widget.selectedMonth.year, widget.selectedMonth.month, 1);
     _endDate = DateTime(widget.selectedMonth.year, widget.selectedMonth.month + 1, 0);
   }
-  
+
   void _initializeControllers(List<ShiftTimeSetting> activeSettings) {
     // 既存のコントローラーをクリア
     for (var controller in _requirementControllers.values) {
       controller.dispose();
     }
     _requirementControllers.clear();
-    
+
     // アクティブな設定に対してコントローラーを作成
     for (var setting in activeSettings) {
       final shiftTypeString = _getStringFromShiftType(setting.shiftType, setting);
       _requirementControllers[shiftTypeString] = TextEditingController(text: '0');
     }
-    
+
     _loadSavedRequirements();
   }
 
@@ -78,9 +78,7 @@ class _AutoAssignmentDialogState extends State<AutoAssignmentDialog> {
           defaultValue = 1;
         }
 
-        final savedValue = requirementsProvider.getRequirement(shiftType) != 0
-            ? requirementsProvider.getRequirement(shiftType)
-            : defaultValue;
+        final savedValue = requirementsProvider.getRequirement(shiftType) != 0 ? requirementsProvider.getRequirement(shiftType) : defaultValue;
         _requirementControllers[shiftType]!.text = savedValue.toString();
       }
     });
@@ -111,14 +109,14 @@ class _AutoAssignmentDialogState extends State<AutoAssignmentDialog> {
     return Consumer<ShiftTimeProvider>(
       builder: (context, shiftTimeProvider, child) {
         final activeSettings = shiftTimeProvider.settings.where((s) => s.isActive).toList();
-        
+
         // 初回または活性設定変更時にコントローラーを初期化
         if (_requirementControllers.isEmpty || _requirementControllers.keys.length != activeSettings.length) {
           WidgetsBinding.instance.addPostFrameCallback((_) {
             _initializeControllers(activeSettings);
           });
         }
-        
+
         return AlertDialog(
           title: const Text('自動シフト割り当て'),
           content: SizedBox(
@@ -169,33 +167,33 @@ class _AutoAssignmentDialogState extends State<AutoAssignmentDialog> {
                     ),
                   ],
                   if (_previewShifts != null) ...[
-                const SizedBox(height: 16),
-                Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: Colors.green.shade50,
-                    borderRadius: BorderRadius.circular(4),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        '${_previewShifts!.length}件のシフトが作成されます',
-                        style: TextStyle(color: Colors.green.shade700),
+                    const SizedBox(height: 16),
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: Colors.green.shade50,
+                        borderRadius: BorderRadius.circular(4),
                       ),
-                      if (_previewShifts!.isNotEmpty) ...[
-                        const SizedBox(height: 8),
-                        Text(
-                          '期間: ${_startDate.month}/${_startDate.day} 〜 ${_endDate.month}/${_endDate.day}',
-                          style: TextStyle(fontSize: 12, color: Colors.green.shade600),
-                        ),
-                        const SizedBox(height: 8),
-                        _buildShiftSummary(),
-                      ],
-                    ],
-                  ),
-                ),
-              ],
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            '${_previewShifts!.length}件のシフトが作成されます',
+                            style: TextStyle(color: Colors.green.shade700),
+                          ),
+                          if (_previewShifts!.isNotEmpty) ...[
+                            const SizedBox(height: 8),
+                            Text(
+                              '期間: ${_startDate.month}/${_startDate.day} 〜 ${_endDate.month}/${_endDate.day}',
+                              style: TextStyle(fontSize: 12, color: Colors.green.shade600),
+                            ),
+                            const SizedBox(height: 8),
+                            _buildShiftSummary(),
+                          ],
+                        ],
+                      ),
+                    ),
+                  ],
                 ],
               ),
             ),
@@ -232,7 +230,7 @@ class _AutoAssignmentDialogState extends State<AutoAssignmentDialog> {
 
   Widget _buildRequirementField(ShiftTimeSetting setting) {
     final shiftTypeString = _getStringFromShiftType(setting.shiftType, setting);
-    
+
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4.0),
       child: Row(
@@ -287,7 +285,7 @@ class _AutoAssignmentDialogState extends State<AutoAssignmentDialog> {
   Future<void> _previewAssignment() async {
     // キーボードを閉じる
     FocusScope.of(context).unfocus();
-    
+
     setState(() {
       _isProcessing = true;
       _errorMessage = null;
@@ -297,7 +295,7 @@ class _AutoAssignmentDialogState extends State<AutoAssignmentDialog> {
     try {
       final staffProvider = Provider.of<StaffProvider>(context, listen: false);
       final shiftProvider = Provider.of<ShiftProvider>(context, listen: false);
-      
+
       final requirements = <String, int>{};
       for (var entry in _requirementControllers.entries) {
         final value = int.tryParse(entry.value.text) ?? 0;
@@ -379,14 +377,13 @@ class _AutoAssignmentDialogState extends State<AutoAssignmentDialog> {
         final navigatorContext = Navigator.of(context);
         final scaffoldMessengerContext = ScaffoldMessenger.of(context);
         final shiftsCount = _previewShifts!.length;
-        
+
         // シフト作成完了後に即座にインタースティシャル広告を表示
         navigatorContext.pop(true);
-        
+
         // 事前読み込み済み広告を即座に表示
         AdService.showInterstitialAd(
-          onAdShown: () {
-          },
+          onAdShown: () {},
           onAdClosed: () {
             // 広告終了後に完了メッセージを表示
             _showCompletionMessage(scaffoldMessengerContext, shiftsCount);
@@ -407,44 +404,45 @@ class _AutoAssignmentDialogState extends State<AutoAssignmentDialog> {
 
   Future<bool> _showConfirmationDialog(String title, String message) async {
     return await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text(title),
-        content: Text(message),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('キャンセル'),
+          context: context,
+          builder: (context) => AlertDialog(
+            title: Text(title),
+            content: Text(message),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(false),
+                child: const Text('キャンセル'),
+              ),
+              ElevatedButton(
+                onPressed: () => Navigator.of(context).pop(true),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.red,
+                ),
+                child: const Text('続ける'),
+              ),
+            ],
           ),
-          ElevatedButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.red,
-            ),
-            child: const Text('続ける'),
-          ),
-        ],
-      ),
-    ) ?? false;
+        ) ??
+        false;
   }
 
   Widget _buildShiftSummary() {
     if (_previewShifts == null) return const SizedBox();
-    
+
     final staffProvider = Provider.of<StaffProvider>(context, listen: false);
     final Map<String, int> staffShiftCounts = {};
     final Map<String, int> staffMaxShifts = {};
-    
+
     // シフト数を集計
     for (var shift in _previewShifts!) {
       staffShiftCounts[shift.staffId] = (staffShiftCounts[shift.staffId] ?? 0) + 1;
     }
-    
+
     // スタッフの最大シフト数を取得
     for (var staff in staffProvider.staff) {
       staffMaxShifts[staff.id] = staff.maxShiftsPerMonth;
     }
-    
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -457,7 +455,7 @@ class _AutoAssignmentDialogState extends State<AutoAssignmentDialog> {
           final count = staffShiftCounts[staff.id] ?? 0;
           final max = staff.maxShiftsPerMonth;
           final percentage = max > 0 ? (count / max * 100).round() : 0;
-          
+
           return Padding(
             padding: const EdgeInsets.symmetric(vertical: 2),
             child: Row(

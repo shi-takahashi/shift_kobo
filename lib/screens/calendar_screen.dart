@@ -55,10 +55,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
     if (widget.appUser.teamId == null) return;
 
     try {
-      final snapshot = await FirebaseFirestore.instance
-          .collection('users')
-          .where('teamId', isEqualTo: widget.appUser.teamId)
-          .get();
+      final snapshot = await FirebaseFirestore.instance.collection('users').where('teamId', isEqualTo: widget.appUser.teamId).get();
 
       final roleCache = <String, bool>{};
       for (final doc in snapshot.docs) {
@@ -85,22 +82,6 @@ class _CalendarScreenState extends State<CalendarScreen> {
   void dispose() {
     _selectedShifts.dispose();
     super.dispose();
-  }
-
-  /// 月表示の週数を計算（4週または5週）
-  int _getWeeksInMonth(DateTime month) {
-    final firstDay = DateTime(month.year, month.month, 1);
-    final lastDay = DateTime(month.year, month.month + 1, 0);
-
-    // 最初の日の曜日（日曜=0, 月曜=1...土曜=6）
-    final firstWeekday = firstDay.weekday % 7; // Dart weekday: 月=1...日=7 → 日曜始まり: 日=0...土=6
-
-    // 月の日数
-    final daysInMonth = lastDay.day;
-
-    // 必要な週数を計算
-    final totalDays = firstWeekday + daysInMonth;
-    return (totalDays / 7).ceil(); // 4週 or 5週
   }
 
   /// シフトタイプ名から色を取得（新しいShiftTimeSettingに対応）
