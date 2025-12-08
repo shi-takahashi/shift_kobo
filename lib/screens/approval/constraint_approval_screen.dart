@@ -5,16 +5,29 @@ import '../../models/constraint_request.dart';
 import '../../models/staff.dart';
 import '../../providers/constraint_request_provider.dart';
 import '../../providers/staff_provider.dart';
+import '../../services/analytics_service.dart';
 import '../../widgets/constraint_request_card.dart';
 
 /// 制約承認画面（管理者専用）
-class ConstraintApprovalScreen extends StatelessWidget {
+class ConstraintApprovalScreen extends StatefulWidget {
   final AppUser appUser;
 
   const ConstraintApprovalScreen({
     super.key,
     required this.appUser,
   });
+
+  @override
+  State<ConstraintApprovalScreen> createState() => _ConstraintApprovalScreenState();
+}
+
+class _ConstraintApprovalScreenState extends State<ConstraintApprovalScreen> {
+  @override
+  void initState() {
+    super.initState();
+    // Analytics: 画面表示イベント
+    AnalyticsService.logScreenView('constraint_approval_screen');
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -76,7 +89,7 @@ class ConstraintApprovalScreen extends StatelessWidget {
               return ConstraintRequestCard(
                 request: request,
                 staff: staff,
-                appUser: appUser,
+                appUser: widget.appUser,
               );
             },
           );

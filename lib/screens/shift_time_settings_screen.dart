@@ -2,9 +2,22 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../models/shift_time_setting.dart';
 import '../providers/shift_time_provider.dart';
+import '../services/analytics_service.dart';
 
-class ShiftTimeSettingsScreen extends StatelessWidget {
+class ShiftTimeSettingsScreen extends StatefulWidget {
   const ShiftTimeSettingsScreen({super.key});
+
+  @override
+  State<ShiftTimeSettingsScreen> createState() => _ShiftTimeSettingsScreenState();
+}
+
+class _ShiftTimeSettingsScreenState extends State<ShiftTimeSettingsScreen> {
+  @override
+  void initState() {
+    super.initState();
+    // Analytics: 画面表示イベント
+    AnalyticsService.logScreenView('shift_time_settings_screen');
+  }
 
   @override
   Widget build(BuildContext context) {

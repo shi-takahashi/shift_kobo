@@ -3,6 +3,11 @@ import 'package:firebase_analytics/firebase_analytics.dart';
 class AnalyticsService {
   static final FirebaseAnalytics _analytics = FirebaseAnalytics.instance;
 
+  /// ユーザーIDを設定（ログイン時に呼び出す）
+  static Future<void> setUserId(String? userId) async {
+    await _analytics.setUserId(id: userId);
+  }
+
   /// アプリ起動イベント
   static Future<void> logAppOpen() async {
     await _analytics.logEvent(name: 'app_open');
@@ -10,24 +15,32 @@ class AnalyticsService {
 
   /// 画面表示イベント
   static Future<void> logScreenView(String screenName) async {
-    await _analytics.logScreenView(screenName: screenName);
-  }
-
-  /// シフト作成イベント
-  static Future<void> logShiftGenerated({
-    required int shiftCount,
-    required String strategy,
-  }) async {
     await _analytics.logEvent(
-      name: 'shift_generated',
+      name: 'screen_view',
       parameters: {
-        'shift_count': shiftCount,
-        'strategy': strategy,
+        'screen_name': screenName,
+        'screen_class': screenName,
       },
     );
   }
 
-  /// シフト復元イベント
+  /// シフト自動作成イベント
+  static Future<void> logShiftGenerated({
+    required int shiftCount,
+    required String strategy,
+    required String yearMonth, // "2025-12" 形式
+  }) async {
+    await _analytics.logEvent(
+      name: 'auto_shift_generated',
+      parameters: {
+        'shift_count': shiftCount,
+        'strategy': strategy,
+        'year_month': yearMonth,
+      },
+    );
+  }
+
+  /// シフト切替イベント
   static Future<void> logShiftRestored() async {
     await _analytics.logEvent(name: 'shift_restored');
   }
@@ -36,16 +49,6 @@ class AnalyticsService {
   static Future<void> logShiftEdited(String shiftId) async {
     await _analytics.logEvent(
       name: 'shift_edited',
-      parameters: {
-        'shift_id': shiftId,
-      },
-    );
-  }
-
-  /// シフト削除イベント
-  static Future<void> logShiftDeleted(String shiftId) async {
-    await _analytics.logEvent(
-      name: 'shift_deleted',
       parameters: {
         'shift_id': shiftId,
       },

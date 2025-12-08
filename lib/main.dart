@@ -14,6 +14,7 @@ import 'models/shift_constraint.dart';
 import 'models/shift_time_setting.dart';
 import 'models/staff.dart';
 import 'services/ad_service.dart';
+import 'services/analytics_service.dart';
 import 'services/auth_service.dart';
 import 'widgets/auth_gate.dart';
 
@@ -64,6 +65,9 @@ void main() async {
     );
 
     debugPrint('✅ Firebase初期化成功');
+
+    // Analytics: アプリ起動イベント
+    await AnalyticsService.logAppOpen();
 
     // FCMの初期化は行わない（ログイン後に初期化する）
   } catch (e) {

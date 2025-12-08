@@ -5,6 +5,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import '../models/app_user.dart';
 import '../models/team.dart';
+import 'analytics_service.dart';
 import 'notification_service.dart';
 
 /// 認証サービス
@@ -69,6 +70,9 @@ class AuthService {
 
       print('✅ [SignUp] Firestoreユーザー情報保存成功');
 
+      // Analytics: ユーザーIDを設定
+      await AnalyticsService.setUserId(user.uid);
+
       return user;
     } on FirebaseAuthException catch (e) {
       print('❌ [SignUp] Firebase認証エラー: ${e.code}');
@@ -89,7 +93,14 @@ class AuthService {
         email: email,
         password: password,
       );
-      return userCredential.user;
+      final user = userCredential.user;
+
+      // Analytics: ユーザーIDを設定
+      if (user != null) {
+        await AnalyticsService.setUserId(user.uid);
+      }
+
+      return user;
     } on FirebaseAuthException catch (e) {
       throw _handleAuthException(e);
     }
@@ -106,6 +117,9 @@ class AuthService {
         print('⚠️ FCMトークン削除エラー（無視）: $e');
       }
     }
+
+    // Analytics: ユーザーIDをクリア
+    await AnalyticsService.setUserId(null);
 
     await _auth.signOut();
   }
@@ -694,6 +708,9 @@ class AuthService {
       await _firestore.collection('users').doc(user.uid).get();
       print('✅ [SignInAnonymously] ユーザードキュメント読み取り確認完了');
 
+      // Analytics: ユーザーIDを設定
+      await AnalyticsService.setUserId(user.uid);
+
       return user;
     } on FirebaseAuthException catch (e) {
       print('❌ [SignInAnonymously] Firebase認証エラー: ${e.code}');
@@ -786,6 +803,9 @@ class AuthService {
       }
 
       print('✅ [Upgrade] 完了！UID: ${user.uid}（データはそのまま）');
+
+      // Analytics: ユーザーIDを再設定（念のため）
+      await AnalyticsService.setUserId(user.uid);
 
       return user;
     } on FirebaseAuthException catch (e) {

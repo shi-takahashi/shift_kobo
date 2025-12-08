@@ -17,6 +17,7 @@ import '../models/shift.dart';
 import '../models/staff.dart';
 import '../providers/shift_time_provider.dart';
 import '../models/shift_time_setting.dart';
+import '../services/analytics_service.dart';
 
 class ExportScreen extends StatefulWidget {
   final DateTime? initialMonth;
@@ -39,6 +40,9 @@ class _ExportScreenState extends State<ExportScreen> {
     _selectedMonth = widget.initialMonth ?? DateTime.now();
     // 画面を横向きに固定（即座に適用）
     _setLandscapeOrientation();
+
+    // Analytics: 画面表示イベント
+    AnalyticsService.logScreenView('export_screen');
   }
 
   void _setLandscapeOrientation() {

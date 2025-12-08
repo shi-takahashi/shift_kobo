@@ -17,6 +17,7 @@ import '../providers/monthly_requirements_provider.dart';
 import '../providers/shift_provider.dart';
 import '../providers/shift_time_provider.dart';
 import '../providers/staff_provider.dart';
+import '../services/analytics_service.dart';
 import '../services/shift_plan_service.dart';
 import '../utils/japanese_calendar_utils.dart';
 import '../widgets/auto_assignment_dialog.dart';
@@ -52,6 +53,9 @@ class _CalendarScreenState extends State<CalendarScreen> {
     _selectedDay = DateTime.now();
     _selectedShifts = ValueNotifier(_getShiftsForDay(_selectedDay!));
     _loadTeamUserRoles();
+
+    // Analytics: 画面表示イベント
+    AnalyticsService.logScreenView('calendar_screen');
   }
 
   /// チーム内の全ユーザーのロール情報をキャッシュ
@@ -803,6 +807,9 @@ class _CalendarScreenState extends State<CalendarScreen> {
         if (_selectedDay != null) {
           _selectedShifts.value = _getShiftsForDay(_selectedDay!);
         }
+
+        // Analytics: シフト切替イベント
+        await AnalyticsService.logShiftRestored();
 
         // 成功メッセージ
         ScaffoldMessenger.of(context).showSnackBar(

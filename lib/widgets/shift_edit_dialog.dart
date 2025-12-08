@@ -8,6 +8,7 @@ import '../models/shift_time_setting.dart';
 import '../providers/staff_provider.dart';
 import '../providers/shift_provider.dart';
 import '../providers/shift_time_provider.dart';
+import '../services/analytics_service.dart';
 
 class ShiftEditDialog extends StatefulWidget {
   final DateTime selectedDate;
@@ -468,8 +469,11 @@ class _ShiftEditDialogState extends State<ShiftEditDialog> {
           shiftType: shiftTypeForSave,
           note: _note.isNotEmpty ? _note : null,
         );
-        
+
         shiftProvider.updateShift(updatedShift);
+
+        // Analytics: シフト編集イベント
+        AnalyticsService.logShiftEdited(updatedShift.id);
       } else {
         // 追加モード
         // ShiftTimeSettingのカスタム名を直接使用
@@ -477,7 +481,7 @@ class _ShiftEditDialogState extends State<ShiftEditDialog> {
         if (_selectedShiftTimeSetting != null) {
           shiftTypeForSave = _selectedShiftTimeSetting!.displayName;
         }
-        
+
         final newShift = Shift(
           id: DateTime.now().millisecondsSinceEpoch.toString(),
           staffId: _selectedStaffId!,
@@ -487,8 +491,11 @@ class _ShiftEditDialogState extends State<ShiftEditDialog> {
           shiftType: shiftTypeForSave,
           note: _note.isNotEmpty ? _note : null,
         );
-        
+
         shiftProvider.addShift(newShift);
+
+        // Analytics: シフト編集イベント（新規追加も編集として記録）
+        AnalyticsService.logShiftEdited(newShift.id);
       }
       
       Navigator.pop(context, true);

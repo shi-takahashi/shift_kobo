@@ -15,6 +15,7 @@ import '../providers/monthly_requirements_provider.dart';
 import '../providers/shift_provider.dart';
 import '../providers/shift_time_provider.dart';
 import '../providers/staff_provider.dart';
+import '../services/analytics_service.dart';
 import '../services/auth_service.dart';
 import '../services/backup_service.dart';
 import '../services/notification_service.dart';
@@ -49,6 +50,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
     super.initState();
     _loadPackageInfo();
     _loadNotificationSettings();
+
+    // Analytics: 画面表示イベント
+    AnalyticsService.logScreenView('settings_screen');
   }
 
   Future<void> _loadPackageInfo() async {

@@ -456,6 +456,7 @@ class _AutoAssignmentDialogState extends State<AutoAssignmentDialog> {
       await AnalyticsService.logShiftGenerated(
         shiftCount: shifts.length,
         strategy: _selectedStrategy.name,
+        yearMonth: '${widget.selectedMonth.year}-${widget.selectedMonth.month}',
       );
 
       if (mounted) {

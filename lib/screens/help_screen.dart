@@ -1,9 +1,22 @@
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
+import '../services/analytics_service.dart';
 
 /// ヘルプ画面
-class HelpScreen extends StatelessWidget {
+class HelpScreen extends StatefulWidget {
   const HelpScreen({super.key});
+
+  @override
+  State<HelpScreen> createState() => _HelpScreenState();
+}
+
+class _HelpScreenState extends State<HelpScreen> {
+  @override
+  void initState() {
+    super.initState();
+    // Analytics: 画面表示イベント
+    AnalyticsService.logScreenView('help_screen');
+  }
 
   @override
   Widget build(BuildContext context) {

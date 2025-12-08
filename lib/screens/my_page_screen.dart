@@ -15,6 +15,7 @@ import '../providers/shift_provider.dart';
 import '../providers/shift_time_provider.dart';
 import '../providers/constraint_request_provider.dart';
 import '../models/shift_type.dart' as old_shift_type;
+import '../services/analytics_service.dart';
 import '../utils/japanese_calendar_utils.dart';
 
 /// マイページ画面（自分のシフト確認・休み希望入力）
@@ -38,6 +39,9 @@ class _MyPageScreenState extends State<MyPageScreen> {
   void initState() {
     super.initState();
     _selectedDay = DateTime.now();
+
+    // Analytics: 画面表示イベント
+    AnalyticsService.logScreenView('my_page_screen');
   }
 
   /// 自分のスタッフ情報を取得（userIdで照合）

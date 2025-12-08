@@ -6,6 +6,7 @@ import '../providers/shift_time_provider.dart';
 import '../providers/constraint_request_provider.dart';
 import '../models/staff.dart';
 import '../models/app_user.dart';
+import '../services/analytics_service.dart';
 import '../services/auth_service.dart';
 import '../widgets/staff_edit_dialog.dart';
 import 'approval/constraint_approval_screen.dart';
@@ -23,6 +24,13 @@ class StaffListScreen extends StatefulWidget {
 }
 
 class _StaffListScreenState extends State<StaffListScreen> {
+  @override
+  void initState() {
+    super.initState();
+    // Analytics: 画面表示イベント
+    AnalyticsService.logScreenView('staff_list_screen');
+  }
+
   String _getDayOffText(List<int> daysOff) {
     const dayNames = ['月', '火', '水', '木', '金', '土', '日'];
     return daysOff.map((day) => dayNames[day - 1]).join('・');

@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../models/shift_time_setting.dart';
 import '../providers/shift_time_provider.dart';
 import '../providers/monthly_requirements_provider.dart';
+import '../services/analytics_service.dart';
 import 'shift_time_settings_screen.dart';
 
 class MonthlyShiftSettingsScreen extends StatefulWidget {
@@ -24,6 +25,9 @@ class _MonthlyShiftSettingsScreenState extends State<MonthlyShiftSettingsScreen>
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _initializeControllers();
     });
+
+    // Analytics: 画面表示イベント
+    AnalyticsService.logScreenView('monthly_shift_settings_screen');
   }
 
   void _initializeControllers() async {
