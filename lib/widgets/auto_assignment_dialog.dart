@@ -1,14 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
-import '../models/shift.dart';
+import '../models/assignment_strategy.dart';
 import '../models/shift_time_setting.dart';
 import '../providers/monthly_requirements_provider.dart';
 import '../providers/shift_provider.dart';
 import '../providers/shift_time_provider.dart';
 import '../providers/staff_provider.dart';
 import '../services/ad_service.dart';
+import '../services/analytics_service.dart';
 import '../services/shift_assignment_service.dart';
+import '../services/shift_plan_service.dart';
 
 class AutoAssignmentDialog extends StatefulWidget {
   final DateTime selectedMonth;
@@ -28,16 +31,7 @@ class _AutoAssignmentDialogState extends State<AutoAssignmentDialog> {
   final Map<String, TextEditingController> _requirementControllers = {};
   bool _isProcessing = false;
   String? _errorMessage;
-  List<Shift>? _previewShifts;
-
-  // 旧ShiftType（文字列）から新ShiftType（enum）へのマッピング
-  static Map<String, ShiftType> get _shiftTypeMapping => {
-        '早番': ShiftType.shift1,
-        '日勤': ShiftType.shift2,
-        '遅番': ShiftType.shift3,
-        '夜勤': ShiftType.shift4,
-        '終日': ShiftType.shift5,
-      };
+  AssignmentStrategy _selectedStrategy = AssignmentStrategy.fairness;
 
   String _getStringFromShiftType(ShiftType shiftType, ShiftTimeSetting setting) {
     // ShiftTimeSettingのdisplayNameを直接使用
@@ -49,6 +43,7 @@ class _AutoAssignmentDialogState extends State<AutoAssignmentDialog> {
     super.initState();
     _startDate = DateTime(widget.selectedMonth.year, widget.selectedMonth.month, 1);
     _endDate = DateTime(widget.selectedMonth.year, widget.selectedMonth.month + 1, 0);
+    _loadStrategyPreference();
   }
 
   void _initializeControllers(List<ShiftTimeSetting> activeSettings) {
@@ -104,6 +99,42 @@ class _AutoAssignmentDialogState extends State<AutoAssignmentDialog> {
     super.dispose();
   }
 
+  /// SharedPreferencesから前回選択した戦略を読み込み
+  Future<void> _loadStrategyPreference() async {
+    final prefs = await SharedPreferences.getInstance();
+    final strategyName = prefs.getString('last_assignment_strategy');
+    if (strategyName != null) {
+      setState(() {
+        _selectedStrategy = AssignmentStrategy.values.firstWhere(
+          (s) => s.name == strategyName,
+          orElse: () => AssignmentStrategy.fairness,
+        );
+      });
+    }
+  }
+
+  /// SharedPreferencesに選択した戦略を保存
+  Future<void> _saveStrategyPreference() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('last_assignment_strategy', _selectedStrategy.name);
+  }
+
+  /// 戦略文字列から分かりやすいnoteを作成
+  String _getNoteFromStrategy(String? strategy) {
+    if (strategy == null || strategy == 'nothing') {
+      return '割り当て戦略なし';
+    }
+
+    try {
+      final assignmentStrategy = AssignmentStrategy.values.firstWhere(
+        (s) => s.name == strategy,
+      );
+      return '${assignmentStrategy.displayName}で自動作成';
+    } catch (e) {
+      return '割り当て戦略なし';
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Consumer<ShiftTimeProvider>(
@@ -152,6 +183,81 @@ class _AutoAssignmentDialogState extends State<AutoAssignmentDialog> {
                     )
                   else
                     ...activeSettings.map((setting) => _buildRequirementField(setting)),
+                  const SizedBox(height: 16),
+                  const Text(
+                    '割り当て戦略：',
+                    style: TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 8),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                    decoration: BoxDecoration(
+                      border: Border.all(color: Colors.grey.shade300),
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: DropdownButton<AssignmentStrategy>(
+                      value: _selectedStrategy,
+                      isExpanded: true,
+                      underline: const SizedBox(),
+                      items: AssignmentStrategy.values.map((strategy) {
+                        return DropdownMenuItem(
+                          value: strategy,
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                strategy.displayName,
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.w500,
+                                  fontSize: 14,
+                                ),
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                strategy.description,
+                                style: TextStyle(
+                                  fontSize: 10,
+                                  color: Colors.grey.shade600,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ],
+                          ),
+                        );
+                      }).toList(),
+                      onChanged: (value) {
+                        setState(() {
+                          _selectedStrategy = value!;
+                        });
+                      },
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.blue.shade50,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: Colors.blue.shade200),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(Icons.info_outline, size: 20, color: Colors.blue.shade700),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            '戦略を変えると異なるシフトパターンが作成されます。\n現在のシフトはバックアップされ、いつでも復元できます。',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Colors.blue.shade900,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
                   if (_errorMessage != null) ...[
                     const SizedBox(height: 16),
                     Container(
@@ -166,34 +272,6 @@ class _AutoAssignmentDialogState extends State<AutoAssignmentDialog> {
                       ),
                     ),
                   ],
-                  if (_previewShifts != null) ...[
-                    const SizedBox(height: 16),
-                    Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color: Colors.green.shade50,
-                        borderRadius: BorderRadius.circular(4),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            '${_previewShifts!.length}件のシフトが作成されます',
-                            style: TextStyle(color: Colors.green.shade700),
-                          ),
-                          if (_previewShifts!.isNotEmpty) ...[
-                            const SizedBox(height: 8),
-                            Text(
-                              '期間: ${_startDate.month}/${_startDate.day} 〜 ${_endDate.month}/${_endDate.day}',
-                              style: TextStyle(fontSize: 12, color: Colors.green.shade600),
-                            ),
-                            const SizedBox(height: 8),
-                            _buildShiftSummary(),
-                          ],
-                        ],
-                      ),
-                    ),
-                  ],
                 ],
               ),
             ),
@@ -203,25 +281,17 @@ class _AutoAssignmentDialogState extends State<AutoAssignmentDialog> {
               onPressed: _isProcessing ? null : () => Navigator.of(context).pop(),
               child: const Text('キャンセル'),
             ),
-            if (activeSettings.isEmpty)
-              const SizedBox()
-            else if (_previewShifts == null) ...[
+            if (activeSettings.isNotEmpty)
               ElevatedButton(
-                onPressed: _isProcessing ? null : _previewAssignment,
+                onPressed: _isProcessing ? null : _generateAndApply,
                 child: _isProcessing
                     ? const SizedBox(
                         width: 16,
                         height: 16,
                         child: CircularProgressIndicator(strokeWidth: 2),
                       )
-                    : const Text('シフトを生成'),
+                    : const Text('作成'),
               ),
-            ] else ...[
-              ElevatedButton(
-                onPressed: _isProcessing ? null : _applyAssignment,
-                child: const Text('確定して保存'),
-              ),
-            ],
           ],
         );
       },
@@ -267,7 +337,6 @@ class _AutoAssignmentDialogState extends State<AutoAssignmentDialog> {
               controller: _requirementControllers[shiftTypeString],
               keyboardType: TextInputType.number,
               textAlign: TextAlign.center,
-              readOnly: _previewShifts != null, // プレビュー表示中は読み取り専用
               decoration: const InputDecoration(
                 isDense: true,
                 contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 8),
@@ -282,20 +351,21 @@ class _AutoAssignmentDialogState extends State<AutoAssignmentDialog> {
     );
   }
 
-  Future<void> _previewAssignment() async {
-    // キーボードを閉じる
+  /// シフト作成して即適用
+  Future<void> _generateAndApply() async {
     FocusScope.of(context).unfocus();
 
     setState(() {
       _isProcessing = true;
       _errorMessage = null;
-      _previewShifts = null;
     });
 
     try {
       final staffProvider = Provider.of<StaffProvider>(context, listen: false);
       final shiftProvider = Provider.of<ShiftProvider>(context, listen: false);
+      final shiftTimeProvider = Provider.of<ShiftTimeProvider>(context, listen: false);
 
+      // 必要人数を取得
       final requirements = <String, int>{};
       for (var entry in _requirementControllers.entries) {
         final value = int.tryParse(entry.value.text) ?? 0;
@@ -308,88 +378,102 @@ class _AutoAssignmentDialogState extends State<AutoAssignmentDialog> {
         throw Exception('少なくとも1つのシフトタイプに人数を設定してください');
       }
 
-      final shiftTimeProvider = Provider.of<ShiftTimeProvider>(context, listen: false);
+      // 1. shift_active_planから現在有効なplan_idと戦略を取得
+      final planService = ShiftPlanService(teamId: shiftProvider.teamId!);
+      final month = '${widget.selectedMonth.year}-${widget.selectedMonth.month}';
+      String? currentStrategy = await planService.getActiveStrategy(month);
+
+      // 2. 現在のshiftsを取得（手動編集含む）
+      final existingShifts = shiftProvider.getShiftsForMonth(
+        widget.selectedMonth.year,
+        widget.selectedMonth.month,
+      );
+
+      if (existingShifts.isNotEmpty) {
+        final confirmed = await _showConfirmationDialog(
+          '既存のシフトがあります',
+          '既存のシフトは自動でバックアップされます。続けますか？',
+        );
+        if (!confirmed) {
+          setState(() {
+            _isProcessing = false;
+          });
+          FocusScope.of(context).unfocus();
+          return;
+        }
+
+        // 既存ユーザー（shift_active_planがない）の場合は新規作成
+        String? currentPlanId = await planService.getActivePlanId(month);
+        currentPlanId ??= await planService.generateUniquePlanId(month);
+
+        // 現在のシフトをバックアップ
+        // 戦略がない場合は"nothing"（自動作成していないか、バージョンアップ前の既存ユーザー）
+        final note = _getNoteFromStrategy(currentStrategy);
+        await planService.saveShiftPlan(
+          planId: currentPlanId,
+          shifts: existingShifts,
+          month: month,
+          note: note,
+          strategy: currentStrategy ?? 'nothing',
+        );
+      }
+
+      // 3. shiftsを全削除
+      if (existingShifts.isNotEmpty) {
+        await shiftProvider.batchDeleteShifts(existingShifts);
+      }
+
+      // 4. 新シフトを作成
       final service = ShiftAssignmentService(
         staffProvider: staffProvider,
         shiftProvider: shiftProvider,
         shiftTimeProvider: shiftTimeProvider,
       );
 
-      final existingShifts = shiftProvider.getShiftsForMonth(widget.selectedMonth.year, widget.selectedMonth.month);
-      if (existingShifts.isNotEmpty) {
-        final confirmed = await _showConfirmationDialog(
-          '既存のシフトがあります',
-          'このまま続けると、既存のシフトは削除されます。続けますか？',
-        );
-        if (!confirmed) {
-          setState(() {
-            _isProcessing = false;
-          });
-          // キーボードを再度閉じる
-          FocusScope.of(context).unfocus();
-          return;
-        }
-      }
-
       final shifts = await service.autoAssignShifts(
         _startDate,
         _endDate,
         requirements,
+        strategy: _selectedStrategy,
       );
 
-      // 設定を保存
+      // 5. 新シフトをshiftsに保存
+      await shiftProvider.batchAddShifts(shifts);
+
+      // 6. 新しいplan_idを作成
+      final newPlanId = await planService.generateUniquePlanId(month);
+
+      // 7. shift_active_planを新しいplan_idで更新
+      await planService.setActivePlanId(month, newPlanId, strategy: _selectedStrategy.name);
+
+      // 9. 月間必要人数を保存
       await _saveRequirements();
 
-      // キーボードを再度閉じる（プレビュー表示前）
-      FocusScope.of(context).unfocus();
+      // 10. 次回デフォルト表示されるように選択した戦略を端末に保存
+      await _saveStrategyPreference();
 
-      setState(() {
-        _previewShifts = shifts;
-        _isProcessing = false;
-      });
-    } catch (e) {
-      setState(() {
-        _errorMessage = e.toString();
-        _isProcessing = false;
-      });
-    }
-  }
-
-  Future<void> _applyAssignment() async {
-    if (_previewShifts == null) return;
-
-    setState(() {
-      _isProcessing = true;
-    });
-
-    try {
-      final shiftProvider = Provider.of<ShiftProvider>(context, listen: false);
-
-      final existingShifts = shiftProvider.getShiftsForMonth(widget.selectedMonth.year, widget.selectedMonth.month);
-      if (existingShifts.isNotEmpty) {
-        await shiftProvider.batchDeleteShifts(existingShifts);
-      }
-
-      await shiftProvider.batchAddShifts(_previewShifts!);
+      // 11. Analytics
+      await AnalyticsService.logShiftGenerated(
+        shiftCount: shifts.length,
+        strategy: _selectedStrategy.name,
+      );
 
       if (mounted) {
         // Navigator参照を事前に保存
         final navigatorContext = Navigator.of(context);
         final scaffoldMessengerContext = ScaffoldMessenger.of(context);
-        final shiftsCount = _previewShifts!.length;
+        final shiftsCount = shifts.length;
 
-        // シフト作成完了後に即座にインタースティシャル広告を表示
+        // 12. ダイアログを閉じる
         navigatorContext.pop(true);
 
-        // 事前読み込み済み広告を即座に表示
+        // 13. 広告表示
         AdService.showInterstitialAd(
           onAdShown: () {},
           onAdClosed: () {
-            // 広告終了後に完了メッセージを表示
             _showCompletionMessage(scaffoldMessengerContext, shiftsCount);
           },
           onAdFailedToShow: () {
-            // 広告表示失敗時も完了メッセージを表示
             _showCompletionMessage(scaffoldMessengerContext, shiftsCount);
           },
         );
@@ -415,78 +499,12 @@ class _AutoAssignmentDialogState extends State<AutoAssignmentDialog> {
               ),
               ElevatedButton(
                 onPressed: () => Navigator.of(context).pop(true),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.red,
-                ),
                 child: const Text('続ける'),
               ),
             ],
           ),
         ) ??
         false;
-  }
-
-  Widget _buildShiftSummary() {
-    if (_previewShifts == null) return const SizedBox();
-
-    final staffProvider = Provider.of<StaffProvider>(context, listen: false);
-    final Map<String, int> staffShiftCounts = {};
-    final Map<String, int> staffMaxShifts = {};
-
-    // シフト数を集計
-    for (var shift in _previewShifts!) {
-      staffShiftCounts[shift.staffId] = (staffShiftCounts[shift.staffId] ?? 0) + 1;
-    }
-
-    // スタッフの最大シフト数を取得
-    for (var staff in staffProvider.staff) {
-      staffMaxShifts[staff.id] = staff.maxShiftsPerMonth;
-    }
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text(
-          'スタッフ別シフト数:',
-          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
-        ),
-        const SizedBox(height: 4),
-        ...staffProvider.staff.map((staff) {
-          final count = staffShiftCounts[staff.id] ?? 0;
-          final max = staff.maxShiftsPerMonth;
-          final percentage = max > 0 ? (count / max * 100).round() : 0;
-
-          return Padding(
-            padding: const EdgeInsets.symmetric(vertical: 2),
-            child: Row(
-              children: [
-                SizedBox(
-                  width: 80,
-                  child: Text(
-                    staff.name,
-                    style: const TextStyle(fontSize: 11),
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-                Text(
-                  '$count/$max回',
-                  style: TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.bold,
-                    color: count == 0 ? Colors.red : null,
-                  ),
-                ),
-                const SizedBox(width: 4),
-                Text(
-                  '($percentage%)',
-                  style: const TextStyle(fontSize: 10, color: Colors.grey),
-                ),
-              ],
-            ),
-          );
-        }).toList(),
-      ],
-    );
   }
 
   /// シフト作成完了メッセージを表示
@@ -507,7 +525,7 @@ class _AutoAssignmentDialogState extends State<AutoAssignmentDialog> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   const Text(
-                    'シフトを自動生成しました！',
+                    'シフトを自動作成しました！',
                     style: TextStyle(
                       fontWeight: FontWeight.bold,
                       fontSize: 16,

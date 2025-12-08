@@ -31,6 +31,9 @@ class Shift extends HiveObject {
   @HiveField(8)
   DateTime? updatedAt;
 
+  @HiveField(9)
+  String? assignmentStrategy;
+
   Shift({
     required this.id,
     required this.date,
@@ -41,6 +44,7 @@ class Shift extends HiveObject {
     this.note,
     DateTime? createdAt,
     this.updatedAt,
+    this.assignmentStrategy,
   }) : createdAt = createdAt ?? DateTime.now();
 
   Map<String, dynamic> toJson() {
@@ -54,6 +58,7 @@ class Shift extends HiveObject {
       'note': note,
       'createdAt': createdAt.toIso8601String(),
       'updatedAt': updatedAt?.toIso8601String(),
+      if (assignmentStrategy != null) 'assignmentStrategy': assignmentStrategy,
     };
   }
 
@@ -68,6 +73,7 @@ class Shift extends HiveObject {
       note: json['note'],
       createdAt: DateTime.parse(json['createdAt']),
       updatedAt: json['updatedAt'] != null ? DateTime.parse(json['updatedAt']) : null,
+      assignmentStrategy: json['assignmentStrategy'] as String?,
     );
   }
 

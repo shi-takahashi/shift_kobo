@@ -7,7 +7,9 @@ import 'package:provider/provider.dart';
 import 'package:table_calendar/table_calendar.dart';
 
 import '../models/app_user.dart';
+import '../models/assignment_strategy.dart';
 import '../models/shift.dart';
+import '../models/shift_plan.dart';
 import '../models/shift_time_setting.dart';
 import '../models/shift_type.dart' as old_shift_type;
 import '../models/staff.dart';
@@ -15,8 +17,10 @@ import '../providers/monthly_requirements_provider.dart';
 import '../providers/shift_provider.dart';
 import '../providers/shift_time_provider.dart';
 import '../providers/staff_provider.dart';
+import '../services/shift_plan_service.dart';
 import '../utils/japanese_calendar_utils.dart';
 import '../widgets/auto_assignment_dialog.dart';
+import '../widgets/restore_dialog.dart';
 import '../widgets/shift_edit_dialog.dart';
 import '../widgets/shift_quick_action_dialog.dart';
 import 'export_screen.dart';
@@ -184,10 +188,81 @@ class _CalendarScreenState extends State<CalendarScreen> {
 
         return Scaffold(
           appBar: AppBar(
-            title: const Text('シフト管理'),
             toolbarHeight: 50, // デフォルト56 → 50に縮小
             backgroundColor: Colors.white,
             scrolledUnderElevation: 0, // スクロール時の色変化を防ぐ
+            title: widget.appUser.isAdmin
+                ? FutureBuilder<String?>(
+                    future: shiftProvider.teamId != null
+                        ? ShiftPlanService(teamId: shiftProvider.teamId!).getActivePlanId('${_focusedDay.year}-${_focusedDay.month}')
+                        : null,
+                    builder: (context, planSnapshot) {
+                      // プランIDが存在する場合は常に表示
+                      if (planSnapshot.hasData && planSnapshot.data != null) {
+                        return FutureBuilder<List<ShiftPlan>>(
+                          future: ShiftPlanService(teamId: shiftProvider.teamId!).getPlansForMonth('${_focusedDay.year}-${_focusedDay.month}'),
+                          builder: (context, snapshot) {
+                            // 切替ボタンは複数プランがある場合のみ表示（shift_plansが1件以上）
+                            final showSwitchButton = snapshot.hasData && snapshot.data != null && snapshot.data!.isNotEmpty;
+
+                            return Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text(
+                                  planSnapshot.data!,
+                                  style: const TextStyle(
+                                    fontSize: 16,
+                                    color: Colors.black87,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                                if (showSwitchButton) ...[
+                                  const SizedBox(width: 8),
+                                  Container(
+                                    decoration: BoxDecoration(
+                                      color: Colors.orange.shade600,
+                                      borderRadius: BorderRadius.circular(8.0),
+                                      boxShadow: [
+                                        BoxShadow(
+                                          color: Colors.orange.shade200,
+                                          blurRadius: 3,
+                                          offset: const Offset(0, 2),
+                                        ),
+                                      ],
+                                    ),
+                                    child: InkWell(
+                                      onTap: () => _showRestoreDialog(snapshot.data!),
+                                      borderRadius: BorderRadius.circular(8.0),
+                                      child: Padding(
+                                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                        child: Row(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            const Icon(Icons.swap_horiz, size: 14, color: Colors.white),
+                                            const SizedBox(width: 4),
+                                            const Text(
+                                              '切替',
+                                              style: TextStyle(
+                                                color: Colors.white,
+                                                fontSize: 12,
+                                                fontWeight: FontWeight.w600,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ],
+                            );
+                          },
+                        );
+                      }
+                      return const SizedBox();
+                    },
+                  )
+                : null,
             actions: [
               Container(
                 decoration: BoxDecoration(
@@ -651,6 +726,124 @@ class _CalendarScreenState extends State<CalendarScreen> {
     });
   }
 
+  /// プラン切替ダイアログを表示
+  Future<void> _showRestoreDialog(List<ShiftPlan> plans) async {
+    final shiftProvider = context.read<ShiftProvider>();
+
+    await showDialog(
+      context: context,
+      builder: (context) => RestoreDialog(
+        plans: plans,
+        focusedDay: _focusedDay,
+        teamId: shiftProvider.teamId!,
+        onRestore: _switchToPlan,
+      ),
+    );
+  }
+
+  /// 案の切り替え
+  Future<void> _switchToPlan(ShiftPlan targetPlan) async {
+    try {
+      final shiftProvider = context.read<ShiftProvider>();
+      final planService = ShiftPlanService(teamId: shiftProvider.teamId!);
+      final month = '${_focusedDay.year}-${_focusedDay.month}';
+
+      // ローディング表示
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => const Center(
+          child: CircularProgressIndicator(),
+        ),
+      );
+
+      // 1. 現在のplan_idと戦略を取得
+      String? currentPlanId = await planService.getActivePlanId(month);
+      String? currentStrategy = await planService.getActiveStrategy(month);
+
+      // 2. 現在のshiftsを取得
+      final currentShifts = shiftProvider.getShiftsForMonth(
+        _focusedDay.year,
+        _focusedDay.month,
+      );
+
+      // 3. 現在のshiftsをバックアップ
+      if (currentShifts.isNotEmpty && currentPlanId != null) {
+        await planService.saveShiftPlan(
+          planId: currentPlanId,
+          shifts: currentShifts,
+          month: month,
+          note: currentStrategy != null ? '${_getStrategyDisplayName(currentStrategy)}で作成' : '手動作成',
+          strategy: currentStrategy ?? 'nothing',
+        );
+      }
+
+      // 4. 現在のshiftsを全削除
+      if (currentShifts.isNotEmpty) {
+        await shiftProvider.batchDeleteShifts(currentShifts);
+      }
+
+      // 5. 切り替え先のshift_planからシフトを取得
+      final targetShifts = targetPlan.shifts;
+
+      // 6. 取得したシフトをshiftsに保存
+      if (targetShifts.isNotEmpty) {
+        await shiftProvider.batchAddShifts(targetShifts);
+      }
+
+      // 7. shift_active_planを更新（戦略情報も保存）
+      await planService.setActivePlanId(month, targetPlan.planId, strategy: targetPlan.strategy);
+
+      // ローディング終了
+      if (mounted) {
+        Navigator.of(context).pop();
+
+        // 画面を更新
+        setState(() {});
+        if (_selectedDay != null) {
+          _selectedShifts.value = _getShiftsForDay(_selectedDay!);
+        }
+
+        // 成功メッセージ
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Row(
+              children: [
+                const Icon(Icons.check_circle, color: Colors.white, size: 24),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    'プランを切り替えました（シフト${targetShifts.length}件）',
+                    style: const TextStyle(fontSize: 14),
+                  ),
+                ),
+              ],
+            ),
+            backgroundColor: Colors.green,
+            duration: const Duration(seconds: 2),
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(8),
+            ),
+            margin: const EdgeInsets.all(16),
+          ),
+        );
+      }
+    } catch (e) {
+      // ローディング終了
+      if (mounted) {
+        Navigator.of(context).pop();
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('切り替えに失敗しました: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
   void _onDaySelected(DateTime selectedDay, DateTime focusedDay) {
     if (!isSameDay(_selectedDay, selectedDay)) {
       setState(() {
@@ -950,6 +1143,22 @@ class _CalendarScreenState extends State<CalendarScreen> {
       return '不明 (ID:${staffId.substring(0, 8)})';
     }
     return staff.name;
+  }
+
+  /// 戦略文字列から表示名を取得
+  String _getStrategyDisplayName(String strategy) {
+    if (strategy == 'nothing') {
+      return '手動';
+    }
+
+    try {
+      final assignmentStrategy = AssignmentStrategy.values.firstWhere(
+        (s) => s.name == strategy,
+      );
+      return assignmentStrategy.displayName;
+    } catch (e) {
+      return '手動';
+    }
   }
 }
 

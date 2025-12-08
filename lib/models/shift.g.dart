@@ -26,13 +26,14 @@ class ShiftAdapter extends TypeAdapter<Shift> {
       note: fields[6] as String?,
       createdAt: fields[7] as DateTime?,
       updatedAt: fields[8] as DateTime?,
+      assignmentStrategy: fields[9] as String?,
     );
   }
 
   @override
   void write(BinaryWriter writer, Shift obj) {
     writer
-      ..writeByte(9)
+      ..writeByte(10)
       ..writeByte(0)
       ..write(obj.id)
       ..writeByte(1)
@@ -50,7 +51,9 @@ class ShiftAdapter extends TypeAdapter<Shift> {
       ..writeByte(7)
       ..write(obj.createdAt)
       ..writeByte(8)
-      ..write(obj.updatedAt);
+      ..write(obj.updatedAt)
+      ..writeByte(9)
+      ..write(obj.assignmentStrategy);
   }
 
   @override

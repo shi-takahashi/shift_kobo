@@ -1,11 +1,11 @@
+import 'package:shift_kobo/models/assignment_strategy.dart';
 import 'package:shift_kobo/models/shift.dart';
-import 'package:shift_kobo/models/staff.dart';
 import 'package:shift_kobo/models/shift_constraint.dart';
 import 'package:shift_kobo/models/shift_type.dart' as old_shift_type;
-import 'package:shift_kobo/models/shift_time_setting.dart';
-import 'package:shift_kobo/providers/staff_provider.dart';
+import 'package:shift_kobo/models/staff.dart';
 import 'package:shift_kobo/providers/shift_provider.dart';
 import 'package:shift_kobo/providers/shift_time_provider.dart';
+import 'package:shift_kobo/providers/staff_provider.dart';
 
 class ShiftAssignmentService {
   final StaffProvider staffProvider;
@@ -17,70 +17,75 @@ class ShiftAssignmentService {
     required this.shiftProvider,
     required this.shiftTimeProvider,
   });
-  
+
   // カスタム名から従来のShiftType名へのマッピング
   static Map<String, String> get _customToOldMapping => {
-    '早番': old_shift_type.ShiftType.morning,
-    '日勤': old_shift_type.ShiftType.day,
-    '遅番': old_shift_type.ShiftType.evening,
-    '夜勤': old_shift_type.ShiftType.night,
-    '終日': old_shift_type.ShiftType.fullDay,
-  };
-  
+        '早番': old_shift_type.ShiftType.morning,
+        '日勤': old_shift_type.ShiftType.day,
+        '遅番': old_shift_type.ShiftType.evening,
+        '夜勤': old_shift_type.ShiftType.night,
+        '終日': old_shift_type.ShiftType.fullDay,
+      };
+
   String _mapCustomToOldShiftType(String customName) {
     // まず直接マッピング
     final oldName = _customToOldMapping[customName];
     if (oldName != null) return oldName;
-    
+
     // 見つからない場合はそのまま返す（新しいカスタム名の場合）
     return customName;
   }
-  
+
   // カスタム名からShiftTimeSettingを取得し、時間範囲を生成
   (DateTime, DateTime)? _getShiftTimeRange(String shiftTypeName, DateTime date) {
     // ShiftTimeSettingから検索
-    final setting = shiftTimeProvider.settings
-        .where((s) => s.displayName == shiftTypeName)
-        .firstOrNull;
-    
+    final setting = shiftTimeProvider.settings.where((s) => s.displayName == shiftTypeName).firstOrNull;
+
     if (setting != null) {
       // ShiftTimeSettingから時間を取得
       final startParts = setting.startTime.split(':');
       final endParts = setting.endTime.split(':');
-      
+
       final startTime = DateTime(
-        date.year, date.month, date.day,
-        int.parse(startParts[0]), int.parse(startParts[1]),
+        date.year,
+        date.month,
+        date.day,
+        int.parse(startParts[0]),
+        int.parse(startParts[1]),
       );
-      
+
       var endTime = DateTime(
-        date.year, date.month, date.day,
-        int.parse(endParts[0]), int.parse(endParts[1]),
+        date.year,
+        date.month,
+        date.day,
+        int.parse(endParts[0]),
+        int.parse(endParts[1]),
       );
-      
+
       // 終了時間が開始時間より早い場合は翌日
       if (endTime.isBefore(startTime)) {
         endTime = endTime.add(const Duration(days: 1));
       }
-      
+
       return (startTime, endTime);
     }
-    
+
     // 従来のShiftType.defaultTimeRangesからフォールバック
     final oldName = _mapCustomToOldShiftType(shiftTypeName);
     final timeRange = old_shift_type.ShiftType.defaultTimeRanges[oldName];
     if (timeRange != null) {
       return (timeRange.toStartDateTime(date), timeRange.toEndDateTime(date));
     }
-    
+
     return null;
   }
 
   Future<List<Shift>> autoAssignShifts(
     DateTime startDate,
     DateTime endDate,
-    Map<String, int> dailyShiftRequirements,
-  ) async {
+    Map<String, int> dailyShiftRequirements, {
+    AssignmentStrategy strategy = AssignmentStrategy.fairness,
+  }) async {
     List<Shift> assignedShifts = [];
     // 有効なスタッフのみ使用（月間最大シフト数0のスタッフは自動的に除外される）
     List<Staff> availableStaff = staffProvider.activeStaffList;
@@ -91,7 +96,7 @@ class ShiftAssignmentService {
     for (var staff in availableStaff) {
       print('スタッフ: ${staff.name}, 最大シフト数: ${staff.maxShiftsPerMonth}');
     }
-    
+
     Map<String, int> staffShiftCounts = {};
     for (Staff staff in availableStaff) {
       staffShiftCounts[staff.id] = 0;
@@ -101,7 +106,7 @@ class ShiftAssignmentService {
     while (!currentDate.isAfter(endDate)) {
       for (String shiftType in dailyShiftRequirements.keys) {
         int requiredStaffCount = dailyShiftRequirements[shiftType] ?? 0;
-        
+
         for (int i = 0; i < requiredStaffCount; i++) {
           Staff? assignedStaff = _findBestStaffForShift(
             currentDate,
@@ -109,14 +114,10 @@ class ShiftAssignmentService {
             availableStaff,
             staffShiftCounts,
             assignedShifts,
+            strategy,
           );
 
           if (assignedStaff != null) {
-            int currentCount = staffShiftCounts[assignedStaff.id] ?? 0;
-            double fillRate = assignedStaff.maxShiftsPerMonth > 0 
-                ? (currentCount + 1) / assignedStaff.maxShiftsPerMonth * 100 
-                : 100;
-            print('${currentDate.toString().split(' ')[0]} $shiftType: ${assignedStaff.name}を割り当て (${currentCount + 1}/${assignedStaff.maxShiftsPerMonth}回, ${fillRate.toStringAsFixed(1)}%)');
             final timeRange = _getShiftTimeRange(shiftType, currentDate);
             if (timeRange != null) {
               shiftIdCounter++;
@@ -124,16 +125,17 @@ class ShiftAssignmentService {
               Shift newShift = Shift(
                 id: uniqueId,
                 date: currentDate,
-                startTime: timeRange.$1,  // startTime
-                endTime: timeRange.$2,    // endTime
+                startTime: timeRange.$1, // startTime
+                endTime: timeRange.$2, // endTime
                 staffId: assignedStaff.id,
                 shiftType: shiftType,
+                assignmentStrategy: strategy.name,
               );
-              print('シフト作成: ID=$uniqueId, 日付=${currentDate.toString().split(' ')[0]}, スタッフ=${assignedStaff.name}, 時間=${timeRange.$1.hour.toString().padLeft(2, '0')}:${timeRange.$1.minute.toString().padLeft(2, '0')}-${timeRange.$2.hour.toString().padLeft(2, '0')}:${timeRange.$2.minute.toString().padLeft(2, '0')}');
-              
+              print(
+                  'シフト作成: ID=$uniqueId, 日付=${currentDate.toString().split(' ')[0]}, スタッフ=${assignedStaff.name}, 時間=${timeRange.$1.hour.toString().padLeft(2, '0')}:${timeRange.$1.minute.toString().padLeft(2, '0')}-${timeRange.$2.hour.toString().padLeft(2, '0')}:${timeRange.$2.minute.toString().padLeft(2, '0')}');
+
               assignedShifts.add(newShift);
-              staffShiftCounts[assignedStaff.id] = 
-                  (staffShiftCounts[assignedStaff.id] ?? 0) + 1;
+              staffShiftCounts[assignedStaff.id] = (staffShiftCounts[assignedStaff.id] ?? 0) + 1;
             } else {
               print('${currentDate.toString().split(' ')[0]} $shiftType: 時間設定が見つかりません');
             }
@@ -142,10 +144,10 @@ class ShiftAssignmentService {
           }
         }
       }
-      
+
       currentDate = currentDate.add(const Duration(days: 1));
     }
-    
+
     print('作成されたシフト数: ${assignedShifts.length}');
     return assignedShifts;
   }
@@ -156,6 +158,7 @@ class ShiftAssignmentService {
     List<Staff> availableStaff,
     Map<String, int> staffShiftCounts,
     List<Shift> assignedShifts,
+    AssignmentStrategy strategy,
   ) {
     List<Staff> candidates = availableStaff.where((staff) {
       if (!_isStaffAvailableOnDate(staff, date)) {
@@ -170,17 +173,13 @@ class ShiftAssignmentService {
       // シフトタイプ制約をチェック
       // カスタム名と従来名の両方でチェック
       final oldShiftTypeName = _mapCustomToOldShiftType(shiftType);
-      if (staff.unavailableShiftTypes.contains(shiftType) || 
-          staff.unavailableShiftTypes.contains(oldShiftTypeName)) {
+      if (staff.unavailableShiftTypes.contains(shiftType) || staff.unavailableShiftTypes.contains(oldShiftTypeName)) {
         print('${staff.name}は$shiftType不可のため除外');
         return false;
       }
 
-      bool hasShiftOnDate = assignedShifts.any((shift) =>
-          shift.staffId == staff.id &&
-          shift.date.year == date.year &&
-          shift.date.month == date.month &&
-          shift.date.day == date.day);
+      bool hasShiftOnDate = assignedShifts
+          .any((shift) => shift.staffId == staff.id && shift.date.year == date.year && shift.date.month == date.month && shift.date.day == date.day);
       if (hasShiftOnDate) {
         return false;
       }
@@ -202,26 +201,51 @@ class ShiftAssignmentService {
 
     if (candidates.isEmpty) return null;
 
-    // 公平性とシフト分散を考慮してソート
-    candidates.sort((a, b) {
-      int aCount = staffShiftCounts[a.id] ?? 0;
-      int bCount = staffShiftCounts[b.id] ?? 0;
-      
-      // それぞれの充足率を計算（現在のシフト数 / 最大シフト数）
-      double aRate = a.maxShiftsPerMonth > 0 ? aCount / a.maxShiftsPerMonth : 1.0;
-      double bRate = b.maxShiftsPerMonth > 0 ? bCount / b.maxShiftsPerMonth : 1.0;
-      
-      // まず充足率で比較
-      int rateComparison = aRate.compareTo(bRate);
-      if (rateComparison != 0) return rateComparison;
-      
-      // 充足率が同じ場合は、最後の勤務からの経過日数で比較
-      int aDaysSinceLastShift = _getDaysSinceLastShift(a.id, date, assignedShifts);
-      int bDaysSinceLastShift = _getDaysSinceLastShift(b.id, date, assignedShifts);
-      
-      // 最後の勤務からより日数が経っている人を優先
-      return bDaysSinceLastShift.compareTo(aDaysSinceLastShift);
-    });
+    // 戦略に応じてソート
+    switch (strategy) {
+      case AssignmentStrategy.fairness:
+        // シフト数重視: 充足率のみで比較（月間最大シフト数の設定に応じた比率）
+        candidates.sort((a, b) {
+          int aCount = staffShiftCounts[a.id] ?? 0;
+          int bCount = staffShiftCounts[b.id] ?? 0;
+
+          double aRate = a.maxShiftsPerMonth > 0 ? aCount / a.maxShiftsPerMonth : 1.0;
+          double bRate = b.maxShiftsPerMonth > 0 ? bCount / b.maxShiftsPerMonth : 1.0;
+
+          // まず充足率で比較
+          int rateComparison = aRate.compareTo(bRate);
+          if (rateComparison != 0) return rateComparison;
+
+          // 充足率が同じ場合は、最後の勤務からの経過日数で比較
+          int aDaysSinceLastShift = _getDaysSinceLastShift(a.id, date, assignedShifts);
+          int bDaysSinceLastShift = _getDaysSinceLastShift(b.id, date, assignedShifts);
+
+          // 最後の勤務からより日数が経っている人を優先
+          return bDaysSinceLastShift.compareTo(aDaysSinceLastShift);
+        });
+        break;
+
+      case AssignmentStrategy.distributed:
+        // 分散重視: 最後の勤務からの経過日数を優先（連続勤務を避ける）
+        candidates.sort((a, b) {
+          int aDaysSinceLastShift = _getDaysSinceLastShift(a.id, date, assignedShifts);
+          int bDaysSinceLastShift = _getDaysSinceLastShift(b.id, date, assignedShifts);
+
+          // 最後の勤務からより日数が経っている人を優先
+          int daysComparison = bDaysSinceLastShift.compareTo(aDaysSinceLastShift);
+          if (daysComparison != 0) return daysComparison;
+
+          // 同じ日数の場合は充足率で比較
+          int aCount = staffShiftCounts[a.id] ?? 0;
+          int bCount = staffShiftCounts[b.id] ?? 0;
+
+          double aRate = a.maxShiftsPerMonth > 0 ? aCount / a.maxShiftsPerMonth : 1.0;
+          double bRate = b.maxShiftsPerMonth > 0 ? bCount / b.maxShiftsPerMonth : 1.0;
+
+          return aRate.compareTo(bRate);
+        });
+        break;
+    }
 
     return candidates.first;
   }
@@ -237,9 +261,7 @@ class ShiftAssignmentService {
     final dateOnly = DateTime(date.year, date.month, date.day);
     for (final dayOffStr in staff.specificDaysOff) {
       final dayOff = DateTime.parse(dayOffStr);
-      if (dayOff.year == dateOnly.year &&
-          dayOff.month == dateOnly.month &&
-          dayOff.day == dateOnly.day) {
+      if (dayOff.year == dateOnly.year && dayOff.month == dateOnly.month && dayOff.day == dateOnly.day) {
         print('${staff.name}は${date.year}/${date.month}/${date.day}は休み希望');
         return false;
       }
@@ -247,9 +269,7 @@ class ShiftAssignmentService {
 
     // 日付ベースの制約をチェック
     for (ShiftConstraint constraint in staff.constraints) {
-      if (constraint.date.year == date.year &&
-          constraint.date.month == date.month &&
-          constraint.date.day == date.day) {
+      if (constraint.date.year == date.year && constraint.date.month == date.month && constraint.date.day == date.day) {
         return constraint.isAvailable;
       }
     }
@@ -259,12 +279,11 @@ class ShiftAssignmentService {
   Map<String, int> analyzeCurrentShifts(DateTime month) {
     List<Shift> monthShifts = shiftProvider.getShiftsForMonth(month.year, month.month);
     Map<String, int> staffShiftCounts = {};
-    
+
     for (Shift shift in monthShifts) {
-      staffShiftCounts[shift.staffId] = 
-          (staffShiftCounts[shift.staffId] ?? 0) + 1;
+      staffShiftCounts[shift.staffId] = (staffShiftCounts[shift.staffId] ?? 0) + 1;
     }
-    
+
     return staffShiftCounts;
   }
 
@@ -279,10 +298,8 @@ class ShiftAssignmentService {
     }
 
     List<Shift> existingShifts = shiftProvider.getShiftsForDate(shift.date);
-    bool hasConflict = existingShifts.any((existingShift) =>
-        existingShift.staffId == shift.staffId &&
-        existingShift.id != shift.id);
-    
+    bool hasConflict = existingShifts.any((existingShift) => existingShift.staffId == shift.staffId && existingShift.id != shift.id);
+
     return !hasConflict;
   }
 
@@ -291,30 +308,30 @@ class ShiftAssignmentService {
     DateTime endDate,
   ) {
     Map<DateTime, List<String>> unavailableMap = {};
-    
+
     DateTime currentDate = startDate;
     while (!currentDate.isAfter(endDate)) {
       List<String> unavailableStaffIds = [];
-      
+
       for (Staff staff in staffProvider.staff) {
         if (!_isStaffAvailableOnDate(staff, currentDate)) {
           unavailableStaffIds.add(staff.id);
         }
       }
-      
+
       if (unavailableStaffIds.isNotEmpty) {
         unavailableMap[currentDate] = unavailableStaffIds;
       }
-      
+
       currentDate = currentDate.add(const Duration(days: 1));
     }
-    
+
     return unavailableMap;
   }
 
   int calculateOptimalStaffCount(String shiftType, DateTime date) {
     final oldShiftType = _mapCustomToOldShiftType(shiftType);
-    
+
     if (date.weekday == DateTime.saturday || date.weekday == DateTime.sunday) {
       switch (oldShiftType) {
         case old_shift_type.ShiftType.morning:
@@ -348,37 +365,32 @@ class ShiftAssignmentService {
   int _getConsecutiveWorkDays(String staffId, DateTime date, List<Shift> assignedShifts) {
     int consecutiveDays = 0;
     DateTime checkDate = date.subtract(const Duration(days: 1));
-    
+
     while (true) {
-      bool hasShift = assignedShifts.any((shift) =>
-          shift.staffId == staffId &&
-          shift.date.year == checkDate.year &&
-          shift.date.month == checkDate.month &&
-          shift.date.day == checkDate.day);
-      
+      bool hasShift = assignedShifts.any(
+          (shift) => shift.staffId == staffId && shift.date.year == checkDate.year && shift.date.month == checkDate.month && shift.date.day == checkDate.day);
+
       if (!hasShift) break;
-      
+
       consecutiveDays++;
       checkDate = checkDate.subtract(const Duration(days: 1));
     }
-    
+
     return consecutiveDays;
   }
 
   // 最後の勤務からの経過日数を計算
   int _getDaysSinceLastShift(String staffId, DateTime date, List<Shift> assignedShifts) {
-    List<Shift> staffShifts = assignedShifts
-        .where((shift) => shift.staffId == staffId && shift.date.isBefore(date))
-        .toList();
-    
+    List<Shift> staffShifts = assignedShifts.where((shift) => shift.staffId == staffId && shift.date.isBefore(date)).toList();
+
     if (staffShifts.isEmpty) {
       // まだシフトがない場合は大きな値を返す（優先度を上げる）
       return 999;
     }
-    
+
     staffShifts.sort((a, b) => b.date.compareTo(a.date));
     DateTime lastShiftDate = staffShifts.first.date;
-    
+
     return date.difference(lastShiftDate).inDays;
   }
 
@@ -387,42 +399,39 @@ class ShiftAssignmentService {
     // 前日と翌日のシフトをチェック
     DateTime previousDay = date.subtract(const Duration(days: 1));
     DateTime nextDay = date.add(const Duration(days: 1));
-    
+
     // 前日のシフトを取得
-    Shift? previousShift = assignedShifts.where((shift) =>
-        shift.staffId == staffId &&
-        shift.date.year == previousDay.year &&
-        shift.date.month == previousDay.month &&
-        shift.date.day == previousDay.day).firstOrNull;
-    
+    Shift? previousShift = assignedShifts
+        .where((shift) =>
+            shift.staffId == staffId && shift.date.year == previousDay.year && shift.date.month == previousDay.month && shift.date.day == previousDay.day)
+        .firstOrNull;
+
     // 翌日のシフトを取得
-    Shift? nextShift = assignedShifts.where((shift) =>
-        shift.staffId == staffId &&
-        shift.date.year == nextDay.year &&
-        shift.date.month == nextDay.month &&
-        shift.date.day == nextDay.day).firstOrNull;
-    
+    Shift? nextShift = assignedShifts
+        .where((shift) => shift.staffId == staffId && shift.date.year == nextDay.year && shift.date.month == nextDay.month && shift.date.day == nextDay.day)
+        .firstOrNull;
+
     // 現在割り当てようとしているシフトの時間を取得
     final currentTimeRange = _getShiftTimeRange(shiftType, date);
     if (currentTimeRange == null) return true;
-    
+
     DateTime currentStart = currentTimeRange.$1;
     DateTime currentEnd = currentTimeRange.$2;
-    
+
     // 前日シフトとのインターバルチェック
     if (previousShift != null) {
       if (!_hasValidInterval(previousShift.endTime, currentStart)) {
         return false;
       }
     }
-    
+
     // 翌日シフトとのインターバルチェック
     if (nextShift != null) {
       if (!_hasValidInterval(currentEnd, nextShift.startTime)) {
         return false;
       }
     }
-    
+
     return true;
   }
 
@@ -430,36 +439,36 @@ class ShiftAssignmentService {
   bool _hasValidInterval(DateTime endTime, DateTime startTime) {
     const int minIntervalHours = 12; // 最低12時間のインターバル
     const int preferredIntervalHours = 24; // 理想的には24時間
-    
+
     Duration interval = startTime.difference(endTime);
-    
+
     // 最低12時間のインターバルが必要
     if (interval.inHours < minIntervalHours) {
       return false;
     }
-    
+
     return true;
   }
 
   // 特定のシフトパターンの危険度をチェック
   int _getShiftPatternRisk(String previousShiftType, String nextShiftType) {
     // リスクレベル: 0=安全, 1=注意, 2=危険, 3=禁止
-    
+
     // 夜勤→早番は最も危険
     if (previousShiftType == '夜勤' && nextShiftType == '早番') {
       return 3; // 禁止
     }
-    
+
     // 遅番→早番も危険
     if (previousShiftType == '遅番' && nextShiftType == '早番') {
       return 2; // 危険
     }
-    
+
     // 夜勤→日勤も注意が必要
     if (previousShiftType == '夜勤' && nextShiftType == '日勤') {
       return 1; // 注意
     }
-    
+
     return 0; // 安全
   }
 }

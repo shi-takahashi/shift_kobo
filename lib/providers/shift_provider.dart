@@ -71,6 +71,7 @@ class ShiftProvider extends ChangeNotifier {
           note: data['note'],
           createdAt: (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
           updatedAt: (data['updatedAt'] as Timestamp?)?.toDate(),
+          assignmentStrategy: data['assignmentStrategy'] as String?,
         );
       }).toList();
 
@@ -130,6 +131,7 @@ class ShiftProvider extends ChangeNotifier {
       'endTime': Timestamp.fromDate(shift.endTime),
       'note': shift.note,
       'createdAt': FieldValue.serverTimestamp(),
+      if (shift.assignmentStrategy != null) 'assignmentStrategy': shift.assignmentStrategy,
     });
   }
 
@@ -160,6 +162,7 @@ class ShiftProvider extends ChangeNotifier {
           'endTime': Timestamp.fromDate(shift.endTime),
           'note': shift.note,
           'createdAt': FieldValue.serverTimestamp(),
+          if (shift.assignmentStrategy != null) 'assignmentStrategy': shift.assignmentStrategy,
         });
       }
 
@@ -208,6 +211,7 @@ class ShiftProvider extends ChangeNotifier {
       'endTime': Timestamp.fromDate(shift.endTime),
       'note': shift.note,
       'updatedAt': FieldValue.serverTimestamp(),
+      if (shift.assignmentStrategy != null) 'assignmentStrategy': shift.assignmentStrategy,
     });
   }
 

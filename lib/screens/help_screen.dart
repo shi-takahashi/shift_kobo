@@ -143,7 +143,6 @@ class HelpScreen extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 16),
-
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
@@ -761,8 +760,16 @@ class HelpScreen extends StatelessWidget {
                   'ホーム画面の「スタッフ」タブ > 「スタッフを追加」ボタンから登録',
                 ),
                 _buildHowToItem(
-                  'シフトを自動生成する',
-                  'カレンダー画面右上の「自動生成」アイコン > 期間と必要人数を設定',
+                  'シフトを自動作成する',
+                  'カレンダー画面右上の「自動作成」アイコン > 期間と必要人数を設定',
+                ),
+                _buildHowToItem(
+                  '異なる戦略で再作成する',
+                  '割り当て戦略を選択し（シフト数優先・分散優先）異なるシフトを生成できます。',
+                ),
+                _buildHowToItem(
+                  '前のシフトに戻す',
+                  '再作成後、元の方が良かった場合は「切替」ボタンで直前の状態に戻せます',
                 ),
                 _buildHowToItem(
                   'シフトを調整する（必要に応じて）',
