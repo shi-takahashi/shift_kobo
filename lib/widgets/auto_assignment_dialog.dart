@@ -1,9 +1,11 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/assignment_strategy.dart';
 import '../models/shift_time_setting.dart';
+import '../models/team.dart';
 import '../providers/monthly_requirements_provider.dart';
 import '../providers/shift_provider.dart';
 import '../providers/shift_time_provider.dart';
@@ -33,6 +35,11 @@ class _AutoAssignmentDialogState extends State<AutoAssignmentDialog> {
   String? _errorMessage;
   AssignmentStrategy _selectedStrategy = AssignmentStrategy.fairness;
 
+  // 制約条件
+  final TextEditingController _maxConsecutiveDaysController = TextEditingController(text: '5');
+  final TextEditingController _minRestHoursController = TextEditingController(text: '12');
+  Team? _currentTeam;
+
   String _getStringFromShiftType(ShiftType shiftType, ShiftTimeSetting setting) {
     // ShiftTimeSettingのdisplayNameを直接使用
     return setting.displayName;
@@ -44,6 +51,28 @@ class _AutoAssignmentDialogState extends State<AutoAssignmentDialog> {
     _startDate = DateTime(widget.selectedMonth.year, widget.selectedMonth.month, 1);
     _endDate = DateTime(widget.selectedMonth.year, widget.selectedMonth.month + 1, 0);
     _loadStrategyPreference();
+    _loadTeamSettings();
+  }
+
+  /// Firestoreからチーム設定をロード
+  Future<void> _loadTeamSettings() async {
+    final shiftProvider = Provider.of<ShiftProvider>(context, listen: false);
+    final teamId = shiftProvider.teamId;
+    if (teamId == null) return;
+
+    try {
+      final teamDoc = await FirebaseFirestore.instance.collection('teams').doc(teamId).get();
+
+      if (teamDoc.exists) {
+        _currentTeam = Team.fromFirestore(teamDoc);
+        setState(() {
+          _maxConsecutiveDaysController.text = _currentTeam!.maxConsecutiveDays.toString();
+          _minRestHoursController.text = _currentTeam!.minRestHours.toString();
+        });
+      }
+    } catch (e) {
+      print('チーム設定の読み込みエラー: $e');
+    }
   }
 
   void _initializeControllers(List<ShiftTimeSetting> activeSettings) {
@@ -96,6 +125,8 @@ class _AutoAssignmentDialogState extends State<AutoAssignmentDialog> {
     for (var controller in _requirementControllers.values) {
       controller.dispose();
     }
+    _maxConsecutiveDaysController.dispose();
+    _minRestHoursController.dispose();
     super.dispose();
   }
 
@@ -152,7 +183,7 @@ class _AutoAssignmentDialogState extends State<AutoAssignmentDialog> {
           title: const Text('自動シフト割り当て'),
           content: SizedBox(
             width: MediaQuery.of(context).size.width * 0.85,
-            height: MediaQuery.of(context).size.height * 0.6,
+            height: MediaQuery.of(context).size.height * 0.65,
             child: SingleChildScrollView(
               child: Column(
                 mainAxisSize: MainAxisSize.min,
@@ -183,6 +214,79 @@ class _AutoAssignmentDialogState extends State<AutoAssignmentDialog> {
                     )
                   else
                     ...activeSettings.map((setting) => _buildRequirementField(setting)),
+                  const SizedBox(height: 16),
+                  const Text(
+                    '制約条件：',
+                    style: TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              '連続勤務日数上限',
+                              style: TextStyle(fontSize: 13),
+                            ),
+                            const SizedBox(height: 4),
+                            Row(
+                              children: [
+                                SizedBox(
+                                  width: 60,
+                                  child: TextField(
+                                    controller: _maxConsecutiveDaysController,
+                                    keyboardType: TextInputType.number,
+                                    textAlign: TextAlign.center,
+                                    decoration: const InputDecoration(
+                                      isDense: true,
+                                      contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                                      border: OutlineInputBorder(),
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                const Text('日'),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              '勤務間インターバル',
+                              style: TextStyle(fontSize: 13),
+                            ),
+                            const SizedBox(height: 4),
+                            Row(
+                              children: [
+                                SizedBox(
+                                  width: 60,
+                                  child: TextField(
+                                    controller: _minRestHoursController,
+                                    keyboardType: TextInputType.number,
+                                    textAlign: TextAlign.center,
+                                    decoration: const InputDecoration(
+                                      isDense: true,
+                                      contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                                      border: OutlineInputBorder(),
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                const Text('時間'),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
                   const SizedBox(height: 16),
                   const Text(
                     '割り当て戦略：',
@@ -248,7 +352,7 @@ class _AutoAssignmentDialogState extends State<AutoAssignmentDialog> {
                         const SizedBox(width: 8),
                         Expanded(
                           child: Text(
-                            '戦略を変えると異なるシフトパターンが作成されます。\n現在のシフトはバックアップされ、いつでも復元できます。',
+                            '戦略を変えると異なるシフトが作成されます。現在のシフトはバックアップされ復元できます。',
                             style: TextStyle(
                               fontSize: 12,
                               color: Colors.blue.shade900,
@@ -365,17 +469,97 @@ class _AutoAssignmentDialogState extends State<AutoAssignmentDialog> {
       final shiftProvider = Provider.of<ShiftProvider>(context, listen: false);
       final shiftTimeProvider = Provider.of<ShiftTimeProvider>(context, listen: false);
 
+      // 必要人数のバリデーション
+      String? requirementError;
+      for (var entry in _requirementControllers.entries) {
+        final shiftType = entry.key;
+        final text = entry.value.text.trim();
+
+        if (text.isEmpty) {
+          requirementError = '「$shiftType」の人数を入力してください';
+          break;
+        }
+
+        final value = int.tryParse(text);
+        if (value == null) {
+          requirementError = '「$shiftType」の人数は数値で入力してください';
+          break;
+        }
+
+        if (value < 0) {
+          requirementError = '「$shiftType」の人数は0以上で入力してください';
+          break;
+        }
+      }
+
+      if (requirementError != null) {
+        setState(() {
+          _isProcessing = false;
+        });
+        await _showValidationErrorDialog(requirementError);
+        return;
+      }
+
       // 必要人数を取得
       final requirements = <String, int>{};
       for (var entry in _requirementControllers.entries) {
-        final value = int.tryParse(entry.value.text) ?? 0;
+        final value = int.parse(entry.value.text.trim());
         if (value > 0) {
           requirements[entry.key] = value;
         }
       }
 
       if (requirements.isEmpty) {
-        throw Exception('少なくとも1つのシフトタイプに人数を設定してください');
+        setState(() {
+          _isProcessing = false;
+        });
+        await _showValidationErrorDialog('少なくとも1つのシフトタイプに1以上の人数を設定してください');
+        return;
+      }
+
+      // 制約条件のバリデーション
+      final maxConsecutiveDaysText = _maxConsecutiveDaysController.text.trim();
+      final minRestHoursText = _minRestHoursController.text.trim();
+
+      String? validationError;
+
+      if (maxConsecutiveDaysText.isEmpty) {
+        validationError = '連続勤務日数上限を入力してください';
+      } else if (minRestHoursText.isEmpty) {
+        validationError = '勤務間インターバルを入力してください';
+      } else {
+        final maxConsecutiveDays = int.tryParse(maxConsecutiveDaysText);
+        final minRestHours = int.tryParse(minRestHoursText);
+
+        if (maxConsecutiveDays == null) {
+          validationError = '連続勤務日数上限は数値で入力してください';
+        } else if (minRestHours == null) {
+          validationError = '勤務間インターバルは数値で入力してください';
+        } else if (maxConsecutiveDays < 1) {
+          validationError = '連続勤務日数上限は1日以上で入力してください';
+        } else if (minRestHours < 0) {
+          validationError = '勤務間インターバルは0時間以上で入力してください';
+        }
+      }
+
+      if (validationError != null) {
+        setState(() {
+          _isProcessing = false;
+        });
+        await _showValidationErrorDialog(validationError);
+        return;
+      }
+
+      final maxConsecutiveDays = int.parse(maxConsecutiveDaysText);
+      final minRestHours = int.parse(minRestHoursText);
+
+      if (_currentTeam != null) {
+        final updatedTeam = _currentTeam!.copyWith(
+          maxConsecutiveDays: maxConsecutiveDays,
+          minRestHours: minRestHours,
+          updatedAt: DateTime.now(),
+        );
+        await FirebaseFirestore.instance.collection('teams').doc(_currentTeam!.id).update(updatedTeam.toFirestore());
       }
 
       // 1. shift_active_planから現在有効なplan_idと戦略を取得
@@ -435,6 +619,8 @@ class _AutoAssignmentDialogState extends State<AutoAssignmentDialog> {
         _endDate,
         requirements,
         strategy: _selectedStrategy,
+        maxConsecutiveDays: maxConsecutiveDays,
+        minRestHours: minRestHours,
       );
 
       // 5. 新シフトをshiftsに保存
@@ -506,6 +692,22 @@ class _AutoAssignmentDialogState extends State<AutoAssignmentDialog> {
           ),
         ) ??
         false;
+  }
+
+  Future<void> _showValidationErrorDialog(String message) async {
+    await showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('入力エラー'),
+        content: Text(message),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('OK'),
+          ),
+        ],
+      ),
+    );
   }
 
   /// シフト作成完了メッセージを表示

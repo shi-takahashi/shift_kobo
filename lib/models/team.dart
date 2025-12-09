@@ -9,6 +9,8 @@ class Team {
   final List<String> memberIds; // スタッフのUIDリスト（管理者も含む）
   final String inviteCode;      // 招待コード（8文字ランダム）
   final DateTime? shiftDeadline; // 休み希望締め日
+  final int maxConsecutiveDays;  // 連続勤務日数上限（デフォルト5日）
+  final int minRestHours;        // 勤務間インターバル（デフォルト12時間）
   final DateTime createdAt;     // 作成日時
   final DateTime updatedAt;     // 更新日時
 
@@ -20,6 +22,8 @@ class Team {
     required this.memberIds,
     required this.inviteCode,
     this.shiftDeadline,
+    this.maxConsecutiveDays = 5,  // デフォルト5日
+    this.minRestHours = 12,        // デフォルト12時間
     required this.createdAt,
     required this.updatedAt,
   });
@@ -35,6 +39,8 @@ class Team {
       memberIds: List<String>.from(data['memberIds'] ?? []),
       inviteCode: data['inviteCode'] ?? '',
       shiftDeadline: (data['shiftDeadline'] as Timestamp?)?.toDate(),
+      maxConsecutiveDays: data['maxConsecutiveDays'] ?? 5,
+      minRestHours: data['minRestHours'] ?? 12,
       createdAt: (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
       updatedAt: (data['updatedAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
     );
@@ -51,6 +57,8 @@ class Team {
       'shiftDeadline': shiftDeadline != null
           ? Timestamp.fromDate(shiftDeadline!)
           : null,
+      'maxConsecutiveDays': maxConsecutiveDays,
+      'minRestHours': minRestHours,
       'createdAt': Timestamp.fromDate(createdAt),
       'updatedAt': Timestamp.fromDate(updatedAt),
     };
@@ -65,6 +73,8 @@ class Team {
     List<String>? memberIds,
     String? inviteCode,
     DateTime? shiftDeadline,
+    int? maxConsecutiveDays,
+    int? minRestHours,
     DateTime? createdAt,
     DateTime? updatedAt,
   }) {
@@ -76,6 +86,8 @@ class Team {
       memberIds: memberIds ?? this.memberIds,
       inviteCode: inviteCode ?? this.inviteCode,
       shiftDeadline: shiftDeadline ?? this.shiftDeadline,
+      maxConsecutiveDays: maxConsecutiveDays ?? this.maxConsecutiveDays,
+      minRestHours: minRestHours ?? this.minRestHours,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
     );

@@ -85,6 +85,8 @@ class ShiftAssignmentService {
     DateTime endDate,
     Map<String, int> dailyShiftRequirements, {
     AssignmentStrategy strategy = AssignmentStrategy.fairness,
+    int maxConsecutiveDays = 5,
+    int minRestHours = 12,
   }) async {
     List<Shift> assignedShifts = [];
     // 有効なスタッフのみ使用（月間最大シフト数0のスタッフは自動的に除外される）
@@ -115,6 +117,8 @@ class ShiftAssignmentService {
             staffShiftCounts,
             assignedShifts,
             strategy,
+            maxConsecutiveDays,
+            minRestHours,
           );
 
           if (assignedStaff != null) {
@@ -159,6 +163,8 @@ class ShiftAssignmentService {
     Map<String, int> staffShiftCounts,
     List<Shift> assignedShifts,
     AssignmentStrategy strategy,
+    int maxConsecutiveDays,
+    int minRestHours,
   ) {
     List<Staff> candidates = availableStaff.where((staff) {
       if (!_isStaffAvailableOnDate(staff, date)) {
@@ -184,14 +190,14 @@ class ShiftAssignmentService {
         return false;
       }
 
-      // 連続勤務日数をチェック（最大5日連続まで）
-      if (_getConsecutiveWorkDays(staff.id, date, assignedShifts) >= 5) {
+      // 連続勤務日数をチェック
+      if (_getConsecutiveWorkDays(staff.id, date, assignedShifts) >= maxConsecutiveDays) {
         print('${staff.name}は連続勤務日数制限により除外');
         return false;
       }
 
       // 勤務間インターバルをチェック
-      if (!_checkWorkInterval(staff.id, date, shiftType, assignedShifts)) {
+      if (!_checkWorkInterval(staff.id, date, shiftType, assignedShifts, minRestHours)) {
         print('${staff.name}は勤務間インターバル不足により除外');
         return false;
       }
@@ -395,7 +401,7 @@ class ShiftAssignmentService {
   }
 
   // 勤務間インターバルをチェック
-  bool _checkWorkInterval(String staffId, DateTime date, String shiftType, List<Shift> assignedShifts) {
+  bool _checkWorkInterval(String staffId, DateTime date, String shiftType, List<Shift> assignedShifts, int minRestHours) {
     // 前日と翌日のシフトをチェック
     DateTime previousDay = date.subtract(const Duration(days: 1));
     DateTime nextDay = date.add(const Duration(days: 1));
@@ -420,14 +426,14 @@ class ShiftAssignmentService {
 
     // 前日シフトとのインターバルチェック
     if (previousShift != null) {
-      if (!_hasValidInterval(previousShift.endTime, currentStart)) {
+      if (!_hasValidInterval(previousShift.endTime, currentStart, minRestHours)) {
         return false;
       }
     }
 
     // 翌日シフトとのインターバルチェック
     if (nextShift != null) {
-      if (!_hasValidInterval(currentEnd, nextShift.startTime)) {
+      if (!_hasValidInterval(currentEnd, nextShift.startTime, minRestHours)) {
         return false;
       }
     }
@@ -436,14 +442,11 @@ class ShiftAssignmentService {
   }
 
   // 2つの時間の間に十分なインターバルがあるかチェック
-  bool _hasValidInterval(DateTime endTime, DateTime startTime) {
-    const int minIntervalHours = 12; // 最低12時間のインターバル
-    const int preferredIntervalHours = 24; // 理想的には24時間
-
+  bool _hasValidInterval(DateTime endTime, DateTime startTime, int minRestHours) {
     Duration interval = startTime.difference(endTime);
 
-    // 最低12時間のインターバルが必要
-    if (interval.inHours < minIntervalHours) {
+    // 指定された時間のインターバルが必要
+    if (interval.inHours < minRestHours) {
       return false;
     }
 

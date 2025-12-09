@@ -21,6 +21,7 @@ import '../services/backup_service.dart';
 import '../services/notification_service.dart';
 import '../widgets/auth_gate.dart';
 import 'auth/register_account_screen.dart';
+import 'constraint_settings_screen.dart';
 import 'help_screen.dart';
 import 'monthly_shift_settings_screen.dart';
 import 'shift_time_settings_screen.dart';
@@ -315,6 +316,23 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       ChangeNotifierProvider<MonthlyRequirementsProvider>.value(value: monthlyRequirementsProvider),
                     ],
                     child: const MonthlyShiftSettingsScreen(),
+                  ),
+                ),
+              );
+            },
+          ),
+          ListTile(
+            leading: const Icon(Icons.rule),
+            title: const Text('制約条件設定'),
+            subtitle: const Text('連続勤務日数と勤務間インターバルを設定'),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () {
+              final shiftProvider = context.read<ShiftProvider>();
+              Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (context) => ChangeNotifierProvider<ShiftProvider>.value(
+                    value: shiftProvider,
+                    child: const ConstraintSettingsScreen(),
                   ),
                 ),
               );
