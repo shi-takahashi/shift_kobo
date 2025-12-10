@@ -158,6 +158,8 @@ class ConstraintRequestCard extends StatelessWidget {
         return '$prefix勤務不可シフトタイプ';
       case ConstraintRequest.typeMaxShiftsPerMonth:
         return '月間最大シフト数の変更';
+      case ConstraintRequest.typeHoliday:
+        return '祝日を休み希望とする';
       default:
         return '$prefix休み希望';
     }
@@ -185,6 +187,11 @@ class ConstraintRequestCard extends StatelessWidget {
           return '${request.maxShiftsPerMonth}回/月';
         }
         return '未設定';
+      case ConstraintRequest.typeHoliday:
+        if (request.holidaysOff != null) {
+          return request.holidaysOff! ? '希望する' : '希望しない';
+        }
+        return '不明';
       default:
         return '不明な申請';
     }
@@ -200,6 +207,8 @@ class ConstraintRequestCard extends StatelessWidget {
         return Icons.work_off;
       case ConstraintRequest.typeMaxShiftsPerMonth:
         return Icons.calendar_month;
+      case ConstraintRequest.typeHoliday:
+        return Icons.celebration;
       default:
         return Icons.info_outline;
     }

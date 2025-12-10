@@ -1055,6 +1055,9 @@ class _MyPageScreenState extends State<MyPageScreen> {
                         } else if (request.requestType == ConstraintRequest.typeMaxShiftsPerMonth && request.maxShiftsPerMonth != null) {
                           contentText = '月間最大シフト数を${request.maxShiftsPerMonth}回に変更';
                           actionText = '';
+                        } else if (request.requestType == ConstraintRequest.typeHoliday && request.holidaysOff != null) {
+                          contentText = '祝日を休み希望';
+                          actionText = request.holidaysOff! ? 'とする' : 'としない';
                         }
 
                         // 却下理由がある場合のみ表示（空文字列もチェック）
@@ -1225,6 +1228,67 @@ class _MyPageScreenState extends State<MyPageScreen> {
 
                     const SizedBox(height: 16),
 
+                    // 祝日休み希望
+                    const Text(
+                      '祝日',
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.black87,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    () {
+                      // Staffデータの祝日休み（承認済み）
+                      final approvedHolidaysOff = myStaff.holidaysOff;
+
+                      // 承認待ちの祝日申請
+                      final pendingRequest = myRequests.firstWhere(
+                        (r) =>
+                            r.requestType == ConstraintRequest.typeHoliday &&
+                            r.status == ConstraintRequest.statusPending,
+                        orElse: () => ConstraintRequest(
+                          id: '',
+                          staffId: '',
+                          userId: '',
+                          requestType: '',
+                          status: '',
+                        ),
+                      );
+
+                      final hasPending = pendingRequest.id.isNotEmpty;
+                      final pendingValue = hasPending ? pendingRequest.holidaysOff : null;
+
+                      // 表示する値を決定
+                      final displayValue = hasPending && pendingValue != null
+                          ? pendingValue
+                          : approvedHolidaysOff;
+
+                      return Row(
+                        children: [
+                          Icon(
+                            displayValue ? Icons.check_circle : Icons.radio_button_unchecked,
+                            color: displayValue ? Colors.green : Colors.grey,
+                            size: 20,
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            displayValue ? '休み希望' : '勤務可',
+                            style: TextStyle(
+                              color: displayValue ? Colors.green : Colors.grey,
+                            ),
+                          ),
+                          if (hasPending) ...[
+                            const SizedBox(width: 8),
+                            _buildStatusBadge(pendingRequest, compactMode: false) ??
+                                const SizedBox.shrink(),
+                          ],
+                        ],
+                      );
+                    }(),
+
+                    const SizedBox(height: 16),
+
                     // 勤務不可シフトタイプ
                     const Text(
                       '勤務不可シフトタイプ',
@@ -1374,12 +1438,14 @@ class _MyPageScreenState extends State<MyPageScreen> {
         })
         .toList();
     final approvedMaxShifts = myStaff.maxShiftsPerMonth > 0 ? myStaff.maxShiftsPerMonth : null; // 0は未設定とみなす
+    final approvedHolidaysOff = myStaff.holidaysOff;
 
     // 承認待ち・却下の申請も含める
     final selectedDays = approvedDays.toSet();
     final selectedShiftTypes = approvedShiftTypes.toSet();
     final selectedSpecificDays = approvedSpecificDays.toSet();
     int? selectedMaxShifts = approvedMaxShifts;
+    bool selectedHolidaysOff = approvedHolidaysOff;
 
     // 承認待ちの曜日申請を反映（却下済みは除外）
     for (final request in myRequests) {
@@ -1435,6 +1501,15 @@ class _MyPageScreenState extends State<MyPageScreen> {
           request.maxShiftsPerMonth != null &&
           request.status == ConstraintRequest.statusPending) {
         selectedMaxShifts = request.maxShiftsPerMonth;
+      }
+    }
+
+    // 承認待ちの祝日休み希望申請を反映（却下済みは除外）
+    for (final request in myRequests) {
+      if (request.requestType == ConstraintRequest.typeHoliday &&
+          request.holidaysOff != null &&
+          request.status == ConstraintRequest.statusPending) {
+        selectedHolidaysOff = request.holidaysOff!;
       }
     }
 
@@ -1583,6 +1658,27 @@ class _MyPageScreenState extends State<MyPageScreen> {
 
                     const SizedBox(height: 24),
 
+                    // 祝日を休み希望とする
+                    CheckboxListTile(
+                      value: selectedHolidaysOff,
+                      onChanged: (value) {
+                        setDialogState(() {
+                          selectedHolidaysOff = value ?? false;
+                        });
+                      },
+                      title: const Text(
+                        '祝日を休み希望とする',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      controlAffinity: ListTileControlAffinity.leading,
+                      contentPadding: EdgeInsets.zero,
+                    ),
+
+                    const SizedBox(height: 24),
+
                     // 勤務不可シフトタイプ
                     const Text(
                       '勤務不可シフトタイプ',
@@ -1694,6 +1790,7 @@ class _MyPageScreenState extends State<MyPageScreen> {
                         (selectedSpecificDays.toList()..sort((a, b) => a.compareTo(b))),
                         selectedShiftTypes.toList(),
                         selectedMaxShifts,
+                        selectedHolidaysOff,
                       );
                     } else {
                       // 【スタッフ】申請作成
@@ -1705,6 +1802,7 @@ class _MyPageScreenState extends State<MyPageScreen> {
                         (selectedSpecificDays.toList()..sort((a, b) => a.compareTo(b))),
                         selectedShiftTypes.toList(),
                         selectedMaxShifts,
+                        selectedHolidaysOff,
                       );
                     }
                   },
@@ -1727,6 +1825,7 @@ class _MyPageScreenState extends State<MyPageScreen> {
     List<DateTime> selectedSpecificDays,
     List<String> selectedShiftTypes,
     int? selectedMaxShifts,
+    bool selectedHolidaysOff,
   ) async {
     // DateTimeのリストをISO8601文字列のリストに変換
     final specificDaysOffStrings = selectedSpecificDays
@@ -1749,6 +1848,7 @@ class _MyPageScreenState extends State<MyPageScreen> {
       unavailableShiftTypes: List.from(selectedShiftTypes),
       specificDaysOff: specificDaysOffStrings,
       userId: myStaff.userId,
+      holidaysOff: selectedHolidaysOff,
     );
 
     await staffProvider.updateStaff(updatedStaff);
@@ -1770,6 +1870,7 @@ class _MyPageScreenState extends State<MyPageScreen> {
     List<DateTime> selectedSpecificDays,
     List<String> selectedShiftTypes,
     int? selectedMaxShifts,
+    bool selectedHolidaysOff,
   ) async {
     final requestProvider = outerContext.read<ConstraintRequestProvider>();
     final uuid = const Uuid();
@@ -1944,6 +2045,23 @@ class _MyPageScreenState extends State<MyPageScreen> {
       newRequestCount++;
     }
 
+    // 4. 祝日休み希望
+    final approvedHolidaysOff = myStaff.holidaysOff;
+    if (selectedHolidaysOff != approvedHolidaysOff) {
+      debugPrint('✅ [祝日申請] 祝日休み希望を${selectedHolidaysOff}に変更');
+      final request = ConstraintRequest(
+        id: uuid.v4(),
+        staffId: myStaff.id,
+        userId: widget.appUser.uid,
+        requestType: ConstraintRequest.typeHoliday,
+        holidaysOff: selectedHolidaysOff,
+        status: ConstraintRequest.statusPending,
+        isDelete: false,
+      );
+      await requestProvider.createRequest(request);
+      newRequestCount++;
+    }
+
     if (outerContext.mounted) {
       Navigator.pop(dialogContext);
       if (mounted) {
@@ -2014,6 +2132,10 @@ class _MyPageScreenState extends State<MyPageScreen> {
                           request.maxShiftsPerMonth != null) {
                         contentText = '月間最大シフト数を${request.maxShiftsPerMonth}回に変更';
                         actionText = '';
+                      } else if (request.requestType == ConstraintRequest.typeHoliday &&
+                          request.holidaysOff != null) {
+                        contentText = '祝日を休み希望';
+                        actionText = request.holidaysOff! ? 'とする' : 'としない';
                       }
 
                       final hasReason = !isApproved &&

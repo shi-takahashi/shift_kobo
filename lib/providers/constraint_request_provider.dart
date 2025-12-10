@@ -68,6 +68,7 @@ class ConstraintRequestProvider extends ChangeNotifier {
           weekday: data['weekday'] as int?,
           shiftType: data['shiftType'] as String?,
           maxShiftsPerMonth: data['maxShiftsPerMonth'] as int?,
+          holidaysOff: data['holidaysOff'] as bool?,
           status: data['status'] as String,
           isDelete: data['isDelete'] as bool? ?? false,  // 追加：削除申請フラグ
           approvedBy: data['approvedBy'] as String?,
@@ -129,6 +130,7 @@ class ConstraintRequestProvider extends ChangeNotifier {
       'weekday': request.weekday,
       'shiftType': request.shiftType,
       'maxShiftsPerMonth': request.maxShiftsPerMonth,
+      'holidaysOff': request.holidaysOff,
       'status': request.status,
       'isDelete': request.isDelete,
       'approvedBy': request.approvedBy,
@@ -231,6 +233,14 @@ class ConstraintRequestProvider extends ChangeNotifier {
       if (request.maxShiftsPerMonth != null) {
         batch.update(staffRef, {
           'maxShiftsPerMonth': request.maxShiftsPerMonth,
+          'updatedAt': FieldValue.serverTimestamp(),
+        });
+      }
+    } else if (request.requestType == ConstraintRequest.typeHoliday) {
+      // 祝日の休み希望
+      if (request.holidaysOff != null) {
+        batch.update(staffRef, {
+          'holidaysOff': request.holidaysOff,
           'updatedAt': FieldValue.serverTimestamp(),
         });
       }

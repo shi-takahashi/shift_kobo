@@ -11,7 +11,7 @@ class ConstraintRequest {
   /// 申請者のユーザーID（AppUser.uid）
   final String userId;
 
-  /// 申請タイプ（"specificDay" | "weekday" | "shiftType"）
+  /// 申請タイプ（"specificDay" | "weekday" | "shiftType" | "holiday"）
   final String requestType;
 
   /// 特定日の休み希望（requestType == "specificDay"の場合）
@@ -25,6 +25,9 @@ class ConstraintRequest {
 
   /// 月間最大シフト数の変更申請（requestType == "maxShiftsPerMonth"の場合）
   final int? maxShiftsPerMonth;
+
+  /// 祝日の休み希望（requestType == "holiday"の場合）
+  final bool? holidaysOff;
 
   /// 申請ステータス（"pending" | "approved" | "rejected"）
   final String status;
@@ -52,6 +55,7 @@ class ConstraintRequest {
   static const String typeWeekday = 'weekday';
   static const String typeShiftType = 'shiftType';
   static const String typeMaxShiftsPerMonth = 'maxShiftsPerMonth';
+  static const String typeHoliday = 'holiday';
 
   // 定数：ステータス
   static const String statusPending = 'pending';
@@ -67,6 +71,7 @@ class ConstraintRequest {
     this.weekday,
     this.shiftType,
     this.maxShiftsPerMonth,
+    this.holidaysOff,
     required this.status,
     this.isDelete = false,
     this.approvedBy,
@@ -88,6 +93,7 @@ class ConstraintRequest {
       'weekday': weekday,
       'shiftType': shiftType,
       'maxShiftsPerMonth': maxShiftsPerMonth,
+      'holidaysOff': holidaysOff,
       'status': status,
       'isDelete': isDelete,
       'approvedBy': approvedBy,
@@ -111,6 +117,7 @@ class ConstraintRequest {
       weekday: json['weekday'] as int?,
       shiftType: json['shiftType'] as String?,
       maxShiftsPerMonth: json['maxShiftsPerMonth'] as int?,
+      holidaysOff: json['holidaysOff'] as bool?,
       status: json['status'] as String,
       isDelete: json['isDelete'] as bool? ?? false,
       approvedBy: json['approvedBy'] as String?,
@@ -133,6 +140,7 @@ class ConstraintRequest {
     int? weekday,
     String? shiftType,
     int? maxShiftsPerMonth,
+    bool? holidaysOff,
     String? status,
     bool? isDelete,
     String? approvedBy,
@@ -150,6 +158,7 @@ class ConstraintRequest {
       weekday: weekday ?? this.weekday,
       shiftType: shiftType ?? this.shiftType,
       maxShiftsPerMonth: maxShiftsPerMonth ?? this.maxShiftsPerMonth,
+      holidaysOff: holidaysOff ?? this.holidaysOff,
       status: status ?? this.status,
       isDelete: isDelete ?? this.isDelete,
       approvedBy: approvedBy ?? this.approvedBy,
