@@ -1,12 +1,13 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
-import '../providers/staff_provider.dart';
-import '../providers/shift_time_provider.dart';
-import '../models/staff.dart';
+import 'package:provider/provider.dart';
+
 import '../models/app_user.dart';
+import '../models/staff.dart';
+import '../providers/shift_time_provider.dart';
+import '../providers/staff_provider.dart';
 import '../services/auth_service.dart';
 import 'auth_gate.dart';
 
@@ -32,6 +33,7 @@ class _StaffEditDialogState extends State<StaffEditDialog> {
   late List<int> _selectedDaysOff;
   late List<String> _unavailableShiftTypes;
   late List<DateTime> _specificDaysOff;
+  late bool _holidaysOff; // 祝日を休み希望とするか
   bool _showPastDaysOff = false; // 過去の休み希望日を表示するか
 
   // ロール管理用
@@ -51,9 +53,8 @@ class _StaffEditDialogState extends State<StaffEditDialog> {
       _maxShiftsController = TextEditingController(text: widget.existingStaff!.maxShiftsPerMonth.toString());
       _selectedDaysOff = List.from(widget.existingStaff!.preferredDaysOff);
       _unavailableShiftTypes = List.from(widget.existingStaff!.unavailableShiftTypes);
-      _specificDaysOff = widget.existingStaff!.specificDaysOff
-          .map((dateStr) => DateTime.parse(dateStr))
-          .toList();
+      _specificDaysOff = widget.existingStaff!.specificDaysOff.map((dateStr) => DateTime.parse(dateStr)).toList();
+      _holidaysOff = widget.existingStaff!.holidaysOff;
 
       // 紐付け済みの場合、ユーザー情報とロールを取得
       _loadUserRoleInfo();
@@ -66,6 +67,7 @@ class _StaffEditDialogState extends State<StaffEditDialog> {
       _selectedDaysOff = [];
       _unavailableShiftTypes = [];
       _specificDaysOff = [];
+      _holidaysOff = false;
     }
   }
 
@@ -101,7 +103,7 @@ class _StaffEditDialogState extends State<StaffEditDialog> {
       // エラーハンドリング（本番環境ではログ記録等を検討）
     }
   }
-  
+
   @override
   void dispose() {
     _nameController.dispose();
@@ -141,17 +143,15 @@ class _StaffEditDialogState extends State<StaffEditDialog> {
                         ),
                         const SizedBox(height: 16),
                         // 編集モードの場合のみ紐付け状態を表示
-                        if (widget.existingStaff != null)
-                          ...[
-                            _buildLinkStatusCard(),
-                            const SizedBox(height: 16),
-                          ],
+                        if (widget.existingStaff != null) ...[
+                          _buildLinkStatusCard(),
+                          const SizedBox(height: 16),
+                        ],
                         // 紐付け済みの場合のみロール選択を表示
-                        if (_linkedUser != null && _selectedRole != null)
-                          ...[
-                            _buildRoleSelectionSection(),
-                            const SizedBox(height: 16),
-                          ],
+                        if (_linkedUser != null && _selectedRole != null) ...[
+                          _buildRoleSelectionSection(),
+                          const SizedBox(height: 16),
+                        ],
                         _buildBasicInfoSection(),
                         const SizedBox(height: 24),
                         _buildShiftConstraintsSection(),
@@ -213,9 +213,7 @@ class _StaffEditDialogState extends State<StaffEditDialog> {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    isLinked
-                        ? 'このスタッフはアプリアカウントと紐付いています'
-                        : 'メールアドレスを入力すると、同じメールアドレスでアカウント作成した時に自動紐付き',
+                    isLinked ? 'このスタッフはアプリアカウントと紐付いています' : 'メールアドレスを入力すると、同じメールアドレスでアカウント作成した時に自動紐付き',
                     style: TextStyle(
                       fontSize: 12,
                       color: isLinked ? Colors.green.shade700 : Colors.grey.shade600,
@@ -410,8 +408,7 @@ class _StaffEditDialogState extends State<StaffEditDialog> {
                       return false;
                     }
                     // メールアドレスが一致するスタッフを検索
-                    return staff.email != null &&
-                           staff.email!.toLowerCase() == value.toLowerCase();
+                    return staff.email != null && staff.email!.toLowerCase() == value.toLowerCase();
                   }).toList();
 
                   if (duplicateStaff.isNotEmpty) {
@@ -478,7 +475,7 @@ class _StaffEditDialogState extends State<StaffEditDialog> {
 
   Widget _buildDaysOffSection() {
     const dayNames = ['月', '火', '水', '木', '金', '土', '日'];
-    
+
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(16),
@@ -501,7 +498,7 @@ class _StaffEditDialogState extends State<StaffEditDialog> {
               children: List.generate(7, (index) {
                 final dayNumber = index + 1;
                 final isSelected = _selectedDaysOff.contains(dayNumber);
-                
+
                 return SizedBox(
                   width: 80, // 全てのチップを同じ幅に統一
                   child: FilterChip(
@@ -525,6 +522,21 @@ class _StaffEditDialogState extends State<StaffEditDialog> {
                 );
               }),
             ),
+            const SizedBox(height: 16),
+            CheckboxListTile(
+              value: _holidaysOff,
+              onChanged: (value) {
+                setState(() {
+                  _holidaysOff = value ?? false;
+                });
+              },
+              title: const Text(
+                '祝日を休み希望とする',
+                style: TextStyle(fontSize: 13),
+              ),
+              controlAffinity: ListTileControlAffinity.leading,
+              contentPadding: EdgeInsets.zero,
+            ),
           ],
         ),
       ),
@@ -540,9 +552,8 @@ class _StaffEditDialogState extends State<StaffEditDialog> {
     final firstDayOfCurrentMonth = DateTime(now.year, now.month, 1);
 
     // 表示する日付をフィルタリング
-    final displayDaysOff = _showPastDaysOff
-        ? _specificDaysOff
-        : _specificDaysOff.where((date) => date.isAfter(firstDayOfCurrentMonth.subtract(const Duration(days: 1)))).toList();
+    final displayDaysOff =
+        _showPastDaysOff ? _specificDaysOff : _specificDaysOff.where((date) => date.isAfter(firstDayOfCurrentMonth.subtract(const Duration(days: 1)))).toList();
 
     // 過去の休み希望日の件数
     final pastCount = _specificDaysOff.where((date) => date.isBefore(firstDayOfCurrentMonth)).length;
@@ -590,10 +601,7 @@ class _StaffEditDialogState extends State<StaffEditDialog> {
                           selectedDate.month,
                           selectedDate.day,
                         );
-                        if (!_specificDaysOff.any((d) =>
-                            d.year == dateOnly.year &&
-                            d.month == dateOnly.month &&
-                            d.day == dateOnly.day)) {
+                        if (!_specificDaysOff.any((d) => d.year == dateOnly.year && d.month == dateOnly.month && d.day == dateOnly.day)) {
                           _specificDaysOff.add(dateOnly);
                         }
                       });
@@ -682,10 +690,7 @@ class _StaffEditDialogState extends State<StaffEditDialog> {
 
   Widget _buildUnavailableShiftTypesSection() {
     final shiftTimeProvider = Provider.of<ShiftTimeProvider>(context, listen: false);
-    final activeShiftTypes = shiftTimeProvider.settings
-        .where((setting) => setting.isActive)
-        .map((setting) => setting.displayName)
-        .toList();
+    final activeShiftTypes = shiftTimeProvider.settings.where((setting) => setting.isActive).map((setting) => setting.displayName).toList();
 
     return Card(
       child: Padding(
@@ -787,9 +792,8 @@ class _StaffEditDialogState extends State<StaffEditDialog> {
         maxShiftsPerMonth: int.parse(_maxShiftsController.text),
         preferredDaysOff: List.from(_selectedDaysOff),
         unavailableShiftTypes: List.from(_unavailableShiftTypes),
-        specificDaysOff: _specificDaysOff.map((date) =>
-          DateTime(date.year, date.month, date.day).toIso8601String()
-        ).toList(),
+        specificDaysOff: _specificDaysOff.map((date) => DateTime(date.year, date.month, date.day).toIso8601String()).toList(),
+        holidaysOff: _holidaysOff,
         isActive: widget.existingStaff!.isActive,
         createdAt: widget.existingStaff!.createdAt,
         userId: widget.existingStaff!.userId,
@@ -882,9 +886,8 @@ class _StaffEditDialogState extends State<StaffEditDialog> {
         maxShiftsPerMonth: int.parse(_maxShiftsController.text),
         preferredDaysOff: List.from(_selectedDaysOff),
         unavailableShiftTypes: List.from(_unavailableShiftTypes),
-        specificDaysOff: _specificDaysOff.map((date) =>
-          DateTime(date.year, date.month, date.day).toIso8601String()
-        ).toList(),
+        specificDaysOff: _specificDaysOff.map((date) => DateTime(date.year, date.month, date.day).toIso8601String()).toList(),
+        holidaysOff: _holidaysOff,
         isActive: true,
         createdAt: DateTime.now(),
       );
@@ -909,60 +912,61 @@ class _StaffEditDialogState extends State<StaffEditDialog> {
     final staffName = widget.existingStaff?.name ?? 'このスタッフ';
 
     return await showDialog<bool>(
-      context: context,
-      barrierDismissible: false,
-      builder: (context) => AlertDialog(
-        title: Row(
-          children: [
-            Icon(
-              isUpgrading ? Icons.arrow_upward : Icons.arrow_downward,
-              color: isUpgrading ? Colors.green : Colors.orange,
+          context: context,
+          barrierDismissible: false,
+          builder: (context) => AlertDialog(
+            title: Row(
+              children: [
+                Icon(
+                  isUpgrading ? Icons.arrow_upward : Icons.arrow_downward,
+                  color: isUpgrading ? Colors.green : Colors.orange,
+                ),
+                const SizedBox(width: 8),
+                Text(isUpgrading ? '管理者に昇格' : 'スタッフに降格'),
+              ],
             ),
-            const SizedBox(width: 8),
-            Text(isUpgrading ? '管理者に昇格' : 'スタッフに降格'),
-          ],
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              '$staffName の権限を変更します。',
-              style: const TextStyle(fontWeight: FontWeight.bold),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '$staffName の権限を変更します。',
+                  style: const TextStyle(fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 16),
+                if (isUpgrading) ...[
+                  const Text('管理者になると以下の操作が可能になります：'),
+                  const SizedBox(height: 8),
+                  _buildPermissionItem(Icons.edit_calendar, 'シフトの編集・自動生成'),
+                  _buildPermissionItem(Icons.group, 'スタッフ管理'),
+                  _buildPermissionItem(Icons.settings, '各種設定の変更'),
+                ] else ...[
+                  const Text('スタッフになると以下の操作ができなくなります：'),
+                  const SizedBox(height: 8),
+                  _buildPermissionItem(Icons.edit_calendar, 'シフトの編集・自動生成'),
+                  _buildPermissionItem(Icons.group, 'スタッフ管理'),
+                  _buildPermissionItem(Icons.settings, '各種設定の変更'),
+                  const SizedBox(height: 12),
+                  const Text(
+                    'シフトの閲覧と自分の休み希望入力のみ可能になります。',
+                    style: TextStyle(fontSize: 12, color: Colors.grey),
+                  ),
+                ],
+              ],
             ),
-            const SizedBox(height: 16),
-            if (isUpgrading) ...[
-              const Text('管理者になると以下の操作が可能になります：'),
-              const SizedBox(height: 8),
-              _buildPermissionItem(Icons.edit_calendar, 'シフトの編集・自動生成'),
-              _buildPermissionItem(Icons.group, 'スタッフ管理'),
-              _buildPermissionItem(Icons.settings, '各種設定の変更'),
-            ] else ...[
-              const Text('スタッフになると以下の操作ができなくなります：'),
-              const SizedBox(height: 8),
-              _buildPermissionItem(Icons.edit_calendar, 'シフトの編集・自動生成'),
-              _buildPermissionItem(Icons.group, 'スタッフ管理'),
-              _buildPermissionItem(Icons.settings, '各種設定の変更'),
-              const SizedBox(height: 12),
-              const Text(
-                'シフトの閲覧と自分の休み希望入力のみ可能になります。',
-                style: TextStyle(fontSize: 12, color: Colors.grey),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context, false),
+                child: const Text('キャンセル'),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.pop(context, true),
+                child: Text(isUpgrading ? '昇格する' : '降格する'),
               ),
             ],
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('キャンセル'),
           ),
-          FilledButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: Text(isUpgrading ? '昇格する' : '降格する'),
-          ),
-        ],
-      ),
-    ) ?? false;
+        ) ??
+        false;
   }
 
   Widget _buildPermissionItem(IconData icon, String text) {

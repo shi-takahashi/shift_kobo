@@ -44,6 +44,9 @@ class Staff extends HiveObject {
   @HiveField(12)
   String? userId; // 紐付けられたユーザーのUID（AppUser.uid）
 
+  @HiveField(13)
+  bool holidaysOff; // 祝日を休み希望とするか
+
   Staff({
     required this.id,
     required this.name,
@@ -58,6 +61,7 @@ class Staff extends HiveObject {
     List<String>? unavailableShiftTypes,
     List<String>? specificDaysOff,
     this.userId,
+    this.holidaysOff = false, // デフォルトはチェックなし
   })  : preferredDaysOff = preferredDaysOff ?? [],
         createdAt = createdAt ?? DateTime.now() {
     this.constraints = constraints ?? [];
@@ -78,6 +82,7 @@ class Staff extends HiveObject {
       'updatedAt': updatedAt?.toIso8601String(),
       'specificDaysOff': specificDaysOff,
       'userId': userId,
+      'holidaysOff': holidaysOff,
     };
   }
 
@@ -94,6 +99,7 @@ class Staff extends HiveObject {
       updatedAt: json['updatedAt'] != null ? DateTime.parse(json['updatedAt']) : null,
       specificDaysOff: List<String>.from(json['specificDaysOff'] ?? []),
       userId: json['userId'],
+      holidaysOff: json['holidaysOff'] ?? false,
     );
   }
 }

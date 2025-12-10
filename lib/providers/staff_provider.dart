@@ -52,6 +52,7 @@ class StaffProvider extends ChangeNotifier {
           unavailableShiftTypes: List<String>.from(data['unavailableShiftTypes'] ?? []),
           specificDaysOff: List<String>.from(data['specificDaysOff'] ?? []),
           userId: data['userId'],
+          holidaysOff: data['holidaysOff'] ?? false,
         );
       }).toList();
 
@@ -76,6 +77,7 @@ class StaffProvider extends ChangeNotifier {
       'preferredDaysOff': staff.preferredDaysOff,
       'unavailableShiftTypes': staff.unavailableShiftTypes,
       'specificDaysOff': staff.specificDaysOff,
+      'holidaysOff': staff.holidaysOff,
       'createdAt': FieldValue.serverTimestamp(),
     };
 
@@ -109,6 +111,7 @@ class StaffProvider extends ChangeNotifier {
       'preferredDaysOff': staff.preferredDaysOff,
       'unavailableShiftTypes': staff.unavailableShiftTypes,
       'specificDaysOff': staff.specificDaysOff,
+      'holidaysOff': staff.holidaysOff,
       'updatedAt': FieldValue.serverTimestamp(),
     };
 

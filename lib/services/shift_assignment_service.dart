@@ -6,6 +6,7 @@ import 'package:shift_kobo/models/staff.dart';
 import 'package:shift_kobo/providers/shift_provider.dart';
 import 'package:shift_kobo/providers/shift_time_provider.dart';
 import 'package:shift_kobo/providers/staff_provider.dart';
+import 'package:holiday_jp/holiday_jp.dart' as holiday_jp;
 
 class ShiftAssignmentService {
   final StaffProvider staffProvider;
@@ -261,6 +262,17 @@ class ShiftAssignmentService {
     if (staff.preferredDaysOff.contains(date.weekday)) {
       print('${staff.name}は${date.weekday}曜日は休み希望');
       return false;
+    }
+
+    // 祝日の休み希望をチェック
+    if (staff.holidaysOff) {
+      final isHoliday = holiday_jp.isHoliday(date);
+      if (isHoliday) {
+        final holiday = holiday_jp.getHoliday(date);
+        final holidayName = holiday?.nameEn ?? '祝日';
+        print('${staff.name}は祝日（$holidayName）は休み希望');
+        return false;
+      }
     }
 
     // 特定日の休み希望をチェック

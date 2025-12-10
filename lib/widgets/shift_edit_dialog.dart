@@ -9,6 +9,7 @@ import '../providers/staff_provider.dart';
 import '../providers/shift_provider.dart';
 import '../providers/shift_time_provider.dart';
 import '../services/analytics_service.dart';
+import 'package:holiday_jp/holiday_jp.dart' as holiday_jp;
 
 class ShiftEditDialog extends StatefulWidget {
   final DateTime selectedDate;
@@ -625,19 +626,27 @@ class _ShiftEditDialogState extends State<ShiftEditDialog> {
       violations.add('${dayNames[weekday - 1]}は休み希望になっています');
     }
 
-    // 2. 特定日の休み希望チェック
+    // 2. 祝日の休み希望チェック
+    if (staff.holidaysOff) {
+      final isHoliday = holiday_jp.isHoliday(_selectedDate);
+      if (isHoliday) {
+        violations.add('祝日は休み希望になっています');
+      }
+    }
+
+    // 3. 特定日の休み希望チェック
     final dateString = DateTime(_selectedDate.year, _selectedDate.month, _selectedDate.day).toIso8601String();
     if (staff.specificDaysOff.contains(dateString)) {
       final dateStr = DateFormat('yyyy/MM/dd(E)', 'ja').format(_selectedDate);
       violations.add('$dateStrは休み希望日になっています');
     }
 
-    // 3. 勤務不可シフトタイプチェック
+    // 4. 勤務不可シフトタイプチェック
     if (staff.unavailableShiftTypes.contains(shiftTypeForCheck)) {
       violations.add('$shiftTypeForCheckは勤務不可になっています');
     }
 
-    // 4. 月間最大シフト数チェック
+    // 5. 月間最大シフト数チェック
     if (staff.maxShiftsPerMonth > 0) {
       final targetMonth = DateTime(_selectedDate.year, _selectedDate.month);
       final monthlyShifts = shiftProvider.getShiftsForMonth(targetMonth.year, targetMonth.month)

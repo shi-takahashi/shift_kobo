@@ -31,27 +31,34 @@ class _StaffListScreenState extends State<StaffListScreen> {
     AnalyticsService.logScreenView('staff_list_screen');
   }
 
-  String _getDayOffText(List<int> daysOff) {
+  String _getDayOffText(List<int> daysOff, bool includeHolidays) {
     const dayNames = ['月', '火', '水', '木', '金', '土', '日'];
-    return daysOff.map((day) => dayNames[day - 1]).join('・');
+    List<String> dayOffTexts = daysOff.map((day) => dayNames[day - 1]).toList();
+
+    // 祝日を追加
+    if (includeHolidays) {
+      dayOffTexts.add('祝');
+    }
+
+    return dayOffTexts.join('・');
   }
 
   Widget _buildConstraintsText(Staff staff) {
     List<String> constraints = [];
-    
+
     // 月間最大シフト数
     constraints.add('月間最大: ${staff.maxShiftsPerMonth}回');
-    
-    // 休み希望（曜日）
-    if (staff.preferredDaysOff.isNotEmpty) {
-      constraints.add('休み希望: ${_getDayOffText(staff.preferredDaysOff)}');
+
+    // 休み希望（曜日 + 祝日）
+    if (staff.preferredDaysOff.isNotEmpty || staff.holidaysOff) {
+      constraints.add('休み希望: ${_getDayOffText(staff.preferredDaysOff, staff.holidaysOff)}');
     }
-    
+
     // 勤務不可シフトタイプ
     if (staff.unavailableShiftTypes.isNotEmpty) {
       constraints.add('不可: ${staff.unavailableShiftTypes.join('・')}');
     }
-    
+
     return Text(
       constraints.join(' / '),
       style: TextStyle(
