@@ -66,7 +66,12 @@ class _ShiftTimeSettingsScreenState extends State<ShiftTimeSettingsScreen> {
                   trailing: Switch(
                     value: setting.isActive,
                     onChanged: (value) {
-                      provider.toggleShiftTypeActive(setting.shiftType);
+                      // 無効→有効の場合、重複チェック
+                      if (!setting.isActive && provider.isNameDuplicate(setting.displayName, setting.shiftType)) {
+                        _showDuplicateWarningDialog(context, setting.displayName);
+                      } else {
+                        provider.toggleShiftTypeActive(setting.shiftType);
+                      }
                     },
                   ),
                 ),
@@ -223,5 +228,24 @@ class _ShiftTimeSettingsScreenState extends State<ShiftTimeSettingsScreen> {
     }
 
     return null;
+  }
+
+  void _showDuplicateWarningDialog(BuildContext context, String name) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('名前が重複しています'),
+        content: Text(
+          '「$name」という名前は既に他のシフトタイプで使用されています。\n\n'
+          'このシフトタイプを有効にする前に、名前を変更してください。',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('OK'),
+          ),
+        ],
+      ),
+    );
   }
 }
