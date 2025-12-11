@@ -207,6 +207,16 @@ class ShiftTimeProvider extends ChangeNotifier {
     return setting?.timeRange ?? '';
   }
 
+  /// 指定された名前が他のシフトタイプと重複しているかチェック
+  /// [name] チェックする名前
+  /// [excludeShiftType] 除外するシフトタイプ（自分自身）
+  /// 戻り値: 重複している場合true
+  bool isNameDuplicate(String name, ShiftType excludeShiftType) {
+    return _settings.any((setting) =>
+        setting.shiftType != excludeShiftType &&
+        setting.displayName == name);
+  }
+
   /// データの再読み込み（バックアップ復元後などに使用）
   Future<void> reload() async {
     _subscribeToSettings();

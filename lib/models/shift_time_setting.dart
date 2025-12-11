@@ -39,17 +39,17 @@ extension ShiftTypeExtension on ShiftType {
       case ShiftType.shift4:
         return '夜勤';
       case ShiftType.shift5:
-        return '未使用';
+        return '未使用1';
       case ShiftType.shift6:
-        return '未使用';
+        return '未使用2';
       case ShiftType.shift7:
-        return '未使用';
+        return '未使用3';
       case ShiftType.shift8:
-        return '未使用';
+        return '未使用4';
       case ShiftType.shift9:
-        return '未使用';
+        return '未使用5';
       case ShiftType.shift10:
-        return '未使用';
+        return '未使用6';
     }
   }
 

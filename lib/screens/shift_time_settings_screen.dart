@@ -87,6 +87,7 @@ class _ShiftTimeSettingsScreenState extends State<ShiftTimeSettingsScreen> {
     String startTime = setting.startTime;
     String endTime = setting.endTime;
     final nameController = TextEditingController(text: newName);
+    String? errorMessage;
 
     showDialog(
       context: context,
@@ -100,13 +101,23 @@ class _ShiftTimeSettingsScreenState extends State<ShiftTimeSettingsScreen> {
               children: [
                 TextField(
                   controller: nameController,
-                  decoration: const InputDecoration(
+                  decoration: InputDecoration(
                     labelText: 'シフト名',
                     hintText: '例: 朝シフト、開店準備、A勤務',
-                    border: OutlineInputBorder(),
+                    border: const OutlineInputBorder(),
+                    errorText: errorMessage,
                   ),
                   onChanged: (value) {
-                    newName = value;
+                    setState(() {
+                      newName = value;
+                      // 重複チェック
+                      if (value.trim().isNotEmpty &&
+                          provider.isNameDuplicate(value.trim(), setting.shiftType)) {
+                        errorMessage = 'この名前は既に使用されています';
+                      } else {
+                        errorMessage = null;
+                      }
+                    });
                   },
                 ),
                 const SizedBox(height: 20),
@@ -166,19 +177,19 @@ class _ShiftTimeSettingsScreenState extends State<ShiftTimeSettingsScreen> {
               child: const Text('キャンセル'),
             ),
             ElevatedButton(
-              onPressed: () {
-                if (newName.trim().isNotEmpty) {
-                  provider.updateShiftName(setting.shiftType, newName.trim());
-                  provider.updateShiftTime(setting.shiftType, startTime, endTime);
-                  Navigator.of(context).pop();
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text('${newName.trim()}の設定を更新しました'),
-                      duration: const Duration(seconds: 1),
-                    ),
-                  );
-                }
-              },
+              onPressed: errorMessage == null && newName.trim().isNotEmpty
+                  ? () {
+                      provider.updateShiftName(setting.shiftType, newName.trim());
+                      provider.updateShiftTime(setting.shiftType, startTime, endTime);
+                      Navigator.of(context).pop();
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text('${newName.trim()}の設定を更新しました'),
+                          duration: const Duration(seconds: 1),
+                        ),
+                      );
+                    }
+                  : null, // エラーがある場合はボタンを無効化
               child: const Text('保存'),
             ),
           ],
