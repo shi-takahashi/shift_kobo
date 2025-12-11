@@ -112,7 +112,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
     final staffProvider = context.read<StaffProvider>();
     final shifts = shiftProvider.getShiftsForDate(day);
 
-    // ソート: 1.ロール順（管理者を上） 2.createdAt順（昇順） 3.開始時間順 4.終了時間順
+    // ソート: 1.開始時間順 2.終了時間順 3.ロール順（管理者を上） 4.createdAt順（昇順）
     shifts.sort((a, b) {
       final staffA = staffProvider.getStaffById(a.staffId);
       final staffB = staffProvider.getStaffById(b.staffId);
@@ -122,30 +122,30 @@ class _CalendarScreenState extends State<CalendarScreen> {
       if (staffA == null) return 1;
       if (staffB == null) return -1;
 
-      // 1. ロール順（管理者を上、スタッフを下）
+      // 1. 開始時間順
+      int startComparison = a.startTime.compareTo(b.startTime);
+      if (startComparison != 0) return startComparison;
+
+      // 2. 終了時間順
+      int endComparison = a.endTime.compareTo(b.endTime);
+      if (endComparison != 0) return endComparison;
+
+      // 3. ロール順（管理者を上、スタッフを下）
       final isAdminA = staffA.userId != null && (_userRoleCache[staffA.userId] ?? false);
       final isAdminB = staffB.userId != null && (_userRoleCache[staffB.userId] ?? false);
 
       if (isAdminA && !isAdminB) return -1;
       if (!isAdminA && isAdminB) return 1;
 
-      // 2. createdAt順（昇順＝過去に作成されたスタッフが上）
-      int createdAtComparison = staffA.createdAt.compareTo(staffB.createdAt);
-      if (createdAtComparison != 0) return createdAtComparison;
-
-      // 3. 開始時間順
-      int startComparison = a.startTime.compareTo(b.startTime);
-      if (startComparison != 0) return startComparison;
-
-      // 4. 終了時間順
-      return a.endTime.compareTo(b.endTime);
+      // 4. createdAt順（昇順＝過去に作成されたスタッフが上）
+      return staffA.createdAt.compareTo(staffB.createdAt);
     });
 
     return shifts;
   }
 
   /// カレンダーマーカー用にソートしたシフトリストを取得
-  /// ソート順: 1.ロール順 2.createdAt順 3.時間順
+  /// ソート順: 1.開始時間順 2.終了時間順 3.ロール順 4.createdAt順
   List<Shift> _getSortedShiftsForMarker(List<Shift> shifts) {
     final staffProvider = context.read<StaffProvider>();
     final sortedShifts = List<Shift>.from(shifts);
@@ -159,23 +159,23 @@ class _CalendarScreenState extends State<CalendarScreen> {
       if (staffA == null) return 1;
       if (staffB == null) return -1;
 
-      // 1. ロール順（管理者を上、スタッフを下）
+      // 1. 開始時間順
+      int startComparison = a.startTime.compareTo(b.startTime);
+      if (startComparison != 0) return startComparison;
+
+      // 2. 終了時間順
+      int endComparison = a.endTime.compareTo(b.endTime);
+      if (endComparison != 0) return endComparison;
+
+      // 3. ロール順（管理者を上、スタッフを下）
       final isAdminA = staffA.userId != null && (_userRoleCache[staffA.userId] ?? false);
       final isAdminB = staffB.userId != null && (_userRoleCache[staffB.userId] ?? false);
 
       if (isAdminA && !isAdminB) return -1;
       if (!isAdminA && isAdminB) return 1;
 
-      // 2. createdAt順（昇順）
-      int createdAtComparison = staffA.createdAt.compareTo(staffB.createdAt);
-      if (createdAtComparison != 0) return createdAtComparison;
-
-      // 3. 開始時間順
-      int startComparison = a.startTime.compareTo(b.startTime);
-      if (startComparison != 0) return startComparison;
-
-      // 4. 終了時間順
-      return a.endTime.compareTo(b.endTime);
+      // 4. createdAt順（昇順）
+      return staffA.createdAt.compareTo(staffB.createdAt);
     });
 
     return sortedShifts;
