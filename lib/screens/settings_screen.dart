@@ -21,10 +21,7 @@ import '../services/backup_service.dart';
 import '../services/notification_service.dart';
 import '../widgets/auth_gate.dart';
 import 'auth/register_account_screen.dart';
-import 'constraint_settings_screen.dart';
 import 'help_screen.dart';
-import 'monthly_shift_settings_screen.dart';
-import 'shift_time_settings_screen.dart';
 import 'team/team_invite_screen.dart';
 
 class SettingsScreen extends StatefulWidget {
@@ -270,76 +267,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ),
 
         const Divider(),
-
-        // 管理者のみ基本設定を表示
-        if (widget.appUser.isAdmin) ...[
-          const Padding(
-            padding: EdgeInsets.all(16.0),
-            child: Text(
-              '基本設定',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-          ),
-          ListTile(
-            leading: const Icon(Icons.access_time),
-            title: const Text('シフト時間設定'),
-            subtitle: const Text('各シフトタイプの時間を設定'),
-            trailing: const Icon(Icons.chevron_right),
-            onTap: () {
-              final shiftTimeProvider = context.read<ShiftTimeProvider>();
-              Navigator.of(context).push(
-                MaterialPageRoute(
-                  builder: (context) => ChangeNotifierProvider<ShiftTimeProvider>.value(
-                    value: shiftTimeProvider,
-                    child: const ShiftTimeSettingsScreen(),
-                  ),
-                ),
-              );
-            },
-          ),
-          ListTile(
-            leading: const Icon(Icons.calendar_today),
-            title: const Text('月間シフト設定'),
-            subtitle: const Text('各シフト時間の必要人数を設定'),
-            trailing: const Icon(Icons.chevron_right),
-            onTap: () {
-              final shiftTimeProvider = context.read<ShiftTimeProvider>();
-              final monthlyRequirementsProvider = context.read<MonthlyRequirementsProvider>();
-              Navigator.of(context).push(
-                MaterialPageRoute(
-                  builder: (context) => MultiProvider(
-                    providers: [
-                      ChangeNotifierProvider<ShiftTimeProvider>.value(value: shiftTimeProvider),
-                      ChangeNotifierProvider<MonthlyRequirementsProvider>.value(value: monthlyRequirementsProvider),
-                    ],
-                    child: const MonthlyShiftSettingsScreen(),
-                  ),
-                ),
-              );
-            },
-          ),
-          ListTile(
-            leading: const Icon(Icons.rule),
-            title: const Text('制約条件設定'),
-            subtitle: const Text('連続勤務日数と勤務間インターバルを設定'),
-            trailing: const Icon(Icons.chevron_right),
-            onTap: () {
-              final shiftProvider = context.read<ShiftProvider>();
-              Navigator.of(context).push(
-                MaterialPageRoute(
-                  builder: (context) => ChangeNotifierProvider<ShiftProvider>.value(
-                    value: shiftProvider,
-                    child: const ConstraintSettingsScreen(),
-                  ),
-                ),
-              );
-            },
-          ),
-          const Divider(),
-        ],
 
         // Push通知設定（アプリ版 & 登録済みユーザーのみ）
         if (!kIsWeb && FirebaseAuth.instance.currentUser != null && widget.appUser.email != null) ...[

@@ -19,12 +19,14 @@ import 'help_screen.dart';
 import 'my_page_screen.dart';
 import 'settings_screen.dart';
 import 'staff_list_screen.dart';
+import 'team_settings_screen.dart';
 
 /// ホーム画面のタブ
 enum HomeTab {
   myPage, // マイページ
   shift, // シフト
   staff, // スタッフ（管理者のみ）
+  teamSettings, // チーム設定（管理者のみ）
   settings, // その他
 }
 
@@ -69,6 +71,11 @@ class _HomeScreenState extends State<HomeScreen> {
       tabs.add(HomeTab.staff);
     }
 
+    // 管理者のみチーム設定タブを表示
+    if (widget.appUser.isAdmin) {
+      tabs.add(HomeTab.teamSettings);
+    }
+
     tabs.add(HomeTab.settings);
 
     return tabs;
@@ -90,6 +97,8 @@ class _HomeScreenState extends State<HomeScreen> {
         return CalendarScreen(appUser: widget.appUser);
       case HomeTab.staff:
         return StaffListScreen(appUser: widget.appUser);
+      case HomeTab.teamSettings:
+        return const TeamSettingsScreen();
       case HomeTab.settings:
         return SettingsScreen(appUser: widget.appUser);
     }
@@ -104,6 +113,8 @@ class _HomeScreenState extends State<HomeScreen> {
         return 'シフト';
       case HomeTab.staff:
         return 'スタッフ';
+      case HomeTab.teamSettings:
+        return 'チーム設定';
       case HomeTab.settings:
         return 'その他';
     }
@@ -130,6 +141,11 @@ class _HomeScreenState extends State<HomeScreen> {
             child: const Icon(Icons.people, size: _iconSize),
           ),
           label: 'スタッフ',
+        );
+      case HomeTab.teamSettings:
+        return const NavigationDestination(
+          icon: Icon(Icons.settings, size: _iconSize),
+          label: 'チーム',
         );
       case HomeTab.settings:
         return const NavigationDestination(
