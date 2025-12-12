@@ -8,6 +8,7 @@ import '../services/analytics_service.dart';
 import 'constraint_settings_screen.dart';
 import 'monthly_shift_settings_screen.dart';
 import 'shift_time_settings_screen.dart';
+import 'team/team_invite_screen.dart';
 
 /// チーム設定画面（管理者専用）
 class TeamSettingsScreen extends StatefulWidget {
@@ -30,9 +31,33 @@ class _TeamSettingsScreenState extends State<TeamSettingsScreen> {
     return ListView(
       children: [
         const Padding(
-          padding: EdgeInsets.all(16.0),
+          padding: EdgeInsets.fromLTRB(16.0, 16.0, 16.0, 8.0),
           child: Text(
-            'チーム設定',
+            '共有機能',
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ),
+        ListTile(
+          leading: const Icon(Icons.group_add),
+          title: const Text('チーム招待'),
+          subtitle: const Text('スタッフを招待する'),
+          trailing: const Icon(Icons.chevron_right),
+          onTap: () {
+            Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (context) => const TeamInviteScreen(),
+              ),
+            );
+          },
+        ),
+        const Divider(),
+        const Padding(
+          padding: EdgeInsets.fromLTRB(16.0, 16.0, 16.0, 8.0),
+          child: Text(
+            '基本設定',
             style: TextStyle(
               fontSize: 18,
               fontWeight: FontWeight.bold,
@@ -55,6 +80,16 @@ class _TeamSettingsScreenState extends State<TeamSettingsScreen> {
               ),
             );
           },
+        ),
+        const Padding(
+          padding: EdgeInsets.fromLTRB(16.0, 16.0, 16.0, 8.0),
+          child: Text(
+            '自動シフト作成',
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
         ),
         ListTile(
           leading: const Icon(Icons.calendar_today),

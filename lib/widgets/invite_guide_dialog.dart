@@ -137,7 +137,7 @@ class InviteGuideDialog extends StatelessWidget {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    '1. スタッフを登録（メールアドレス付き）\n2. その他 > チーム招待 > 招待メールを送る',
+                    '1. スタッフを登録（メールアドレス付き）\n2. チーム > チーム招待 > 招待メールを送る',
                     style: TextStyle(
                       fontSize: 12,
                       color: Colors.green.shade800,

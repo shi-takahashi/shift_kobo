@@ -114,7 +114,7 @@ class _HomeScreenState extends State<HomeScreen> {
       case HomeTab.staff:
         return 'スタッフ';
       case HomeTab.teamSettings:
-        return 'チーム設定';
+        return 'チーム';
       case HomeTab.settings:
         return 'その他';
     }
@@ -340,8 +340,8 @@ class _HomeScreenState extends State<HomeScreen> {
       final myUid = widget.appUser.uid;
       final myEmail = widget.appUser.email?.toLowerCase();
       final myStaff = staffProvider.staff
-          .where((staff) =>
-              (staff.userId != null && staff.userId == myUid) || (myEmail != null && staff.email != null && staff.email!.toLowerCase() == myEmail))
+          .where(
+              (staff) => (staff.userId != null && staff.userId == myUid) || (myEmail != null && staff.email != null && staff.email!.toLowerCase() == myEmail))
           .firstOrNull;
 
       // スタッフ情報があればマイページを初期選択

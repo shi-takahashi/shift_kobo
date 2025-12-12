@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
+
 import '../services/analytics_service.dart';
 
 /// ヘルプ画面
@@ -360,7 +361,7 @@ class _HelpScreenState extends State<HelpScreen> {
                         ],
                       ),
                       const SizedBox(height: 12),
-                      _buildSimpleStep('1', 'その他 > チーム招待 を開く'),
+                      _buildSimpleStep('1', 'チーム > チーム招待 を開く'),
                       _buildSimpleStep('2', '「招待メールを送る」ボタンをタップ'),
                       _buildSimpleStep('3', 'スタッフを選択してメール送信'),
                     ],
@@ -791,7 +792,7 @@ class _HelpScreenState extends State<HelpScreen> {
                 if (!kIsWeb)
                   _buildHowToItem(
                     'シフト表を出力する',
-                    'ホーム画面の「シフト表」タブ > PNG保存またはExcel出力を選択',
+                    'カレンダー画面で「シフト表」ボタンをタップ > 保存または共有を選択',
                   ),
               ],
             ),

@@ -22,7 +22,6 @@ import '../services/notification_service.dart';
 import '../widgets/auth_gate.dart';
 import 'auth/register_account_screen.dart';
 import 'help_screen.dart';
-import 'team/team_invite_screen.dart';
 
 class SettingsScreen extends StatefulWidget {
   final AppUser appUser;
@@ -140,16 +139,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 onTap: widget.appUser.isAdmin ? _showTeamNameEditDialog : null,
               );
             },
-          ),
-
-        // チーム招待メニュー（管理者かつ登録済みユーザーのみ）
-        if (FirebaseAuth.instance.currentUser != null && widget.appUser.isAdmin && widget.appUser.email != null)
-          ListTile(
-            leading: const Icon(Icons.group_add),
-            title: const Text('チーム招待'),
-            subtitle: const Text('スタッフを招待する'),
-            trailing: const Icon(Icons.chevron_right),
-            onTap: _navigateToTeamInvite,
           ),
 
         // アカウント登録ボタン（匿名ユーザーのみ）
@@ -499,15 +488,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
             onTap: _showDeleteAccountDialog,
           ),
       ],
-    );
-  }
-
-  /// チーム招待画面へ遷移
-  void _navigateToTeamInvite() {
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (context) => const TeamInviteScreen(),
-      ),
     );
   }
 
