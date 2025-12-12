@@ -1709,7 +1709,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   /// プライバシーポリシーを外部ブラウザで開く
   Future<void> _launchPrivacyPolicy() async {
-    const String privacyPolicyUrl = 'https://shi-takahashi.github.io/shift_kobo/privacy-policy.html';
+    const String privacyPolicyUrl = 'https://shift-kobo-online-prod.web.app/privacy-policy.html';
     final Uri uri = Uri.parse(privacyPolicyUrl);
 
     try {
