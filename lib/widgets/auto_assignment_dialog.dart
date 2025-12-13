@@ -52,6 +52,12 @@ class _AutoAssignmentDialogState extends State<AutoAssignmentDialog> {
     _endDate = DateTime(widget.selectedMonth.year, widget.selectedMonth.month + 1, 0);
     _loadStrategyPreference();
     _loadTeamSettings();
+
+    // ShiftProviderに正しい月を設定（購読範囲を確実に更新）
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final shiftProvider = Provider.of<ShiftProvider>(context, listen: false);
+      shiftProvider.setCurrentMonth(widget.selectedMonth);
+    });
   }
 
   /// Firestoreからチーム設定をロード
@@ -561,6 +567,12 @@ class _AutoAssignmentDialogState extends State<AutoAssignmentDialog> {
         );
         await FirebaseFirestore.instance.collection('teams').doc(_currentTeam!.id).update(updatedTeam.toFirestore());
       }
+
+      // 0. ShiftProviderに正しい月を設定（購読範囲を確実に更新）
+      shiftProvider.setCurrentMonth(widget.selectedMonth);
+
+      // Firestoreからのデータ読み込みを待つ（非同期処理完了を確実にする）
+      await Future.delayed(const Duration(milliseconds: 100));
 
       // 1. shift_active_planから現在有効なplan_idと戦略を取得
       final planService = ShiftPlanService(teamId: shiftProvider.teamId!);

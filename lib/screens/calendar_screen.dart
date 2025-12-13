@@ -761,6 +761,12 @@ class _CalendarScreenState extends State<CalendarScreen> {
         ),
       );
 
+      // 0. ShiftProviderに正しい月を設定（購読範囲を確実に更新）
+      shiftProvider.setCurrentMonth(_focusedDay);
+
+      // Firestoreからのデータ読み込みを待つ（非同期処理完了を確実にする）
+      await Future.delayed(const Duration(milliseconds: 100));
+
       // 1. 現在のplan_idと戦略を取得
       String? currentPlanId = await planService.getActivePlanId(month);
       String? currentStrategy = await planService.getActiveStrategy(month);
