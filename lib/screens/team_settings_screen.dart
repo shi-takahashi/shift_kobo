@@ -1,18 +1,26 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../models/app_user.dart';
 import '../providers/monthly_requirements_provider.dart';
 import '../providers/shift_provider.dart';
 import '../providers/shift_time_provider.dart';
 import '../services/analytics_service.dart';
+import '../services/auth_service.dart';
 import 'constraint_settings_screen.dart';
 import 'monthly_shift_settings_screen.dart';
 import 'shift_time_settings_screen.dart';
+import 'team/team_holidays_screen.dart';
 import 'team/team_invite_screen.dart';
 
 /// チーム設定画面（管理者専用）
 class TeamSettingsScreen extends StatefulWidget {
-  const TeamSettingsScreen({super.key});
+  final AppUser appUser;
+
+  const TeamSettingsScreen({
+    super.key,
+    required this.appUser,
+  });
 
   @override
   State<TeamSettingsScreen> createState() => _TeamSettingsScreenState();
@@ -110,6 +118,39 @@ class _TeamSettingsScreenState extends State<TeamSettingsScreen> {
                 ),
               ),
             );
+          },
+        ),
+        ListTile(
+          leading: const Icon(Icons.event_busy),
+          title: const Text('チーム休み設定'),
+          subtitle: const Text('チーム全体の休み（曜日・祝日・特定日）を設定'),
+          trailing: const Icon(Icons.chevron_right),
+          onTap: () async {
+            // チーム情報を取得
+            final authService = AuthService();
+            try {
+              final team = await authService.getTeam(widget.appUser.teamId!);
+              if (team != null && mounted) {
+                final result = await Navigator.of(context).push<bool>(
+                  MaterialPageRoute(
+                    builder: (context) => TeamHolidaysScreen(
+                      appUser: widget.appUser,
+                      team: team,
+                    ),
+                  ),
+                );
+                // 保存されたら何もしない（画面を閉じるだけ）
+                if (result == true && mounted) {
+                  // 必要に応じてリフレッシュ処理を追加
+                }
+              }
+            } catch (e) {
+              if (mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text('チーム情報の取得に失敗しました: $e')),
+                );
+              }
+            }
           },
         ),
         ListTile(

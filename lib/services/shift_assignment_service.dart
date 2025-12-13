@@ -3,6 +3,7 @@ import 'package:shift_kobo/models/shift.dart';
 import 'package:shift_kobo/models/shift_constraint.dart';
 import 'package:shift_kobo/models/shift_type.dart' as old_shift_type;
 import 'package:shift_kobo/models/staff.dart';
+import 'package:shift_kobo/models/team.dart';
 import 'package:shift_kobo/providers/shift_provider.dart';
 import 'package:shift_kobo/providers/shift_time_provider.dart';
 import 'package:shift_kobo/providers/staff_provider.dart';
@@ -85,6 +86,7 @@ class ShiftAssignmentService {
     DateTime startDate,
     DateTime endDate,
     Map<String, int> dailyShiftRequirements, {
+    Team? team,
     AssignmentStrategy strategy = AssignmentStrategy.fairness,
     int maxConsecutiveDays = 5,
     int minRestHours = 12,
@@ -107,6 +109,13 @@ class ShiftAssignmentService {
 
     DateTime currentDate = startDate;
     while (!currentDate.isAfter(endDate)) {
+      // チーム休みの日はスキップ
+      if (team != null && _isTeamHoliday(team, currentDate)) {
+        print('${currentDate.toString().split(' ')[0]}: チーム休みのためスキップ');
+        currentDate = currentDate.add(const Duration(days: 1));
+        continue;
+      }
+
       for (String shiftType in dailyShiftRequirements.keys) {
         int requiredStaffCount = dailyShiftRequirements[shiftType] ?? 0;
 
@@ -292,6 +301,33 @@ class ShiftAssignmentService {
       }
     }
     return true;
+  }
+
+  /// チーム全体の休みかどうかをチェック
+  bool _isTeamHoliday(Team team, DateTime date) {
+    // 曜日ベースのチーム休みをチェック
+    if (team.teamDaysOff.contains(date.weekday)) {
+      return true;
+    }
+
+    // 祝日のチーム休みをチェック
+    if (team.teamHolidaysOff) {
+      final isHoliday = holiday_jp.isHoliday(date);
+      if (isHoliday) {
+        return true;
+      }
+    }
+
+    // 特定日のチーム休みをチェック
+    final dateOnly = DateTime(date.year, date.month, date.day);
+    for (final dayOffStr in team.teamSpecificDaysOff) {
+      final dayOff = DateTime.parse(dayOffStr);
+      if (dayOff.year == dateOnly.year && dayOff.month == dateOnly.month && dayOff.day == dateOnly.day) {
+        return true;
+      }
+    }
+
+    return false;
   }
 
   Map<String, int> analyzeCurrentShifts(DateTime month) {

@@ -294,6 +294,26 @@ class AuthService {
     }
   }
 
+  /// チーム休み設定を更新
+  Future<void> updateTeamHolidays({
+    required String teamId,
+    required List<int> teamDaysOff,
+    required List<String> teamSpecificDaysOff,
+    required bool teamHolidaysOff,
+  }) async {
+    try {
+      await _firestore.collection('teams').doc(teamId).update({
+        'teamDaysOff': teamDaysOff,
+        'teamSpecificDaysOff': teamSpecificDaysOff,
+        'teamHolidaysOff': teamHolidaysOff,
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+      print('✅ チーム休み設定更新成功');
+    } catch (e) {
+      throw '❌ チーム休み設定の更新に失敗しました: $e';
+    }
+  }
+
   /// 招待コードでチームに参加
   Future<Team> joinTeamByCode({
     required String inviteCode,

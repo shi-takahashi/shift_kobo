@@ -98,7 +98,7 @@ class _HomeScreenState extends State<HomeScreen> {
       case HomeTab.staff:
         return StaffListScreen(appUser: widget.appUser);
       case HomeTab.teamSettings:
-        return const TeamSettingsScreen();
+        return TeamSettingsScreen(appUser: widget.appUser);
       case HomeTab.settings:
         return SettingsScreen(appUser: widget.appUser);
     }

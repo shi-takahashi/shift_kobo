@@ -11,6 +11,9 @@ class Team {
   final DateTime? shiftDeadline; // 休み希望締め日
   final int maxConsecutiveDays;  // 連続勤務日数上限（デフォルト5日）
   final int minRestHours;        // 勤務間インターバル（デフォルト12時間）
+  final List<int> teamDaysOff;   // チーム全体の曜日休み（1=月曜〜7=日曜）
+  final List<String> teamSpecificDaysOff; // チーム全体の特定日休み（ISO8601形式）
+  final bool teamHolidaysOff;    // チーム全体の祝日休み
   final DateTime createdAt;     // 作成日時
   final DateTime updatedAt;     // 更新日時
 
@@ -24,9 +27,13 @@ class Team {
     this.shiftDeadline,
     this.maxConsecutiveDays = 5,  // デフォルト5日
     this.minRestHours = 12,        // デフォルト12時間
+    List<int>? teamDaysOff,
+    List<String>? teamSpecificDaysOff,
+    this.teamHolidaysOff = false,
     required this.createdAt,
     required this.updatedAt,
-  });
+  })  : teamDaysOff = teamDaysOff ?? [],
+        teamSpecificDaysOff = teamSpecificDaysOff ?? [];
 
   /// Firestoreから取得
   factory Team.fromFirestore(DocumentSnapshot doc) {
@@ -41,6 +48,9 @@ class Team {
       shiftDeadline: (data['shiftDeadline'] as Timestamp?)?.toDate(),
       maxConsecutiveDays: data['maxConsecutiveDays'] ?? 5,
       minRestHours: data['minRestHours'] ?? 12,
+      teamDaysOff: List<int>.from(data['teamDaysOff'] ?? []),
+      teamSpecificDaysOff: List<String>.from(data['teamSpecificDaysOff'] ?? []),
+      teamHolidaysOff: data['teamHolidaysOff'] ?? false,
       createdAt: (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
       updatedAt: (data['updatedAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
     );
@@ -59,6 +69,9 @@ class Team {
           : null,
       'maxConsecutiveDays': maxConsecutiveDays,
       'minRestHours': minRestHours,
+      'teamDaysOff': teamDaysOff,
+      'teamSpecificDaysOff': teamSpecificDaysOff,
+      'teamHolidaysOff': teamHolidaysOff,
       'createdAt': Timestamp.fromDate(createdAt),
       'updatedAt': Timestamp.fromDate(updatedAt),
     };
@@ -75,6 +88,9 @@ class Team {
     DateTime? shiftDeadline,
     int? maxConsecutiveDays,
     int? minRestHours,
+    List<int>? teamDaysOff,
+    List<String>? teamSpecificDaysOff,
+    bool? teamHolidaysOff,
     DateTime? createdAt,
     DateTime? updatedAt,
   }) {
@@ -88,6 +104,9 @@ class Team {
       shiftDeadline: shiftDeadline ?? this.shiftDeadline,
       maxConsecutiveDays: maxConsecutiveDays ?? this.maxConsecutiveDays,
       minRestHours: minRestHours ?? this.minRestHours,
+      teamDaysOff: teamDaysOff ?? this.teamDaysOff,
+      teamSpecificDaysOff: teamSpecificDaysOff ?? this.teamSpecificDaysOff,
+      teamHolidaysOff: teamHolidaysOff ?? this.teamHolidaysOff,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
     );

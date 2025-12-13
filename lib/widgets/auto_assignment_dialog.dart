@@ -618,6 +618,7 @@ class _AutoAssignmentDialogState extends State<AutoAssignmentDialog> {
         _startDate,
         _endDate,
         requirements,
+        team: _currentTeam,
         strategy: _selectedStrategy,
         maxConsecutiveDays: maxConsecutiveDays,
         minRestHours: minRestHours,
