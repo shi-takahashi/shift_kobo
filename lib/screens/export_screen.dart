@@ -112,10 +112,11 @@ class _ExportScreenState extends State<ExportScreen> {
             ),
         ],
       ),
-      body: Column(
-        children: [
-          // 操作ボタン（Web版では非表示）
-          if (!kIsWeb && !_isProcessing)
+      body: SafeArea(
+        child: Column(
+          children: [
+            // 操作ボタン（Web版では非表示）
+            if (!kIsWeb && !_isProcessing)
             Container(
               padding: const EdgeInsets.all(8.0),
               child: Row(
@@ -191,7 +192,8 @@ class _ExportScreenState extends State<ExportScreen> {
               ],
             ),
           ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -1441,6 +1443,7 @@ class _ExportScreenState extends State<ExportScreen> {
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
       child: SingleChildScrollView(
+        padding: const EdgeInsets.only(bottom: 16),
         child: _buildCalendarTable(shifts, staffIds, staffProvider),
       ),
     );
