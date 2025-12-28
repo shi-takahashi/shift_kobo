@@ -564,6 +564,133 @@ class _ExportScreenState extends State<ExportScreen> {
     }
   }
 
+  Future<void> _shareAsPdf() async {
+    setState(() => _isProcessing = true);
+
+    try {
+      final shiftProvider = Provider.of<ShiftProvider>(context, listen: false);
+      final staffProvider = Provider.of<StaffProvider>(context, listen: false);
+      final shiftTimeProvider = Provider.of<ShiftTimeProvider>(context, listen: false);
+      final shifts = shiftProvider.getMonthlyShiftMap(
+        _selectedMonth.year,
+        _selectedMonth.month,
+      );
+      final staffIds = _getStaffIdsWithShifts(shifts);
+      final daysInMonth = DateTime(_selectedMonth.year, _selectedMonth.month + 1, 0).day;
+
+      // 日本語フォントをGoogle Fontsから読み込む
+      final ttf = await PdfGoogleFonts.notoSansJPRegular();
+      final ttfBold = await PdfGoogleFonts.notoSansJPBold();
+
+      // スタッフ数に応じて行の高さを計算
+      final rowHeight = _calculatePdfRowHeight(staffIds.length);
+
+      final pdf = pw.Document();
+
+      pdf.addPage(
+        pw.Page(
+          pageFormat: PdfPageFormat.a4.landscape,
+          margin: const pw.EdgeInsets.all(20),
+          build: (pw.Context context) {
+            return pw.Column(
+              crossAxisAlignment: pw.CrossAxisAlignment.stretch,
+              children: [
+                // タイトル
+                pw.Center(
+                  child: pw.Text(
+                    'シフト表 - ${DateFormat('yyyy年MM月').format(_selectedMonth)}',
+                    style: pw.TextStyle(
+                      font: ttfBold,
+                      fontSize: 18,
+                      fontWeight: pw.FontWeight.bold,
+                    ),
+                  ),
+                ),
+                pw.SizedBox(height: 10),
+                // テーブル
+                pw.Expanded(
+                  child: pw.Table(
+                    border: pw.TableBorder.all(color: PdfColors.grey700),
+                    defaultVerticalAlignment: pw.TableCellVerticalAlignment.middle,
+                    columnWidths: {
+                      0: const pw.FlexColumnWidth(2), // スタッフ名列は少し広く
+                      for (int i = 1; i <= daysInMonth; i++)
+                        i: const pw.FlexColumnWidth(1),
+                    },
+                    children: [
+                      // ヘッダー行
+                      pw.TableRow(
+                        decoration: const pw.BoxDecoration(color: PdfColors.grey200),
+                        children: [
+                          pw.Container(
+                            height: rowHeight,
+                            alignment: pw.Alignment.center,
+                            padding: const pw.EdgeInsets.all(4),
+                            child: pw.Text('スタッフ', style: pw.TextStyle(font: ttfBold, fontSize: 8)),
+                          ),
+                          for (int day = 1; day <= daysInMonth; day++)
+                            _buildPdfDateHeader(day, ttf, ttfBold, rowHeight),
+                        ],
+                      ),
+                      // スタッフ行
+                      for (final staffId in staffIds)
+                        pw.TableRow(
+                          children: [
+                            pw.Container(
+                              height: rowHeight,
+                              alignment: pw.Alignment.centerLeft,
+                              padding: const pw.EdgeInsets.only(left: 4),
+                              child: pw.Text(
+                                _getStaffDisplayName(staffProvider.getStaffById(staffId), staffId),
+                                style: pw.TextStyle(font: ttf, fontSize: 8),
+                              ),
+                            ),
+                            for (int day = 1; day <= daysInMonth; day++)
+                              _buildPdfShiftCell(day, staffId, shifts, shiftTimeProvider, ttfBold, rowHeight),
+                          ],
+                        ),
+                    ],
+                  ),
+                ),
+              ],
+            );
+          },
+        ),
+      );
+
+      final pdfBytes = await pdf.save();
+
+      // 一時ファイルに保存
+      final tempDir = await getTemporaryDirectory();
+      final file = File('${tempDir.path}/shift_${DateFormat('yyyyMM').format(_selectedMonth)}.pdf');
+      await file.writeAsBytes(pdfBytes);
+
+      // 共有
+      final result = await Share.shareXFiles(
+        [XFile(file.path)],
+        text: '${DateFormat('yyyy年MM月').format(_selectedMonth)}のシフト表（PDFファイル）',
+      );
+
+      // 実際に共有された場合のみ成功メッセージ
+      if (mounted && result.status == ShareResultStatus.success) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('PDFファイルを共有しました'),
+            duration: Duration(seconds: 3),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('PDF共有エラー: $e')),
+        );
+      }
+    } finally {
+      setState(() => _isProcessing = false);
+    }
+  }
+
   Future<void> _showSaveDialog() async {
     // データがない場合のチェック
     final shiftProvider = Provider.of<ShiftProvider>(context, listen: false);
@@ -731,6 +858,9 @@ class _ExportScreenState extends State<ExportScreen> {
       final ttf = await PdfGoogleFonts.notoSansJPRegular();
       final ttfBold = await PdfGoogleFonts.notoSansJPBold();
 
+      // スタッフ数に応じて行の高さを計算
+      final rowHeight = _calculatePdfRowHeight(staffIds.length);
+
       final pdf = pw.Document();
 
       pdf.addPage(
@@ -769,13 +899,13 @@ class _ExportScreenState extends State<ExportScreen> {
                         decoration: const pw.BoxDecoration(color: PdfColors.grey200),
                         children: [
                           pw.Container(
-                            height: _pdfRowMinHeight,
+                            height: rowHeight,
                             alignment: pw.Alignment.center,
                             padding: const pw.EdgeInsets.all(4),
                             child: pw.Text('スタッフ', style: pw.TextStyle(font: ttfBold, fontSize: 8)),
                           ),
                           for (int day = 1; day <= daysInMonth; day++)
-                            _buildPdfDateHeader(day, ttf, ttfBold),
+                            _buildPdfDateHeader(day, ttf, ttfBold, rowHeight),
                         ],
                       ),
                       // スタッフ行
@@ -783,7 +913,7 @@ class _ExportScreenState extends State<ExportScreen> {
                         pw.TableRow(
                           children: [
                             pw.Container(
-                              height: _pdfRowMinHeight,
+                              height: rowHeight,
                               alignment: pw.Alignment.centerLeft,
                               padding: const pw.EdgeInsets.only(left: 4),
                               child: pw.Text(
@@ -792,7 +922,7 @@ class _ExportScreenState extends State<ExportScreen> {
                               ),
                             ),
                             for (int day = 1; day <= daysInMonth; day++)
-                              _buildPdfShiftCell(day, staffId, shifts, shiftTimeProvider, ttfBold),
+                              _buildPdfShiftCell(day, staffId, shifts, shiftTimeProvider, ttfBold, rowHeight),
                           ],
                         ),
                     ],
@@ -834,7 +964,7 @@ class _ExportScreenState extends State<ExportScreen> {
     }
   }
 
-  pw.Widget _buildPdfDateHeader(int day, pw.Font ttf, pw.Font ttfBold) {
+  pw.Widget _buildPdfDateHeader(int day, pw.Font ttf, pw.Font ttfBold, double rowHeight) {
     final date = DateTime(_selectedMonth.year, _selectedMonth.month, day);
     final weekday = _getWeekdayString(date.weekday);
     final isSaturday = date.weekday == 6;
@@ -849,7 +979,7 @@ class _ExportScreenState extends State<ExportScreen> {
     }
 
     return pw.Container(
-      height: _pdfRowMinHeight,
+      height: rowHeight,
       alignment: pw.Alignment.center,
       child: pw.Column(
         mainAxisSize: pw.MainAxisSize.min,
@@ -861,8 +991,20 @@ class _ExportScreenState extends State<ExportScreen> {
     );
   }
 
-  // 各行の最小高さ（メモ書きスペース確保）
-  static const double _pdfRowMinHeight = 45;
+  // PDF行の高さ設定
+  static const double _pdfRowMaxHeight = 45; // メモスペース余裕あり（〜10人）
+  static const double _pdfRowMinHeight = 30; // 最小高さ
+  static const double _pdfAvailableHeight = 500; // 10人×45pt=495ptが収まる高さ（下余白27pt確保）
+
+  /// スタッフ数に応じてPDFの行の高さを計算
+  double _calculatePdfRowHeight(int staffCount) {
+    // ヘッダー行 + スタッフ行 = staffCount + 1
+    final totalRows = staffCount + 1;
+    final idealHeight = _pdfAvailableHeight / totalRows;
+
+    // 45pt〜30ptの範囲でクランプ
+    return idealHeight.clamp(_pdfRowMinHeight, _pdfRowMaxHeight);
+  }
 
   pw.Widget _buildPdfShiftCell(
     int day,
@@ -870,6 +1012,7 @@ class _ExportScreenState extends State<ExportScreen> {
     Map<DateTime, List<Shift>> shifts,
     ShiftTimeProvider shiftTimeProvider,
     pw.Font ttfBold,
+    double rowHeight,
   ) {
     final date = DateTime(_selectedMonth.year, _selectedMonth.month, day);
     final dayShifts = shifts[date] ?? [];
@@ -878,7 +1021,7 @@ class _ExportScreenState extends State<ExportScreen> {
     // 空セルでも高さを確保
     if (staffShifts.isEmpty) {
       return pw.Container(
-        height: _pdfRowMinHeight,
+        height: rowHeight,
       );
     }
 
@@ -892,7 +1035,7 @@ class _ExportScreenState extends State<ExportScreen> {
       // settingが見つからない場合は「?」を表示
       if (setting == null) {
         return pw.Container(
-          height: _pdfRowMinHeight,
+          height: rowHeight,
           alignment: pw.Alignment.center,
           child: pw.Text('?', style: pw.TextStyle(font: ttfBold, fontSize: 8)),
         );
@@ -912,7 +1055,7 @@ class _ExportScreenState extends State<ExportScreen> {
       final isDifferentTime = actualStartTime != setting.startTime || actualEndTime != setting.endTime;
 
       return pw.Container(
-        height: _pdfRowMinHeight,
+        height: rowHeight,
         alignment: pw.Alignment.center,
         child: pw.Row(
           mainAxisSize: pw.MainAxisSize.min,
@@ -948,7 +1091,7 @@ class _ExportScreenState extends State<ExportScreen> {
     }
 
     return pw.Container(
-      height: _pdfRowMinHeight,
+      height: rowHeight,
       alignment: pw.Alignment.center,
       child: pw.Row(
         mainAxisSize: pw.MainAxisSize.min,
@@ -995,6 +1138,33 @@ class _ExportScreenState extends State<ExportScreen> {
                 children: [
                   Expanded(
                     child: InkWell(
+                      onTap: () => Navigator.pop(context, 'pdf'),
+                      borderRadius: BorderRadius.circular(6),
+                      child: Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          border: Border.all(color: Colors.red.shade200),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: const Column(
+                          children: [
+                            Icon(Icons.picture_as_pdf, color: Colors.red, size: 24),
+                            SizedBox(height: 4),
+                            Text('PDF', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                            SizedBox(height: 2),
+                            Text(
+                              '印刷向け',
+                              style: TextStyle(fontSize: 10),
+                              textAlign: TextAlign.center,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: InkWell(
                       onTap: () => Navigator.pop(context, 'png'),
                       borderRadius: BorderRadius.circular(6),
                       child: Container(
@@ -1007,7 +1177,7 @@ class _ExportScreenState extends State<ExportScreen> {
                           children: [
                             Icon(Icons.image, color: Colors.blue, size: 24),
                             SizedBox(height: 4),
-                            Text('PNG画像', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                            Text('PNG', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
                             SizedBox(height: 2),
                             Text(
                               'LINE・メール等',
@@ -1034,10 +1204,10 @@ class _ExportScreenState extends State<ExportScreen> {
                           children: [
                             Icon(Icons.table_chart, color: Colors.green, size: 24),
                             SizedBox(height: 4),
-                            Text('Excelファイル', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                            Text('Excel', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
                             SizedBox(height: 2),
                             Text(
-                              'ドライブ→編集→印刷',
+                              '編集向け',
                               style: TextStyle(fontSize: 10),
                               textAlign: TextAlign.center,
                             ),
@@ -1065,7 +1235,9 @@ class _ExportScreenState extends State<ExportScreen> {
     setState(() => _isProcessing = true);
     
     try {
-      if (selectedFormat == 'png') {
+      if (selectedFormat == 'pdf') {
+        await _shareAsPdf();
+      } else if (selectedFormat == 'png') {
         await _shareAsPng();
       } else if (selectedFormat == 'excel') {
         await _shareAsExcel();
