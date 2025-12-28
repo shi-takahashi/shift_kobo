@@ -34,6 +34,8 @@ class _HelpScreenState extends State<HelpScreen> {
           const SizedBox(height: 8),
           _buildBasicFeaturesCard(),
           const SizedBox(height: 16),
+          _buildCalendarOperationsCard(),
+          const SizedBox(height: 16),
           _buildInviteMembersCard(),
           const SizedBox(height: 24),
           _buildSectionTitle('スタッフ向け（アプリ参加者）'),
@@ -794,6 +796,256 @@ class _HelpScreenState extends State<HelpScreen> {
                     'シフト表を出力する',
                     'カレンダー画面で「シフト表」ボタンをタップ > 保存または共有を選択',
                   ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCalendarOperationsCard() {
+    return Card(
+      elevation: 2,
+      child: ExpansionTile(
+        leading: const Icon(Icons.touch_app, color: Colors.teal),
+        title: const Text(
+          'カレンダー画面の操作',
+          style: TextStyle(fontWeight: FontWeight.bold),
+        ),
+        children: [
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // シフトの追加
+                Text(
+                  'シフトを追加する',
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.grey.shade800,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.teal.shade50,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _buildOperationStep('1', 'カレンダーで日付をタップ'),
+                      _buildOperationStep('2', '「シフトを追加」ボタンをタップ'),
+                      _buildOperationStep('3', 'スタッフとシフトタイプを選択して保存'),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 16),
+
+                // シフトの編集・削除
+                Text(
+                  'シフトを編集・削除する',
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.grey.shade800,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.blue.shade50,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        '編集：シフトをタップすると編集画面が開きます',
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: Colors.grey.shade800,
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        '削除：シフト右端の「︙」メニューから削除できます',
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: Colors.grey.shade800,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 16),
+
+                // クイックメニュー
+                Text(
+                  'クイックメニュー',
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.grey.shade800,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.orange.shade50,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.orange.shade200),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Icon(Icons.lightbulb_outline, color: Colors.orange.shade700, size: 18),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              'シフトを長押し、または「︙」メニューの「操作」ボタンからクイックメニューを開けます',
+                              style: TextStyle(
+                                fontSize: 13,
+                                color: Colors.orange.shade900,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      _buildQuickMenuItem(
+                        Icons.person,
+                        'スタッフ変更',
+                        '別のスタッフにシフトを変更',
+                      ),
+                      _buildQuickMenuItem(
+                        Icons.calendar_today,
+                        '日付移動',
+                        'シフトを別の日に移動',
+                      ),
+                      _buildQuickMenuItem(
+                        Icons.swap_horiz,
+                        'スタッフ入替',
+                        '2人のスタッフのシフトを入れ替え',
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 16),
+
+                // スタッフ入れ替えの詳細
+                Text(
+                  'スタッフ入れ替えの使い方',
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.grey.shade800,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.purple.shade50,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _buildOperationStep('1', '入れ替えたいシフトを長押し（または「︙」メニューの「操作」）'),
+                      _buildOperationStep('2', '「スタッフ入替」をタップ'),
+                      _buildOperationStep('3', '入れ替え先のシフトをタップ'),
+                      _buildOperationStep('4', '確認ダイアログで「入れ替える」をタップ'),
+                      const SizedBox(height: 8),
+                      Text(
+                        '※ 入れ替え時に休み希望などの制約違反がある場合は警告が表示されます',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Colors.grey.shade600,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildOperationStep(String number, String text) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 6),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 20,
+            height: 20,
+            decoration: BoxDecoration(
+              color: Colors.teal.shade700,
+              shape: BoxShape.circle,
+            ),
+            child: Center(
+              child: Text(
+                number,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 11,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              text,
+              style: const TextStyle(fontSize: 13),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildQuickMenuItem(IconData icon, String title, String description) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, size: 18, color: Colors.grey.shade700),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                Text(
+                  description,
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Colors.grey.shade600,
+                  ),
+                ),
               ],
             ),
           ),
