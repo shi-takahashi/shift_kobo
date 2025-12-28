@@ -110,43 +110,24 @@ class _ExportScreenState extends State<ExportScreen> {
                 child: CircularProgressIndicator(strokeWidth: 2),
               ),
             ),
+          if (!kIsWeb && !_isProcessing) ...[
+            TextButton.icon(
+              onPressed: _showSaveDialog,
+              icon: const Icon(Icons.save, size: 18),
+              label: const Text('保存'),
+            ),
+            TextButton.icon(
+              onPressed: _showShareDialog,
+              icon: const Icon(Icons.share, size: 18),
+              label: const Text('共有'),
+            ),
+          ],
         ],
       ),
       body: SafeArea(
         child: Column(
           children: [
-            // 操作ボタン（Web版では非表示）
-            if (!kIsWeb && !_isProcessing)
-            Container(
-              padding: const EdgeInsets.all(8.0),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: [
-                  FilledButton.icon(
-                    onPressed: _showSaveDialog,
-                    icon: const Icon(Icons.save, size: 18),
-                    label: const Text('保存'),
-                    style: FilledButton.styleFrom(
-                      backgroundColor: Colors.blue,
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  FilledButton.icon(
-                    onPressed: _showShareDialog,
-                    icon: const Icon(Icons.share, size: 18),
-                    label: const Text('共有'),
-                    style: FilledButton.styleFrom(
-                      backgroundColor: Colors.green,
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          // Web版での案内メッセージ
+            // Web版での案内メッセージ
           if (kIsWeb)
             Container(
               padding: const EdgeInsets.all(12.0),
@@ -1442,8 +1423,9 @@ class _ExportScreenState extends State<ExportScreen> {
     
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
+      padding: const EdgeInsets.only(left: 8),
       child: SingleChildScrollView(
-        padding: const EdgeInsets.only(bottom: 16),
+        padding: const EdgeInsets.only(top: 8, bottom: 8),
         child: _buildCalendarTable(shifts, staffIds, staffProvider),
       ),
     );
