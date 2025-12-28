@@ -1,6 +1,6 @@
 # シフト工房 システム設計書
 
-最終更新: 2025-12-02
+最終更新: 2025-12-28
 
 ## 目次
 1. [システム概要](#システム概要)
@@ -22,7 +22,9 @@
 
 ### 主要機能
 - **自動シフト割り当て**: スタッフの制約条件を考慮した公平なシフト自動生成
+- **シフト再生成**: 複数の戦略（バランス型・公平性重視・分散重視）で再生成、前の案に戻す機能
 - **手動編集**: 自動生成されたシフトの調整機能
+- **シフトクイックアクション**: スタッフ変更、日付移動、スタッフ入れ替え
 - **チーム管理**: 複数ユーザーでのデータ共有（オンライン版）
 - **休み希望承認フロー**: スタッフが休み希望を申請→管理者が承認
 - **シフト表エクスポート**: Excel/画像形式での出力
@@ -161,6 +163,8 @@ shift_kobo/
 │   │   ├── constraint_request.dart      # 休み希望申請
 │   │   ├── shift_constraint.dart        # シフト制約条件
 │   │   ├── shift_time_setting.dart      # シフト時間設定
+│   │   ├── assignment_strategy.dart     # シフト生成戦略（バランス型等）
+│   │   ├── shift_plan.dart              # シフト計画（履歴管理用）
 │   │   └── *.g.dart                     # 自動生成ファイル（Hive）
 │   │
 │   ├── providers/                       # 状態管理（Provider）
@@ -173,7 +177,9 @@ shift_kobo/
 │   ├── services/                        # サービス層
 │   │   ├── auth_service.dart            # 認証処理
 │   │   ├── shift_assignment_service.dart # シフト自動割り当て
+│   │   ├── shift_plan_service.dart      # シフト計画（履歴・復元）
 │   │   ├── ad_service.dart              # AdMob広告
+│   │   ├── analytics_service.dart       # Firebase Analytics
 │   │   ├── migration_service.dart       # Hive→Firestore移行
 │   │   ├── notification_service.dart    # Push通知（アプリ版限定）
 │   │   └── invitation_service.dart      # チーム招待
@@ -207,9 +213,16 @@ shift_kobo/
 │   │
 │   ├── widgets/                         # 共通ウィジェット
 │   │   ├── auth_gate.dart               # 認証ゲート（ルーティング）
-│   │   └── banner_ad_widget.dart        # バナー広告
+│   │   ├── banner_ad_widget.dart        # バナー広告
+│   │   ├── auto_assignment_dialog.dart  # シフト自動割り当てダイアログ
+│   │   ├── shift_edit_dialog.dart       # シフト編集ダイアログ
+│   │   ├── shift_quick_action_dialog.dart # シフトクイックアクション
+│   │   ├── staff_edit_dialog.dart       # スタッフ編集ダイアログ
+│   │   ├── constraint_request_card.dart # 休み希望申請カード
+│   │   └── restore_dialog.dart          # シフト復元ダイアログ
 │   │
 │   ├── utils/                           # ユーティリティ
+│   │   ├── constraint_checker.dart      # 制約チェック（共通）
 │   │   ├── japanese_calendar_utils.dart # 日本の祝日判定
 │   │   └── test_data_helper.dart        # テストデータ生成
 │   │
@@ -1071,11 +1084,12 @@ debugPrint('⚠️ 警告: $warning');
 - **CLAUDE.md**: 開発進捗サマリー
 - **ACCOUNT_DELETION_SPEC.md**: アカウント削除機能仕様
 - **APPROVAL_FLOW_SPEC.md**: 休み希望承認フロー仕様
+- **SHIFT_REGENERATION_SPEC.md**: シフト再生成機能仕様
 - **README-online.md**: オンライン化詳細計画
 - **WEB_DEPLOY.md**: Web版デプロイ手順
 - **firestore_security_rules.md**: Security Rules仕様
 
 ---
 
-**最終更新**: 2025-12-02
+**最終更新**: 2025-12-28
 **ドキュメント作成者**: Claude Code
