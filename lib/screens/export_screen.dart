@@ -9,6 +9,9 @@ import 'package:path_provider/path_provider.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:intl/intl.dart';
 import 'package:holiday_jp/holiday_jp.dart' as holiday_jp;
+import 'package:pdf/pdf.dart';
+import 'package:pdf/widgets.dart' as pw;
+import 'package:printing/printing.dart';
 import 'dart:io';
 import 'dart:typed_data';
 import '../providers/shift_provider.dart';
@@ -595,6 +598,33 @@ class _ExportScreenState extends State<ExportScreen> {
                 children: [
                   Expanded(
                     child: InkWell(
+                      onTap: () => Navigator.pop(context, 'pdf'),
+                      borderRadius: BorderRadius.circular(6),
+                      child: Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          border: Border.all(color: Colors.red.shade200),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: const Column(
+                          children: [
+                            Icon(Icons.picture_as_pdf, color: Colors.red, size: 24),
+                            SizedBox(height: 4),
+                            Text('PDF', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                            SizedBox(height: 2),
+                            Text(
+                              '印刷向け',
+                              style: TextStyle(fontSize: 10),
+                              textAlign: TextAlign.center,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: InkWell(
                       onTap: () => Navigator.pop(context, 'png'),
                       borderRadius: BorderRadius.circular(6),
                       child: Container(
@@ -607,10 +637,10 @@ class _ExportScreenState extends State<ExportScreen> {
                           children: [
                             Icon(Icons.image, color: Colors.blue, size: 24),
                             SizedBox(height: 4),
-                            Text('PNG画像', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                            Text('PNG', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
                             SizedBox(height: 2),
                             Text(
-                              '画像として保存',
+                              '画像として',
                               style: TextStyle(fontSize: 10),
                               textAlign: TextAlign.center,
                             ),
@@ -634,10 +664,10 @@ class _ExportScreenState extends State<ExportScreen> {
                           children: [
                             Icon(Icons.table_chart, color: Colors.green, size: 24),
                             SizedBox(height: 4),
-                            Text('Excelファイル', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                            Text('Excel', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
                             SizedBox(height: 2),
                             Text(
-                              'Excel形式で保存',
+                              '編集向け',
                               style: TextStyle(fontSize: 10),
                               textAlign: TextAlign.center,
                             ),
@@ -665,7 +695,9 @@ class _ExportScreenState extends State<ExportScreen> {
     setState(() => _isProcessing = true);
     
     try {
-      if (selectedFormat == 'png') {
+      if (selectedFormat == 'pdf') {
+        await _exportToPdf();
+      } else if (selectedFormat == 'png') {
         await _captureScreenshot();
       } else if (selectedFormat == 'excel') {
         await _exportToExcel();
@@ -679,6 +711,254 @@ class _ExportScreenState extends State<ExportScreen> {
     } finally {
       setState(() => _isProcessing = false);
     }
+  }
+
+  Future<void> _exportToPdf() async {
+    setState(() => _isProcessing = true);
+
+    try {
+      final shiftProvider = Provider.of<ShiftProvider>(context, listen: false);
+      final staffProvider = Provider.of<StaffProvider>(context, listen: false);
+      final shiftTimeProvider = Provider.of<ShiftTimeProvider>(context, listen: false);
+      final shifts = shiftProvider.getMonthlyShiftMap(
+        _selectedMonth.year,
+        _selectedMonth.month,
+      );
+      final staffIds = _getStaffIdsWithShifts(shifts);
+      final daysInMonth = DateTime(_selectedMonth.year, _selectedMonth.month + 1, 0).day;
+
+      // 日本語フォントをGoogle Fontsから読み込む
+      final ttf = await PdfGoogleFonts.notoSansJPRegular();
+      final ttfBold = await PdfGoogleFonts.notoSansJPBold();
+
+      final pdf = pw.Document();
+
+      pdf.addPage(
+        pw.Page(
+          pageFormat: PdfPageFormat.a4.landscape,
+          margin: const pw.EdgeInsets.all(20),
+          build: (pw.Context context) {
+            return pw.Column(
+              crossAxisAlignment: pw.CrossAxisAlignment.stretch,
+              children: [
+                // タイトル
+                pw.Center(
+                  child: pw.Text(
+                    'シフト表 - ${DateFormat('yyyy年MM月').format(_selectedMonth)}',
+                    style: pw.TextStyle(
+                      font: ttfBold,
+                      fontSize: 18,
+                      fontWeight: pw.FontWeight.bold,
+                    ),
+                  ),
+                ),
+                pw.SizedBox(height: 10),
+                // テーブル
+                pw.Expanded(
+                  child: pw.Table(
+                    border: pw.TableBorder.all(color: PdfColors.grey700),
+                    defaultVerticalAlignment: pw.TableCellVerticalAlignment.middle,
+                    columnWidths: {
+                      0: const pw.FlexColumnWidth(2), // スタッフ名列は少し広く
+                      for (int i = 1; i <= daysInMonth; i++)
+                        i: const pw.FlexColumnWidth(1),
+                    },
+                    children: [
+                      // ヘッダー行
+                      pw.TableRow(
+                        decoration: const pw.BoxDecoration(color: PdfColors.grey200),
+                        children: [
+                          pw.Container(
+                            height: _pdfRowMinHeight,
+                            alignment: pw.Alignment.center,
+                            padding: const pw.EdgeInsets.all(4),
+                            child: pw.Text('スタッフ', style: pw.TextStyle(font: ttfBold, fontSize: 8)),
+                          ),
+                          for (int day = 1; day <= daysInMonth; day++)
+                            _buildPdfDateHeader(day, ttf, ttfBold),
+                        ],
+                      ),
+                      // スタッフ行
+                      for (final staffId in staffIds)
+                        pw.TableRow(
+                          children: [
+                            pw.Container(
+                              height: _pdfRowMinHeight,
+                              alignment: pw.Alignment.centerLeft,
+                              padding: const pw.EdgeInsets.only(left: 4),
+                              child: pw.Text(
+                                _getStaffDisplayName(staffProvider.getStaffById(staffId), staffId),
+                                style: pw.TextStyle(font: ttf, fontSize: 8),
+                              ),
+                            ),
+                            for (int day = 1; day <= daysInMonth; day++)
+                              _buildPdfShiftCell(day, staffId, shifts, shiftTimeProvider, ttfBold),
+                          ],
+                        ),
+                    ],
+                  ),
+                ),
+              ],
+            );
+          },
+        ),
+      );
+
+      final pdfBytes = await pdf.save();
+      final fileName = 'shift_${DateFormat('yyyyMM').format(_selectedMonth)}.pdf';
+
+      final outputFile = await FilePicker.platform.saveFile(
+        dialogTitle: 'PDFファイルの保存先を選択',
+        fileName: fileName,
+        type: FileType.custom,
+        allowedExtensions: ['pdf'],
+        bytes: Uint8List.fromList(pdfBytes),
+      );
+
+      if (outputFile != null && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('PDFファイルを保存しました\n$fileName'),
+            duration: const Duration(seconds: 3),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('PDF生成エラー: $e')),
+        );
+      }
+    } finally {
+      setState(() => _isProcessing = false);
+    }
+  }
+
+  pw.Widget _buildPdfDateHeader(int day, pw.Font ttf, pw.Font ttfBold) {
+    final date = DateTime(_selectedMonth.year, _selectedMonth.month, day);
+    final weekday = _getWeekdayString(date.weekday);
+    final isSaturday = date.weekday == 6;
+    final isSunday = date.weekday == 7;
+    final isHoliday = holiday_jp.isHoliday(date);
+
+    PdfColor textColor = PdfColors.black;
+    if (isHoliday || isSunday) {
+      textColor = PdfColors.red700;
+    } else if (isSaturday) {
+      textColor = PdfColors.blue700;
+    }
+
+    return pw.Container(
+      height: _pdfRowMinHeight,
+      alignment: pw.Alignment.center,
+      child: pw.Column(
+        mainAxisSize: pw.MainAxisSize.min,
+        children: [
+          pw.Text('$day', style: pw.TextStyle(font: ttfBold, fontSize: 8, color: textColor)),
+          pw.Text(weekday, style: pw.TextStyle(font: ttf, fontSize: 6, color: textColor)),
+        ],
+      ),
+    );
+  }
+
+  // 各行の最小高さ（メモ書きスペース確保）
+  static const double _pdfRowMinHeight = 45;
+
+  pw.Widget _buildPdfShiftCell(
+    int day,
+    String staffId,
+    Map<DateTime, List<Shift>> shifts,
+    ShiftTimeProvider shiftTimeProvider,
+    pw.Font ttfBold,
+  ) {
+    final date = DateTime(_selectedMonth.year, _selectedMonth.month, day);
+    final dayShifts = shifts[date] ?? [];
+    final staffShifts = dayShifts.where((s) => s.staffId == staffId).toList();
+
+    // 空セルでも高さを確保
+    if (staffShifts.isEmpty) {
+      return pw.Container(
+        height: _pdfRowMinHeight,
+      );
+    }
+
+    // シフトが1つの場合
+    if (staffShifts.length == 1) {
+      final staffShift = staffShifts.first;
+      final setting = shiftTimeProvider.settings
+          .where((s) => s.displayName == staffShift.shiftType)
+          .firstOrNull;
+
+      // settingが見つからない場合は「?」を表示
+      if (setting == null) {
+        return pw.Container(
+          height: _pdfRowMinHeight,
+          alignment: pw.Alignment.center,
+          child: pw.Text('?', style: pw.TextStyle(font: ttfBold, fontSize: 8)),
+        );
+      }
+
+      final shiftChar = setting.displayName.isNotEmpty ? setting.displayName[0] : '?';
+      final color = setting.shiftType.color;
+      final pdfColor = PdfColor(
+        color.red / 255,
+        color.green / 255,
+        color.blue / 255,
+      );
+
+      // 標準時間と異なるかチェック
+      final actualStartTime = DateFormat('HH:mm').format(staffShift.startTime);
+      final actualEndTime = DateFormat('HH:mm').format(staffShift.endTime);
+      final isDifferentTime = actualStartTime != setting.startTime || actualEndTime != setting.endTime;
+
+      return pw.Container(
+        height: _pdfRowMinHeight,
+        alignment: pw.Alignment.center,
+        child: pw.Row(
+          mainAxisSize: pw.MainAxisSize.min,
+          children: [
+            pw.Text(shiftChar, style: pw.TextStyle(font: ttfBold, fontSize: 8, color: pdfColor)),
+            if (isDifferentTime)
+              pw.Text('!', style: pw.TextStyle(font: ttfBold, fontSize: 6, color: PdfColors.orange700)),
+          ],
+        ),
+      );
+    }
+
+    // シフトが複数の場合
+    final shiftChars = <String>[];
+    bool hasTimeDifference = false;
+
+    for (final staffShift in staffShifts) {
+      final setting = shiftTimeProvider.settings
+          .where((s) => s.displayName == staffShift.shiftType)
+          .firstOrNull;
+      if (setting != null) {
+        shiftChars.add(setting.displayName.isNotEmpty ? setting.displayName[0] : '?');
+
+        // 標準時間と異なるかチェック
+        final actualStartTime = DateFormat('HH:mm').format(staffShift.startTime);
+        final actualEndTime = DateFormat('HH:mm').format(staffShift.endTime);
+        if (actualStartTime != setting.startTime || actualEndTime != setting.endTime) {
+          hasTimeDifference = true;
+        }
+      } else {
+        shiftChars.add('?');
+      }
+    }
+
+    return pw.Container(
+      height: _pdfRowMinHeight,
+      alignment: pw.Alignment.center,
+      child: pw.Row(
+        mainAxisSize: pw.MainAxisSize.min,
+        children: [
+          pw.Text(shiftChars.join('・'), style: pw.TextStyle(font: ttfBold, fontSize: 8)),
+          if (hasTimeDifference)
+            pw.Text('!', style: pw.TextStyle(font: ttfBold, fontSize: 6, color: PdfColors.orange700)),
+        ],
+      ),
+    );
   }
 
   Future<void> _showShareDialog() async {
