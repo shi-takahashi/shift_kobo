@@ -27,17 +27,20 @@ class ShiftTimeProvider extends ChangeNotifier {
         return b.isActive ? 1 : -1;
       }
 
-      // 2. 開始時間順
-      final aStart = _timeToMinutes(a.startTime);
-      final bStart = _timeToMinutes(b.startTime);
-      if (aStart != bStart) {
-        return aStart.compareTo(bStart);
+      // 有効なシフト: 開始時間順 → 終了時間順
+      if (a.isActive) {
+        final aStart = _timeToMinutes(a.startTime);
+        final bStart = _timeToMinutes(b.startTime);
+        if (aStart != bStart) {
+          return aStart.compareTo(bStart);
+        }
+        final aEnd = _timeToMinutes(a.endTime);
+        final bEnd = _timeToMinutes(b.endTime);
+        return aEnd.compareTo(bEnd);
       }
 
-      // 3. 終了時間順
-      final aEnd = _timeToMinutes(a.endTime);
-      final bEnd = _timeToMinutes(b.endTime);
-      return aEnd.compareTo(bEnd);
+      // 無効なシフト: シフト名順
+      return a.displayName.compareTo(b.displayName);
     });
     return sorted;
   }
