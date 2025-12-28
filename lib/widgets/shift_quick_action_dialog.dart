@@ -5,6 +5,7 @@ import '../models/shift.dart';
 import '../models/staff.dart';
 import '../providers/staff_provider.dart';
 import '../providers/shift_provider.dart';
+import '../utils/constraint_checker.dart';
 
 const String _kQuickActionHintShownKey = 'quick_action_hint_shown';
 
@@ -136,11 +137,12 @@ class _ShiftQuickActionDialogState extends State<ShiftQuickActionDialog> {
 
   void _showStaffChangeDialog(BuildContext context) {
     final staffProvider = context.read<StaffProvider>();
+    final shiftProvider = context.read<ShiftProvider>();
     final activeStaff = staffProvider.activeStaffList;
-    
+
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
+      builder: (dialogContext) => AlertDialog(
         title: const Text('スタッフ変更'),
         content: SizedBox(
           width: double.maxFinite,
@@ -150,26 +152,26 @@ class _ShiftQuickActionDialogState extends State<ShiftQuickActionDialog> {
             itemBuilder: (context, index) {
               final staff = activeStaff[index];
               final isCurrentStaff = staff.id == widget.shift.staffId;
-              
+
               return ListTile(
                 leading: CircleAvatar(
                   child: Text(staff.name.substring(0, 1)),
                 ),
                 title: Text(staff.name),
                 subtitle: Text('月間最大: ${staff.maxShiftsPerMonth}回'),
-                trailing: isCurrentStaff 
+                trailing: isCurrentStaff
                     ? const Icon(Icons.check, color: Colors.green)
                     : null,
-                onTap: isCurrentStaff 
-                    ? null 
-                    : () => _changeStaff(context, staff),
+                onTap: isCurrentStaff
+                    ? null
+                    : () => _changeStaffWithProvider(dialogContext, staff, shiftProvider),
               );
             },
           ),
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.of(context).pop(),
+            onPressed: () => Navigator.of(dialogContext).pop(),
             child: const Text('キャンセル'),
           ),
         ],
@@ -196,43 +198,81 @@ class _ShiftQuickActionDialogState extends State<ShiftQuickActionDialog> {
     });
   }
 
-  void _changeStaff(BuildContext context, Staff newStaff) async {
-    final shiftProvider = context.read<ShiftProvider>();
-    
+  void _changeStaffWithProvider(BuildContext dialogContext, Staff newStaff, ShiftProvider shiftProvider) async {
     // スタッフ変更の制約チェック - 重複チェック
     final conflictShifts = shiftProvider.getShiftsForDate(widget.shift.date)
         .where((s) => s.staffId == newStaff.id && s.id != widget.shift.id)
         .toList();
     final conflictShift = conflictShifts.isNotEmpty ? conflictShifts.first : null;
-    
+
     if (conflictShift != null) {
-      Navigator.of(context).pop();
-      _showConflictDialog(context, 
+      Navigator.of(dialogContext).pop();
+      _showConflictDialog(dialogContext,
         '${newStaff.name}は既に${widget.shift.date.month}/${widget.shift.date.day}に'
         '${conflictShift.shiftType}のシフトが入っています。\n\n'
         '同じ日に同じスタッフを複数のシフトに割り当てることはできません。'
       );
       return;
     }
-    
-    // スタッフのシフトタイプ制約チェック
-    if (newStaff.unavailableShiftTypes.contains(widget.shift.shiftType)) {
-      Navigator.of(context).pop();
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('${newStaff.name}は${widget.shift.shiftType}に対応できません'),
-          backgroundColor: Colors.red,
+
+    // ConstraintCheckerで包括的な制約チェック
+    final violations = ConstraintChecker.checkViolations(
+      staff: newStaff,
+      date: widget.shift.date,
+      shiftType: widget.shift.shiftType,
+      shiftProvider: shiftProvider,
+      existingShiftId: widget.shift.id,
+    );
+
+    if (violations.isNotEmpty) {
+      Navigator.of(dialogContext).pop();
+      final confirmed = await showDialog<bool>(
+        context: dialogContext,
+        builder: (context) => AlertDialog(
+          title: const Text('制約違反の警告'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('${newStaff.name}には以下の制約違反があります：'),
+              const SizedBox(height: 8),
+              ...violations.map((v) => Padding(
+                padding: const EdgeInsets.only(left: 8, top: 4),
+                child: Row(
+                  children: [
+                    const Icon(Icons.warning, color: Colors.orange, size: 16),
+                    const SizedBox(width: 8),
+                    Expanded(child: Text(v)),
+                  ],
+                ),
+              )),
+              const SizedBox(height: 16),
+              const Text('それでもスタッフを変更しますか？'),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: const Text('キャンセル'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(true),
+              child: const Text('変更する', style: TextStyle(color: Colors.orange)),
+            ),
+          ],
         ),
       );
-      return;
+
+      if (confirmed != true) {
+        return;
+      }
+    } else {
+      // 制約違反がない場合はダイアログを閉じる
+      Navigator.of(dialogContext).pop();
     }
-    
+
     final updatedShift = widget.shift..staffId = newStaff.id;
     await shiftProvider.updateShift(updatedShift);
-    
-    if (context.mounted) {
-      Navigator.of(context).pop();
-    }
   }
 
 
