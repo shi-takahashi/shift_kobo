@@ -11,11 +11,13 @@ const String _kQuickActionHintShownKey = 'quick_action_hint_shown';
 class ShiftQuickActionDialog extends StatefulWidget {
   final Shift shift;
   final Function(Shift, DateTime)? onDateMove;
+  final Function(Shift)? onSwapStart;
 
   const ShiftQuickActionDialog({
     super.key,
     required this.shift,
     this.onDateMove,
+    this.onSwapStart,
   });
 
   @override
@@ -112,6 +114,21 @@ class _ShiftQuickActionDialogState extends State<ShiftQuickActionDialog> {
             _showDateMoveDialog(context);
           },
           child: const Text('日付移動'),
+        ),
+        TextButton(
+          onPressed: widget.onSwapStart != null
+              ? () {
+                  Navigator.of(context).pop();
+                  widget.onSwapStart!(widget.shift);
+                }
+              : null,
+          child: Text(
+            'スタッフ入替',
+            style: TextStyle(
+              color: widget.onSwapStart != null ? Colors.orange.shade700 : Colors.grey,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
         ),
       ],
     );

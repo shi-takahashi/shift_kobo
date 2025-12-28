@@ -45,6 +45,10 @@ class _CalendarScreenState extends State<CalendarScreen> {
   DateTime? _selectedDay;
   Map<String, bool> _userRoleCache = {}; // userId -> isAdmin のキャッシュ
 
+  // 入れ替えモード関連
+  bool _isSwapMode = false;
+  Shift? _swapSourceShift;
+
   @override
   void initState() {
     super.initState();
@@ -90,6 +94,106 @@ class _CalendarScreenState extends State<CalendarScreen> {
   void dispose() {
     _selectedShifts.dispose();
     super.dispose();
+  }
+
+  /// 入れ替えモードを開始
+  void _startSwapMode(Shift sourceShift) {
+    setState(() {
+      _isSwapMode = true;
+      _swapSourceShift = sourceShift;
+    });
+  }
+
+  /// 入れ替えモードをキャンセル
+  void _cancelSwapMode() {
+    setState(() {
+      _isSwapMode = false;
+      _swapSourceShift = null;
+    });
+  }
+
+  /// スタッフ入れ替えを実行
+  Future<void> _executeSwap(Shift targetShift) async {
+    if (_swapSourceShift == null) return;
+
+    final sourceShift = _swapSourceShift!;
+
+    // 同じシフトを選択した場合はキャンセル
+    if (sourceShift.id == targetShift.id) {
+      _cancelSwapMode();
+      return;
+    }
+
+    final staffProvider = context.read<StaffProvider>();
+    final sourceStaff = staffProvider.getStaffById(sourceShift.staffId);
+    final targetStaff = staffProvider.getStaffById(targetShift.staffId);
+
+    // 確認ダイアログを表示
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('スタッフ入替'),
+        content: Text(
+          '以下のシフトのスタッフを入れ替えますか？\n\n'
+          '【入れ替え元】\n'
+          '${sourceShift.date.month}/${sourceShift.date.day} ${sourceStaff?.name ?? "不明"}\n'
+          '${sourceShift.shiftType}\n\n'
+          '【入れ替え先】\n'
+          '${targetShift.date.month}/${targetShift.date.day} ${targetStaff?.name ?? "不明"}\n'
+          '${targetShift.shiftType}',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('キャンセル'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.orange,
+            ),
+            child: const Text('入れ替え'),
+          ),
+        ],
+      ),
+    );
+
+    // キャンセル時はモードを維持
+    if (confirmed != true) {
+      return;
+    }
+
+    final shiftProvider = context.read<ShiftProvider>();
+
+    // スタッフIDを入れ替え
+    final sourceStaffId = sourceShift.staffId;
+    final targetStaffId = targetShift.staffId;
+
+    sourceShift.staffId = targetStaffId;
+    targetShift.staffId = sourceStaffId;
+
+    await shiftProvider.updateShift(sourceShift);
+    await shiftProvider.updateShift(targetShift);
+
+    // 成功メッセージ
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            '${sourceStaff?.name ?? "不明"}と${targetStaff?.name ?? "不明"}のシフトを入れ替えました',
+          ),
+          backgroundColor: Colors.green,
+        ),
+      );
+
+      // 画面を更新
+      if (_selectedDay != null) {
+        _selectedShifts.value = _getShiftsForDay(_selectedDay!);
+      }
+    }
+
+    // 入れ替え実行後のみモードを終了
+    _cancelSwapMode();
   }
 
   /// シフトタイプ名から色を取得（新しいShiftTimeSettingに対応）
@@ -191,7 +295,35 @@ class _CalendarScreenState extends State<CalendarScreen> {
         );
 
         return Scaffold(
-          appBar: AppBar(
+          appBar: _isSwapMode
+              ? AppBar(
+                  toolbarHeight: 50,
+                  backgroundColor: Colors.orange.shade100,
+                  scrolledUnderElevation: 0,
+                  automaticallyImplyLeading: false,
+                  title: const Text(
+                    '入れ替え先を選択',
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: Colors.orange,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  actions: [
+                    TextButton(
+                      onPressed: _cancelSwapMode,
+                      child: Text(
+                        'キャンセル',
+                        style: TextStyle(
+                          color: Colors.orange.shade700,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                  ],
+                )
+              : AppBar(
             toolbarHeight: 50, // デフォルト56 → 50に縮小
             backgroundColor: Colors.white,
             scrolledUnderElevation: 0, // スクロール時の色変化を防ぐ
@@ -282,6 +414,11 @@ class _CalendarScreenState extends State<CalendarScreen> {
                 ),
                 child: InkWell(
                   onTap: () async {
+                    // 入れ替えモード中の場合はキャンセル
+                    if (_isSwapMode) {
+                      _cancelSwapMode();
+                    }
+
                     final shiftProvider = context.read<ShiftProvider>();
                     final staffProvider = context.read<StaffProvider>();
                     final shiftTimeProvider = context.read<ShiftTimeProvider>();
@@ -660,21 +797,25 @@ class _CalendarScreenState extends State<CalendarScreen> {
                                 child: ListView.builder(
                                   itemCount: value.length,
                                   itemBuilder: (context, index) {
+                                    final currentShift = value[index];
                                     return _ShiftTile(
-                                      shift: value[index],
-                                      shiftColor: _getShiftTypeColor(value[index].shiftType),
+                                      shift: currentShift,
+                                      shiftColor: _getShiftTypeColor(currentShift.shiftType),
                                       onEdit: (shift) => _showEditShiftDialog(context, shift),
                                       onDelete: (shift) => _showDeleteConfirmDialog(context, shift),
                                       onQuickAction: (shift) => _showQuickActionDialog(context, shift),
                                       isAdmin: widget.appUser.isAdmin,
+                                      isSwapMode: _isSwapMode,
+                                      isSwapSource: _swapSourceShift?.id == currentShift.id,
+                                      onSwapSelect: _isSwapMode ? _executeSwap : null,
                                     );
                                   },
                                 ),
                               ),
                             ),
                           ],
-                          // 管理者のみシフト追加ボタンを表示
-                          if (widget.appUser.isAdmin)
+                          // 管理者のみ、かつ入れ替えモード中でない場合のみシフト追加ボタンを表示
+                          if (widget.appUser.isAdmin && !_isSwapMode)
                             Padding(
                               padding: const EdgeInsets.all(16.0),
                               child: SizedBox(
@@ -1013,6 +1154,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
         child: ShiftQuickActionDialog(
           shift: shift,
           onDateMove: (shift, newDate) => _moveShiftToDate(shift, newDate),
+          onSwapStart: (shift) => _startSwapMode(shift),
         ),
       ),
     ).then((_) {
@@ -1182,6 +1324,9 @@ class _ShiftTile extends StatelessWidget {
   final Function(Shift)? onDelete;
   final Function(Shift)? onQuickAction;
   final bool isAdmin;
+  final bool isSwapMode;
+  final bool isSwapSource;
+  final Function(Shift)? onSwapSelect;
 
   const _ShiftTile({
     required this.shift,
@@ -1190,6 +1335,9 @@ class _ShiftTile extends StatelessWidget {
     this.onDelete,
     this.onQuickAction,
     required this.isAdmin,
+    this.isSwapMode = false,
+    this.isSwapSource = false,
+    this.onSwapSelect,
   });
 
   @override
@@ -1204,16 +1352,21 @@ class _ShiftTile extends StatelessWidget {
       margin: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 2.0),
       child: Container(
         decoration: BoxDecoration(
+          // 入れ替え元シフトはオレンジ背景でハイライト
+          color: isSwapSource ? Colors.orange.shade100 : null,
           border: Border(
             left: BorderSide(
-              color: shiftColor,
-              width: 4,
+              color: isSwapSource ? Colors.orange : shiftColor,
+              width: isSwapSource ? 6 : 4,
             ),
           ),
         ),
         child: InkWell(
-          onTap: isAdmin ? () => onEdit(shift) : null, // 管理者のみ編集可能
-          onLongPress: isAdmin && onQuickAction != null ? () => onQuickAction!(shift) : null, // 管理者のみクイックアクション可能
+          // 入れ替えモード時はシフト選択、通常時は編集
+          onTap: isSwapMode && onSwapSelect != null
+              ? () => onSwapSelect!(shift)
+              : (isAdmin ? () => onEdit(shift) : null),
+          onLongPress: isSwapMode ? null : (isAdmin && onQuickAction != null ? () => onQuickAction!(shift) : null), // 入れ替えモード中は長押し無効
           child: ListTile(
             dense: true,
             leading: CircleAvatar(
@@ -1259,7 +1412,7 @@ class _ShiftTile extends StatelessWidget {
                 ),
               ],
             ),
-            trailing: isAdmin
+            trailing: isAdmin && !isSwapMode
                 ? PopupMenuButton<String>(
                     onSelected: (value) {
                       switch (value) {
