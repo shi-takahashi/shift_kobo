@@ -1266,6 +1266,9 @@ class _ShiftTile extends StatelessWidget {
                         case 'edit':
                           onEdit(shift);
                           break;
+                        case 'action':
+                          if (onQuickAction != null) onQuickAction!(shift);
+                          break;
                         case 'delete':
                           if (onDelete != null) onDelete!(shift);
                           break;
@@ -1279,6 +1282,16 @@ class _ShiftTile extends StatelessWidget {
                             Icon(Icons.edit, size: 20),
                             SizedBox(width: 8),
                             Text('編集'),
+                          ],
+                        ),
+                      ),
+                      const PopupMenuItem(
+                        value: 'action',
+                        child: Row(
+                          children: [
+                            Icon(Icons.swap_horiz, size: 20, color: Colors.blue),
+                            SizedBox(width: 8),
+                            Text('操作', style: TextStyle(color: Colors.blue)),
                           ],
                         ),
                       ),

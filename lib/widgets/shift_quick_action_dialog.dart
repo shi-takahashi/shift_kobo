@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../models/shift.dart';
 import '../models/staff.dart';
 import '../providers/staff_provider.dart';
 import '../providers/shift_provider.dart';
+
+const String _kQuickActionHintShownKey = 'quick_action_hint_shown';
 
 class ShiftQuickActionDialog extends StatefulWidget {
   final Shift shift;
@@ -20,6 +23,26 @@ class ShiftQuickActionDialog extends StatefulWidget {
 }
 
 class _ShiftQuickActionDialogState extends State<ShiftQuickActionDialog> {
+  bool _showHint = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _checkFirstTimeHint();
+  }
+
+  Future<void> _checkFirstTimeHint() async {
+    final prefs = await SharedPreferences.getInstance();
+    final hintShown = prefs.getBool(_kQuickActionHintShownKey) ?? false;
+    if (!hintShown && mounted) {
+      setState(() {
+        _showHint = true;
+      });
+      // フラグを保存（次回以降は表示しない）
+      await prefs.setBool(_kQuickActionHintShownKey, true);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final staffProvider = context.read<StaffProvider>();
@@ -41,6 +64,34 @@ class _ShiftQuickActionDialogState extends State<ShiftQuickActionDialog> {
           ),
           const SizedBox(height: 16),
           const Text('操作を選択してください：'),
+          // 初回のみヒントを表示
+          if (_showHint) ...[
+            const SizedBox(height: 16),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.red.shade50,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.red.shade300),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.lightbulb_outline, color: Colors.red.shade600, size: 20),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'シフトを長押しすることでも\nこのメニューを開けます',
+                      style: TextStyle(
+                        color: Colors.red.shade700,
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
         ],
       ),
       actions: [
