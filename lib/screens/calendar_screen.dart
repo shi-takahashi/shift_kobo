@@ -19,6 +19,7 @@ import '../providers/shift_time_provider.dart';
 import '../providers/staff_provider.dart';
 import '../services/analytics_service.dart';
 import '../services/shift_plan_service.dart';
+import '../utils/constraint_checker.dart';
 import '../utils/japanese_calendar_utils.dart';
 import '../widgets/auto_assignment_dialog.dart';
 import '../widgets/restore_dialog.dart';
@@ -112,43 +113,6 @@ class _CalendarScreenState extends State<CalendarScreen> {
     });
   }
 
-  /// 入れ替え時の制約違反をチェック
-  /// staffがdateのshiftTypeで働く場合の制約違反をリストで返す
-  List<String> _checkSwapConstraintViolations(Staff staff, DateTime date, String shiftType) {
-    final violations = <String>[];
-
-    // 1. 曜日の休み希望チェック
-    final weekday = date.weekday; // 1-7 (月-日)
-    if (staff.preferredDaysOff.contains(weekday)) {
-      final dayNames = ['月曜日', '火曜日', '水曜日', '木曜日', '金曜日', '土曜日', '日曜日'];
-      violations.add('${dayNames[weekday - 1]}は休み希望');
-    }
-
-    // 2. 祝日の休み希望チェック
-    if (staff.holidaysOff) {
-      final isHoliday = holiday_jp.isHoliday(date);
-      if (isHoliday) {
-        violations.add('祝日は休み希望');
-      }
-    }
-
-    // 3. 特定日の休み希望チェック
-    final dateString = DateTime(date.year, date.month, date.day).toIso8601String();
-    if (staff.specificDaysOff.contains(dateString)) {
-      violations.add('${date.month}/${date.day}は休み希望日');
-    }
-
-    // 4. 勤務不可シフトタイプチェック
-    if (staff.unavailableShiftTypes.contains(shiftType)) {
-      violations.add('$shiftTypeは勤務不可');
-    }
-
-    // 5. 月間最大シフト数チェック（入れ替えなので基本的に変わらないが、月をまたぐ場合は変わる可能性）
-    // 入れ替えの場合、同じ月なら数は変わらないのでスキップ
-
-    return violations;
-  }
-
   /// スタッフ入れ替えを実行
   Future<void> _executeSwap(Shift targetShift) async {
     if (_swapSourceShift == null) return;
@@ -168,11 +132,19 @@ class _CalendarScreenState extends State<CalendarScreen> {
     // 制約チェック
     // 入れ替え元スタッフが入れ替え先のシフト（日付・シフトタイプ）に入る場合の制約
     final sourceStaffViolations = sourceStaff != null
-        ? _checkSwapConstraintViolations(sourceStaff, targetShift.date, targetShift.shiftType)
+        ? ConstraintChecker.checkViolations(
+            staff: sourceStaff,
+            date: targetShift.date,
+            shiftType: targetShift.shiftType,
+          )
         : <String>[];
     // 入れ替え先スタッフが入れ替え元のシフト（日付・シフトタイプ）に入る場合の制約
     final targetStaffViolations = targetStaff != null
-        ? _checkSwapConstraintViolations(targetStaff, sourceShift.date, sourceShift.shiftType)
+        ? ConstraintChecker.checkViolations(
+            staff: targetStaff,
+            date: sourceShift.date,
+            shiftType: sourceShift.shiftType,
+          )
         : <String>[];
 
     final hasViolations = sourceStaffViolations.isNotEmpty || targetStaffViolations.isNotEmpty;
@@ -234,9 +206,9 @@ class _CalendarScreenState extends State<CalendarScreen> {
                           ),
                         ),
                         ...sourceStaffViolations.map((v) => Padding(
-                          padding: const EdgeInsets.only(left: 8),
-                          child: Text('・$v', style: TextStyle(color: Colors.orange.shade700)),
-                        )),
+                              padding: const EdgeInsets.only(left: 8),
+                              child: Text('・$v', style: TextStyle(color: Colors.orange.shade700)),
+                            )),
                         const SizedBox(height: 4),
                       ],
                       if (targetStaffViolations.isNotEmpty) ...[
@@ -248,9 +220,9 @@ class _CalendarScreenState extends State<CalendarScreen> {
                           ),
                         ),
                         ...targetStaffViolations.map((v) => Padding(
-                          padding: const EdgeInsets.only(left: 8),
-                          child: Text('・$v', style: TextStyle(color: Colors.orange.shade700)),
-                        )),
+                              padding: const EdgeInsets.only(left: 8),
+                              child: Text('・$v', style: TextStyle(color: Colors.orange.shade700)),
+                            )),
                       ],
                     ],
                   ),
@@ -419,7 +391,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
                   scrolledUnderElevation: 0,
                   automaticallyImplyLeading: false,
                   title: const Text(
-                    '入れ替え先を選択',
+                    '入替先を選択して下さい',
                     style: TextStyle(
                       fontSize: 14,
                       color: Colors.orange,
@@ -441,202 +413,202 @@ class _CalendarScreenState extends State<CalendarScreen> {
                   ],
                 )
               : AppBar(
-            toolbarHeight: 50, // デフォルト56 → 50に縮小
-            backgroundColor: Colors.white,
-            scrolledUnderElevation: 0, // スクロール時の色変化を防ぐ
-            title: widget.appUser.isAdmin
-                ? FutureBuilder<String?>(
-                    future: shiftProvider.teamId != null
-                        ? ShiftPlanService(teamId: shiftProvider.teamId!).getActivePlanId('${_focusedDay.year}-${_focusedDay.month}')
-                        : null,
-                    builder: (context, planSnapshot) {
-                      // プランIDが存在する場合は常に表示
-                      if (planSnapshot.hasData && planSnapshot.data != null) {
-                        return FutureBuilder<List<ShiftPlan>>(
-                          future: ShiftPlanService(teamId: shiftProvider.teamId!).getPlansForMonth('${_focusedDay.year}-${_focusedDay.month}'),
-                          builder: (context, snapshot) {
-                            // 切替ボタンは複数プランがある場合のみ表示（shift_plansが1件以上）
-                            final showSwitchButton = snapshot.hasData && snapshot.data != null && snapshot.data!.isNotEmpty;
+                  toolbarHeight: 50, // デフォルト56 → 50に縮小
+                  backgroundColor: Colors.white,
+                  scrolledUnderElevation: 0, // スクロール時の色変化を防ぐ
+                  title: widget.appUser.isAdmin
+                      ? FutureBuilder<String?>(
+                          future: shiftProvider.teamId != null
+                              ? ShiftPlanService(teamId: shiftProvider.teamId!).getActivePlanId('${_focusedDay.year}-${_focusedDay.month}')
+                              : null,
+                          builder: (context, planSnapshot) {
+                            // プランIDが存在する場合は常に表示
+                            if (planSnapshot.hasData && planSnapshot.data != null) {
+                              return FutureBuilder<List<ShiftPlan>>(
+                                future: ShiftPlanService(teamId: shiftProvider.teamId!).getPlansForMonth('${_focusedDay.year}-${_focusedDay.month}'),
+                                builder: (context, snapshot) {
+                                  // 切替ボタンは複数プランがある場合のみ表示（shift_plansが1件以上）
+                                  final showSwitchButton = snapshot.hasData && snapshot.data != null && snapshot.data!.isNotEmpty;
 
-                            return Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Text(
-                                  planSnapshot.data!,
-                                  style: const TextStyle(
-                                    fontSize: 16,
-                                    color: Colors.black87,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                                if (showSwitchButton) ...[
-                                  const SizedBox(width: 8),
-                                  Container(
-                                    decoration: BoxDecoration(
-                                      color: Colors.orange.shade600,
-                                      borderRadius: BorderRadius.circular(8.0),
-                                      boxShadow: [
-                                        BoxShadow(
-                                          color: Colors.orange.shade200,
-                                          blurRadius: 3,
-                                          offset: const Offset(0, 2),
-                                        ),
-                                      ],
-                                    ),
-                                    child: InkWell(
-                                      onTap: () => _showRestoreDialog(snapshot.data!),
-                                      borderRadius: BorderRadius.circular(8.0),
-                                      child: Padding(
-                                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                                        child: Row(
-                                          mainAxisSize: MainAxisSize.min,
-                                          children: [
-                                            const Icon(Icons.swap_horiz, size: 14, color: Colors.white),
-                                            const SizedBox(width: 4),
-                                            const Text(
-                                              '切替',
-                                              style: TextStyle(
-                                                color: Colors.white,
-                                                fontSize: 12,
-                                                fontWeight: FontWeight.w600,
-                                              ),
-                                            ),
-                                          ],
+                                  return Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Text(
+                                        planSnapshot.data!,
+                                        style: const TextStyle(
+                                          fontSize: 16,
+                                          color: Colors.black87,
+                                          fontWeight: FontWeight.bold,
                                         ),
                                       ),
-                                    ),
-                                  ),
-                                ],
-                              ],
-                            );
+                                      if (showSwitchButton) ...[
+                                        const SizedBox(width: 8),
+                                        Container(
+                                          decoration: BoxDecoration(
+                                            color: Colors.orange.shade600,
+                                            borderRadius: BorderRadius.circular(8.0),
+                                            boxShadow: [
+                                              BoxShadow(
+                                                color: Colors.orange.shade200,
+                                                blurRadius: 3,
+                                                offset: const Offset(0, 2),
+                                              ),
+                                            ],
+                                          ),
+                                          child: InkWell(
+                                            onTap: () => _showRestoreDialog(snapshot.data!),
+                                            borderRadius: BorderRadius.circular(8.0),
+                                            child: Padding(
+                                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                              child: Row(
+                                                mainAxisSize: MainAxisSize.min,
+                                                children: [
+                                                  const Icon(Icons.swap_horiz, size: 14, color: Colors.white),
+                                                  const SizedBox(width: 4),
+                                                  const Text(
+                                                    '切替',
+                                                    style: TextStyle(
+                                                      color: Colors.white,
+                                                      fontSize: 12,
+                                                      fontWeight: FontWeight.w600,
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ],
+                                  );
+                                },
+                              );
+                            }
+                            return const SizedBox();
                           },
-                        );
-                      }
-                      return const SizedBox();
-                    },
-                  )
-                : null,
-            actions: [
-              Container(
-                decoration: BoxDecoration(
-                  color: Colors.green.shade600,
-                  borderRadius: BorderRadius.circular(8.0),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.green.shade200,
-                      blurRadius: 3,
-                      offset: const Offset(0, 2),
-                    ),
-                  ],
-                ),
-                child: InkWell(
-                  onTap: () async {
-                    // 入れ替えモード中の場合はキャンセル
-                    if (_isSwapMode) {
-                      _cancelSwapMode();
-                    }
-
-                    final shiftProvider = context.read<ShiftProvider>();
-                    final staffProvider = context.read<StaffProvider>();
-                    final shiftTimeProvider = context.read<ShiftTimeProvider>();
-
-                    await Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => MultiProvider(
-                          providers: [
-                            ChangeNotifierProvider<ShiftProvider>.value(value: shiftProvider),
-                            ChangeNotifierProvider<StaffProvider>.value(value: staffProvider),
-                            ChangeNotifierProvider<ShiftTimeProvider>.value(value: shiftTimeProvider),
-                          ],
-                          child: ExportScreen(
-                            initialMonth: _focusedDay,
-                          ),
-                        ),
-                      ),
-                    );
-                    // Export画面から戻った時に画面向きを確実に復元
-                    if (mounted) {
-                      SystemChrome.setPreferredOrientations([
-                        DeviceOrientation.portraitUp,
-                        DeviceOrientation.portraitDown,
-                        DeviceOrientation.landscapeLeft,
-                        DeviceOrientation.landscapeRight,
-                      ]);
-                    }
-                  },
-                  borderRadius: BorderRadius.circular(8.0),
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const Icon(
-                          Icons.save_alt,
-                          size: 16,
-                          color: Colors.white,
-                        ),
-                        const SizedBox(width: 4),
-                        const Text(
-                          'シフト表',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 13,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 8),
-              // 管理者のみ自動作成ボタンを表示
-              if (widget.appUser.isAdmin) ...[
-                Container(
-                  decoration: BoxDecoration(
-                    color: Colors.blue.shade600,
-                    borderRadius: BorderRadius.circular(8.0),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.blue.shade200,
-                        blurRadius: 3,
-                        offset: const Offset(0, 2),
-                      ),
-                    ],
-                  ),
-                  child: InkWell(
-                    onTap: () => _showAutoAssignmentDialog(context),
-                    borderRadius: BorderRadius.circular(8.0),
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          const Icon(
-                            Icons.auto_fix_high,
-                            size: 16,
-                            color: Colors.white,
-                          ),
-                          const SizedBox(width: 4),
-                          const Text(
-                            '自動作成',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 13,
-                              fontWeight: FontWeight.w600,
-                            ),
+                        )
+                      : null,
+                  actions: [
+                    Container(
+                      decoration: BoxDecoration(
+                        color: Colors.green.shade600,
+                        borderRadius: BorderRadius.circular(8.0),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.green.shade200,
+                            blurRadius: 3,
+                            offset: const Offset(0, 2),
                           ),
                         ],
                       ),
+                      child: InkWell(
+                        onTap: () async {
+                          // 入れ替えモード中の場合はキャンセル
+                          if (_isSwapMode) {
+                            _cancelSwapMode();
+                          }
+
+                          final shiftProvider = context.read<ShiftProvider>();
+                          final staffProvider = context.read<StaffProvider>();
+                          final shiftTimeProvider = context.read<ShiftTimeProvider>();
+
+                          await Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => MultiProvider(
+                                providers: [
+                                  ChangeNotifierProvider<ShiftProvider>.value(value: shiftProvider),
+                                  ChangeNotifierProvider<StaffProvider>.value(value: staffProvider),
+                                  ChangeNotifierProvider<ShiftTimeProvider>.value(value: shiftTimeProvider),
+                                ],
+                                child: ExportScreen(
+                                  initialMonth: _focusedDay,
+                                ),
+                              ),
+                            ),
+                          );
+                          // Export画面から戻った時に画面向きを確実に復元
+                          if (mounted) {
+                            SystemChrome.setPreferredOrientations([
+                              DeviceOrientation.portraitUp,
+                              DeviceOrientation.portraitDown,
+                              DeviceOrientation.landscapeLeft,
+                              DeviceOrientation.landscapeRight,
+                            ]);
+                          }
+                        },
+                        borderRadius: BorderRadius.circular(8.0),
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(
+                                Icons.save_alt,
+                                size: 16,
+                                color: Colors.white,
+                              ),
+                              const SizedBox(width: 4),
+                              const Text(
+                                'シフト表',
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
                     ),
-                  ),
+                    const SizedBox(width: 8),
+                    // 管理者のみ自動作成ボタンを表示
+                    if (widget.appUser.isAdmin) ...[
+                      Container(
+                        decoration: BoxDecoration(
+                          color: Colors.blue.shade600,
+                          borderRadius: BorderRadius.circular(8.0),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.blue.shade200,
+                              blurRadius: 3,
+                              offset: const Offset(0, 2),
+                            ),
+                          ],
+                        ),
+                        child: InkWell(
+                          onTap: () => _showAutoAssignmentDialog(context),
+                          borderRadius: BorderRadius.circular(8.0),
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Icon(
+                                  Icons.auto_fix_high,
+                                  size: 16,
+                                  color: Colors.white,
+                                ),
+                                const SizedBox(width: 4),
+                                const Text(
+                                  '自動作成',
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 16),
+                    ],
+                    if (!widget.appUser.isAdmin) const SizedBox(width: 16),
+                  ],
                 ),
-                const SizedBox(width: 16),
-              ],
-              if (!widget.appUser.isAdmin) const SizedBox(width: 16),
-            ],
-          ),
           body: Padding(
             padding: const EdgeInsets.only(right: 16.0),
             child: Column(
@@ -1284,6 +1256,8 @@ class _CalendarScreenState extends State<CalendarScreen> {
 
   Future<void> _moveShiftToDate(Shift shift, DateTime newDate) async {
     final shiftProvider = context.read<ShiftProvider>();
+    final staffProvider = context.read<StaffProvider>();
+    final staff = staffProvider.getStaffById(shift.staffId);
 
     // 移動先の日付に同じスタッフのシフトがないかチェック
     final conflictShifts = shiftProvider.getShiftsForDate(newDate).where((s) => s.staffId == shift.staffId).toList();
@@ -1297,6 +1271,90 @@ class _CalendarScreenState extends State<CalendarScreen> {
         ),
       );
       return;
+    }
+
+    // 制約チェック
+    final violations = staff != null
+        ? ConstraintChecker.checkViolations(
+            staff: staff,
+            date: newDate,
+            shiftType: shift.shiftType,
+          )
+        : <String>[];
+
+    if (violations.isNotEmpty) {
+      // 警告ダイアログを表示
+      final confirmed = await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: Row(
+            children: [
+              Icon(Icons.warning_amber_rounded, color: Colors.orange, size: 24),
+              const SizedBox(width: 8),
+              const Text('日付移動'),
+            ],
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                '${newDate.month}/${newDate.day}に移動しますか？',
+              ),
+              const SizedBox(height: 16),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.orange.shade50,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.orange.shade300),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '制約に該当しています',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        color: Colors.orange.shade800,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      '${staff?.name ?? "不明"}さん：',
+                      style: TextStyle(
+                        fontWeight: FontWeight.w500,
+                        color: Colors.orange.shade700,
+                      ),
+                    ),
+                    ...violations.map((v) => Padding(
+                          padding: const EdgeInsets.only(left: 8),
+                          child: Text('・$v', style: TextStyle(color: Colors.orange.shade700)),
+                        )),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: const Text('キャンセル'),
+            ),
+            ElevatedButton(
+              onPressed: () => Navigator.of(context).pop(true),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.orange,
+              ),
+              child: const Text('移動'),
+            ),
+          ],
+        ),
+      );
+
+      if (confirmed != true) {
+        return;
+      }
     }
 
     // 新しい日付で時間を再計算
@@ -1480,9 +1538,7 @@ class _ShiftTile extends StatelessWidget {
         ),
         child: InkWell(
           // 入れ替えモード時はシフト選択、通常時は編集
-          onTap: isSwapMode && onSwapSelect != null
-              ? () => onSwapSelect!(shift)
-              : (isAdmin ? () => onEdit(shift) : null),
+          onTap: isSwapMode && onSwapSelect != null ? () => onSwapSelect!(shift) : (isAdmin ? () => onEdit(shift) : null),
           onLongPress: isSwapMode ? null : (isAdmin && onQuickAction != null ? () => onQuickAction!(shift) : null), // 入れ替えモード中は長押し無効
           child: ListTile(
             dense: true,

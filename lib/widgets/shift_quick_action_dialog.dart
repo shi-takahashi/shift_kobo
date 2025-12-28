@@ -180,7 +180,7 @@ class _ShiftQuickActionDialogState extends State<ShiftQuickActionDialog> {
   void _showDateMoveDialog(BuildContext context) {
     final today = DateTime.now();
     final initialDate = widget.shift.date;
-    
+
     showDatePicker(
       context: context,
       initialDate: initialDate,
@@ -188,6 +188,7 @@ class _ShiftQuickActionDialogState extends State<ShiftQuickActionDialog> {
       lastDate: today.add(const Duration(days: 90)),
     ).then((selectedDate) {
       if (selectedDate != null && selectedDate != widget.shift.date) {
+        // 制約チェックはcalendar_screen.dartの_moveShiftToDateで行う
         if (widget.onDateMove != null) {
           widget.onDateMove!(widget.shift, selectedDate);
         }
