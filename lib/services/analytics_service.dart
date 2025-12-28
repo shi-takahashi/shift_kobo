@@ -54,4 +54,20 @@ class AnalyticsService {
       },
     );
   }
+
+  /// シフト表エクスポートイベント
+  static Future<void> logShiftExported({
+    required String action, // "save" or "share"
+    required String format, // "pdf", "png", "excel"
+    required String yearMonth, // "2025-01" 形式
+  }) async {
+    await _analytics.logEvent(
+      name: 'shift_exported',
+      parameters: {
+        'action': action,
+        'format': format,
+        'year_month': yearMonth,
+      },
+    );
+  }
 }

@@ -332,6 +332,12 @@ class _ExportScreenState extends State<ExportScreen> {
       );
       
       if (outputFile != null) {
+        // Analytics: 保存成功イベント
+        AnalyticsService.logShiftExported(
+          action: 'save',
+          format: 'png',
+          yearMonth: DateFormat('yyyy-MM').format(_selectedMonth),
+        );
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
@@ -352,8 +358,6 @@ class _ExportScreenState extends State<ExportScreen> {
       setState(() => _isProcessing = false);
     }
   }
-
-
 
   String _getWeekdayString(int weekday) {
     const weekdays = ['月', '火', '水', '木', '金', '土', '日'];
@@ -483,6 +487,12 @@ class _ExportScreenState extends State<ExportScreen> {
         );
         
         if (outputFile != null) {
+          // Analytics: 保存成功イベント
+          AnalyticsService.logShiftExported(
+            action: 'save',
+            format: 'excel',
+            yearMonth: DateFormat('yyyy-MM').format(_selectedMonth),
+          );
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
@@ -504,7 +514,6 @@ class _ExportScreenState extends State<ExportScreen> {
       setState(() => _isProcessing = false);
     }
   }
-
 
   Future<void> _shareAsPng() async {
     setState(() => _isProcessing = true);
@@ -529,6 +538,12 @@ class _ExportScreenState extends State<ExportScreen> {
 
       // 実際に共有された場合のみ成功メッセージ
       if (mounted && result.status == ShareResultStatus.success) {
+        // Analytics: 共有成功イベント
+        AnalyticsService.logShiftExported(
+          action: 'share',
+          format: 'png',
+          yearMonth: DateFormat('yyyy-MM').format(_selectedMonth),
+        );
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('PNG画像を共有しました'),
@@ -656,6 +671,12 @@ class _ExportScreenState extends State<ExportScreen> {
 
       // 実際に共有された場合のみ成功メッセージ
       if (mounted && result.status == ShareResultStatus.success) {
+        // Analytics: 共有成功イベント
+        AnalyticsService.logShiftExported(
+          action: 'share',
+          format: 'pdf',
+          yearMonth: DateFormat('yyyy-MM').format(_selectedMonth),
+        );
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('PDFファイルを共有しました'),
@@ -929,6 +950,12 @@ class _ExportScreenState extends State<ExportScreen> {
       );
 
       if (outputFile != null && mounted) {
+        // Analytics: 保存成功イベント
+        AnalyticsService.logShiftExported(
+          action: 'save',
+          format: 'pdf',
+          yearMonth: DateFormat('yyyy-MM').format(_selectedMonth),
+        );
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('PDFファイルを保存しました\n$fileName'),
@@ -1360,6 +1387,12 @@ class _ExportScreenState extends State<ExportScreen> {
 
         // 実際に共有された場合のみ成功メッセージ
         if (mounted && result.status == ShareResultStatus.success) {
+          // Analytics: 共有成功イベント
+          AnalyticsService.logShiftExported(
+            action: 'share',
+            format: 'excel',
+            yearMonth: DateFormat('yyyy-MM').format(_selectedMonth),
+          );
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
               content: Text('Excelファイルを共有しました'),
