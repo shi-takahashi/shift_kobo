@@ -1220,28 +1220,37 @@ class _ExportScreenState extends State<ExportScreen> {
     // その月にシフトがあるスタッフIDを抽出
     final staffIds = _getStaffIdsWithShifts(shifts);
 
-    // スクリーンショット用に全体が表示されるように作成
+    // A4横向きサイズ（比率 297:210 ≒ 1.414:1）
+    // 印刷用に適度なサイズ: 1400 x 990 ピクセル
+    const double a4Width = 1400;
+    const double a4Height = 990;
+
+    // A4サイズのコンテナにテーブル全体を収める
     return Container(
-      padding: const EdgeInsets.all(16),
+      width: a4Width,
+      height: a4Height,
+      padding: const EdgeInsets.all(24),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           // タイトル
           Center(
             child: Text(
               'シフト表 - ${DateFormat('yyyy年MM月').format(_selectedMonth)}',
               style: const TextStyle(
-                fontSize: 20,
+                fontSize: 24,
                 fontWeight: FontWeight.bold,
               ),
             ),
           ),
           const SizedBox(height: 16),
-          // カレンダーテーブル（固定幅で全体表示）
-          Container(
-            constraints: const BoxConstraints(minWidth: 800, maxWidth: 1200),
-            child: _buildCalendarTable(shifts, staffIds, staffProvider),
+          // テーブルをA4に収まるようにスケーリング
+          Expanded(
+            child: FittedBox(
+              fit: BoxFit.contain,
+              alignment: Alignment.topCenter,
+              child: _buildCalendarTable(shifts, staffIds, staffProvider),
+            ),
           ),
         ],
       ),
