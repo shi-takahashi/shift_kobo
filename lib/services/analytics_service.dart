@@ -70,4 +70,14 @@ class AnalyticsService {
       },
     );
   }
+
+  /// シフト操作イベント（スタッフ変更・日付移動・スタッフ入替）
+  static Future<void> logShiftQuickAction(String action) async {
+    await _analytics.logEvent(
+      name: 'shift_quick_action',
+      parameters: {
+        'action': action, // "staff_change", "date_move", "staff_swap"
+      },
+    );
+  }
 }

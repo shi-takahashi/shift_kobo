@@ -264,6 +264,9 @@ class _CalendarScreenState extends State<CalendarScreen> {
     await shiftProvider.updateShift(sourceShift);
     await shiftProvider.updateShift(targetShift);
 
+    // Analytics: スタッフ入替イベント
+    AnalyticsService.logShiftQuickAction('staff_swap');
+
     // 成功メッセージ
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -1380,6 +1383,9 @@ class _CalendarScreenState extends State<CalendarScreen> {
       ..endTime = newEndTime;
 
     await shiftProvider.updateShift(updatedShift);
+
+    // Analytics: 日付移動イベント
+    AnalyticsService.logShiftQuickAction('date_move');
 
     // 成功メッセージ表示
     ScaffoldMessenger.of(context).showSnackBar(

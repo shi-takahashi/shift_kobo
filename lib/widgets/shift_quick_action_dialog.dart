@@ -6,6 +6,7 @@ import '../models/staff.dart';
 import '../providers/staff_provider.dart';
 import '../providers/shift_provider.dart';
 import '../utils/constraint_checker.dart';
+import '../services/analytics_service.dart';
 
 const String _kQuickActionHintShownKey = 'quick_action_hint_shown';
 
@@ -273,6 +274,9 @@ class _ShiftQuickActionDialogState extends State<ShiftQuickActionDialog> {
 
     final updatedShift = widget.shift..staffId = newStaff.id;
     await shiftProvider.updateShift(updatedShift);
+
+    // Analytics: スタッフ変更イベント
+    AnalyticsService.logShiftQuickAction('staff_change');
   }
 
 
