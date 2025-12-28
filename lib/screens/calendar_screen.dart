@@ -112,6 +112,43 @@ class _CalendarScreenState extends State<CalendarScreen> {
     });
   }
 
+  /// 入れ替え時の制約違反をチェック
+  /// staffがdateのshiftTypeで働く場合の制約違反をリストで返す
+  List<String> _checkSwapConstraintViolations(Staff staff, DateTime date, String shiftType) {
+    final violations = <String>[];
+
+    // 1. 曜日の休み希望チェック
+    final weekday = date.weekday; // 1-7 (月-日)
+    if (staff.preferredDaysOff.contains(weekday)) {
+      final dayNames = ['月曜日', '火曜日', '水曜日', '木曜日', '金曜日', '土曜日', '日曜日'];
+      violations.add('${dayNames[weekday - 1]}は休み希望');
+    }
+
+    // 2. 祝日の休み希望チェック
+    if (staff.holidaysOff) {
+      final isHoliday = holiday_jp.isHoliday(date);
+      if (isHoliday) {
+        violations.add('祝日は休み希望');
+      }
+    }
+
+    // 3. 特定日の休み希望チェック
+    final dateString = DateTime(date.year, date.month, date.day).toIso8601String();
+    if (staff.specificDaysOff.contains(dateString)) {
+      violations.add('${date.month}/${date.day}は休み希望日');
+    }
+
+    // 4. 勤務不可シフトタイプチェック
+    if (staff.unavailableShiftTypes.contains(shiftType)) {
+      violations.add('$shiftTypeは勤務不可');
+    }
+
+    // 5. 月間最大シフト数チェック（入れ替えなので基本的に変わらないが、月をまたぐ場合は変わる可能性）
+    // 入れ替えの場合、同じ月なら数は変わらないのでスキップ
+
+    return violations;
+  }
+
   /// スタッフ入れ替えを実行
   Future<void> _executeSwap(Shift targetShift) async {
     if (_swapSourceShift == null) return;
@@ -128,19 +165,99 @@ class _CalendarScreenState extends State<CalendarScreen> {
     final sourceStaff = staffProvider.getStaffById(sourceShift.staffId);
     final targetStaff = staffProvider.getStaffById(targetShift.staffId);
 
+    // 制約チェック
+    // 入れ替え元スタッフが入れ替え先のシフト（日付・シフトタイプ）に入る場合の制約
+    final sourceStaffViolations = sourceStaff != null
+        ? _checkSwapConstraintViolations(sourceStaff, targetShift.date, targetShift.shiftType)
+        : <String>[];
+    // 入れ替え先スタッフが入れ替え元のシフト（日付・シフトタイプ）に入る場合の制約
+    final targetStaffViolations = targetStaff != null
+        ? _checkSwapConstraintViolations(targetStaff, sourceShift.date, sourceShift.shiftType)
+        : <String>[];
+
+    final hasViolations = sourceStaffViolations.isNotEmpty || targetStaffViolations.isNotEmpty;
+
     // 確認ダイアログを表示
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('スタッフ入替'),
-        content: Text(
-          '以下のシフトのスタッフを入れ替えますか？\n\n'
-          '【入れ替え元】\n'
-          '${sourceShift.date.month}/${sourceShift.date.day} ${sourceStaff?.name ?? "不明"}\n'
-          '${sourceShift.shiftType}\n\n'
-          '【入れ替え先】\n'
-          '${targetShift.date.month}/${targetShift.date.day} ${targetStaff?.name ?? "不明"}\n'
-          '${targetShift.shiftType}',
+        title: Row(
+          children: [
+            if (hasViolations) ...[
+              Icon(Icons.warning_amber_rounded, color: Colors.orange, size: 24),
+              const SizedBox(width: 8),
+            ],
+            const Text('スタッフ入替'),
+          ],
+        ),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                '以下のシフトのスタッフを入れ替えますか？\n\n'
+                '【入れ替え元】\n'
+                '${sourceShift.date.month}/${sourceShift.date.day} ${sourceStaff?.name ?? "不明"}\n'
+                '${sourceShift.shiftType}\n\n'
+                '【入れ替え先】\n'
+                '${targetShift.date.month}/${targetShift.date.day} ${targetStaff?.name ?? "不明"}\n'
+                '${targetShift.shiftType}',
+              ),
+              // 制約違反がある場合は警告を表示
+              if (hasViolations) ...[
+                const SizedBox(height: 16),
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.orange.shade50,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.orange.shade300),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        '制約に該当しています',
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          color: Colors.orange.shade800,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      if (sourceStaffViolations.isNotEmpty) ...[
+                        Text(
+                          '${sourceStaff?.name ?? "不明"}さん：',
+                          style: TextStyle(
+                            fontWeight: FontWeight.w500,
+                            color: Colors.orange.shade700,
+                          ),
+                        ),
+                        ...sourceStaffViolations.map((v) => Padding(
+                          padding: const EdgeInsets.only(left: 8),
+                          child: Text('・$v', style: TextStyle(color: Colors.orange.shade700)),
+                        )),
+                        const SizedBox(height: 4),
+                      ],
+                      if (targetStaffViolations.isNotEmpty) ...[
+                        Text(
+                          '${targetStaff?.name ?? "不明"}さん：',
+                          style: TextStyle(
+                            fontWeight: FontWeight.w500,
+                            color: Colors.orange.shade700,
+                          ),
+                        ),
+                        ...targetStaffViolations.map((v) => Padding(
+                          padding: const EdgeInsets.only(left: 8),
+                          child: Text('・$v', style: TextStyle(color: Colors.orange.shade700)),
+                        )),
+                      ],
+                    ],
+                  ),
+                ),
+              ],
+            ],
+          ),
         ),
         actions: [
           TextButton(
