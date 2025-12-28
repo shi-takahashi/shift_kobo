@@ -1025,7 +1025,7 @@ class _ExportScreenState extends State<ExportScreen> {
       dataRowMinHeight: 36,
       dataRowMaxHeight: 36,
       border: TableBorder.all(
-        color: Colors.grey.shade300,
+        color: Colors.grey.shade600, // 印刷用に濃く
         width: 1,
       ),
       columns: _buildDateColumns(daysInMonth),
@@ -1048,14 +1048,14 @@ class _ExportScreenState extends State<ExportScreen> {
       final isHoliday = holiday_jp.isHoliday(date);
 
       Color dayColor = Colors.black;
-      Color weekdayColor = Colors.grey;
+      Color weekdayColor = Colors.grey.shade700; // 印刷用に濃く
 
       if (isHoliday || isSunday) {
-        dayColor = Colors.red;
-        weekdayColor = Colors.red;
+        dayColor = Colors.red.shade700; // 印刷用に濃く
+        weekdayColor = Colors.red.shade700;
       } else if (isSaturday) {
-        dayColor = Colors.blue;
-        weekdayColor = Colors.blue;
+        dayColor = Colors.blue.shade700; // 印刷用に濃く
+        weekdayColor = Colors.blue.shade700;
       }
 
       columns.add(
