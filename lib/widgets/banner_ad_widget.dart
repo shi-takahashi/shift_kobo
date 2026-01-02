@@ -49,8 +49,6 @@ class _BannerAdWidgetState extends State<BannerAdWidget> with WidgetsBindingObse
               _isAdLoaded = true;
               _isLoading = false;
             });
-            // リスナーを追加
-            _setupAdListener(cachedAd);
           } else {
             _loadBannerAd();
           }
@@ -165,19 +163,17 @@ class _BannerAdWidgetState extends State<BannerAdWidget> with WidgetsBindingObse
     );
   }
 
-  /// 広告にリスナーを設定
-  void _setupAdListener(BannerAd ad) {
-    // 既存のリスナーは上書きできないため、新しい広告の場合のみ設定
-    // キャッシュされた広告は既にリスナーが設定されているため、ここでは何もしない
-  }
-
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     _retryTimer?.cancel();
     _retryTimer = null;
-    _bannerAd?.dispose();
-    _bannerAd = null;
+    if (_bannerAd != null) {
+      // 使用中フラグを解除してからdispose
+      AdService.releaseBannerAd(_bannerAd!);
+      _bannerAd!.dispose();
+      _bannerAd = null;
+    }
     super.dispose();
   }
 

@@ -23,6 +23,9 @@ class AdService {
   static const int _maxCacheSize = 3;
   static bool _isPreloadingBanners = false;
 
+  // 使用中の広告を追跡（hashCodeで管理）
+  static final Set<int> _inUseBannerAdIds = {};
+
   // テスト用広告ID（デバッグビルド時）
   static const String _testBannerAdUnitIdAndroid = 'ca-app-pub-3940256099942544/6300978111';
   static const String _testBannerAdUnitIdIOS = 'ca-app-pub-3940256099942544/2934735716';
@@ -275,16 +278,32 @@ class AdService {
   /// キャッシュからバナー広告を取得
   static BannerAd? getCachedBannerAd() {
     if (_bannerAdCache.isEmpty) return null;
-    
-    final ad = _bannerAdCache.removeAt(0);
-    print('キャッシュからバナー広告を取得 (残り${_bannerAdCache.length}個)');
-    
-    // キャッシュが減ったら補充
-    if (_bannerAdCache.length < 2 && !_isPreloadingBanners) {
-      Future.delayed(const Duration(seconds: 1), _preloadBannerAds);
+
+    // 使用中でない広告を探す
+    for (int i = 0; i < _bannerAdCache.length; i++) {
+      final ad = _bannerAdCache[i];
+      if (!_inUseBannerAdIds.contains(ad.hashCode)) {
+        _bannerAdCache.removeAt(i);
+        _inUseBannerAdIds.add(ad.hashCode);
+        print('キャッシュからバナー広告を取得 (残り${_bannerAdCache.length}個, 使用中${_inUseBannerAdIds.length}個)');
+
+        // キャッシュが減ったら補充
+        if (_bannerAdCache.length < 2 && !_isPreloadingBanners) {
+          Future.delayed(const Duration(seconds: 1), _preloadBannerAds);
+        }
+
+        return ad;
+      }
     }
-    
-    return ad;
+
+    print('キャッシュに使用可能な広告がありません');
+    return null;
+  }
+
+  /// バナー広告の使用終了を通知（dispose時に呼ぶ）
+  static void releaseBannerAd(BannerAd ad) {
+    _inUseBannerAdIds.remove(ad.hashCode);
+    print('バナー広告をリリース (使用中${_inUseBannerAdIds.length}個)');
   }
   
   /// キャッシュをクリア（メモリ解放用）
