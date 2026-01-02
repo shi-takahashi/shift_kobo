@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../models/team.dart';
 import '../providers/shift_provider.dart';
 import '../services/analytics_service.dart';
+import '../widgets/banner_ad_widget.dart';
 
 class ConstraintSettingsScreen extends StatefulWidget {
   const ConstraintSettingsScreen({super.key});
@@ -302,6 +303,10 @@ class _ConstraintSettingsScreenState extends State<ConstraintSettingsScreen> {
                       ),
                     ),
                   ),
+                ),
+                const SafeArea(
+                  top: false,
+                  child: BannerAdWidget(),
                 ),
               ],
             ),

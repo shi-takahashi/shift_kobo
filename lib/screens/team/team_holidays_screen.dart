@@ -3,6 +3,7 @@ import 'package:intl/intl.dart';
 import '../../models/app_user.dart';
 import '../../models/team.dart';
 import '../../services/auth_service.dart';
+import '../../widgets/banner_ad_widget.dart';
 
 /// チーム休み設定画面
 class TeamHolidaysScreen extends StatefulWidget {
@@ -149,6 +150,10 @@ class _TeamHolidaysScreenState extends State<TeamHolidaysScreen> {
                 ),
               ),
             ),
+          ),
+          const SafeArea(
+            top: false,
+            child: BannerAdWidget(),
           ),
         ],
       ),

@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../models/shift_time_setting.dart';
 import '../providers/shift_time_provider.dart';
 import '../services/analytics_service.dart';
+import '../widgets/banner_ad_widget.dart';
 
 class ShiftTimeSettingsScreen extends StatefulWidget {
   const ShiftTimeSettingsScreen({super.key});
@@ -26,59 +27,72 @@ class _ShiftTimeSettingsScreenState extends State<ShiftTimeSettingsScreen> {
         title: const Text('シフト時間設定'),
         backgroundColor: Colors.blue[50],
       ),
-      body: Consumer<ShiftTimeProvider>(
-        builder: (context, provider, child) {
-          return ListView.builder(
-            padding: const EdgeInsets.all(16.0),
-            itemCount: provider.settings.length,
-            itemBuilder: (context, index) {
-              final setting = provider.settings[index];
-              return Card(
-                margin: const EdgeInsets.only(bottom: 8.0),
-                child: ListTile(
-                  leading: CircleAvatar(
-                    backgroundColor: setting.isActive 
-                        ? setting.shiftType.color 
-                        : Colors.grey,
-                    child: Icon(
-                      setting.shiftType.icon,
-                      color: Colors.white,
-                      size: 20,
-                    ),
-                  ),
-                  title: Text(
-                    setting.displayName,
-                    style: TextStyle(
-                      color: setting.isActive ? null : Colors.grey,
-                    ),
-                  ),
-                  subtitle: Text(
-                    setting.timeRange,
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w500,
-                      color: setting.isActive ? null : Colors.grey,
-                    ),
-                  ),
-                  onTap: () {
-                    _showEditDialog(context, provider, setting);
+      body: Column(
+        children: [
+          Expanded(
+            child: Consumer<ShiftTimeProvider>(
+              builder: (context, provider, child) {
+                return ListView.builder(
+                  padding: const EdgeInsets.all(16.0),
+                  itemCount: provider.settings.length,
+                  itemBuilder: (context, index) {
+                    final setting = provider.settings[index];
+                    return Card(
+                      margin: const EdgeInsets.only(bottom: 8.0),
+                      child: ListTile(
+                        leading: CircleAvatar(
+                          backgroundColor: setting.isActive
+                              ? setting.shiftType.color
+                              : Colors.grey,
+                          child: Icon(
+                            setting.shiftType.icon,
+                            color: Colors.white,
+                            size: 20,
+                          ),
+                        ),
+                        title: Text(
+                          setting.displayName,
+                          style: TextStyle(
+                            color: setting.isActive ? null : Colors.grey,
+                          ),
+                        ),
+                        subtitle: Text(
+                          setting.timeRange,
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w500,
+                            color: setting.isActive ? null : Colors.grey,
+                          ),
+                        ),
+                        onTap: () {
+                          _showEditDialog(context, provider, setting);
+                        },
+                        trailing: Switch(
+                          value: setting.isActive,
+                          onChanged: (value) {
+                            // 無効→有効の場合、重複チェック
+                            if (!setting.isActive &&
+                                provider.isNameDuplicate(
+                                    setting.displayName, setting.shiftType)) {
+                              _showDuplicateWarningDialog(
+                                  context, setting.displayName);
+                            } else {
+                              provider.toggleShiftTypeActive(setting.shiftType);
+                            }
+                          },
+                        ),
+                      ),
+                    );
                   },
-                  trailing: Switch(
-                    value: setting.isActive,
-                    onChanged: (value) {
-                      // 無効→有効の場合、重複チェック
-                      if (!setting.isActive && provider.isNameDuplicate(setting.displayName, setting.shiftType)) {
-                        _showDuplicateWarningDialog(context, setting.displayName);
-                      } else {
-                        provider.toggleShiftTypeActive(setting.shiftType);
-                      }
-                    },
-                  ),
-                ),
-              );
-            },
-          );
-        },
+                );
+              },
+            ),
+          ),
+          const SafeArea(
+            top: false,
+            child: BannerAdWidget(),
+          ),
+        ],
       ),
     );
   }
