@@ -106,4 +106,16 @@ class AnalyticsService {
       },
     );
   }
+
+  /// 日付個別シフト設定イベント
+  static Future<void> logDateSpecificRequirementSet({
+    required String date,
+  }) async {
+    await _analytics.logEvent(
+      name: 'date_specific_requirement_set',
+      parameters: {
+        'date': date,
+      },
+    );
+  }
 }

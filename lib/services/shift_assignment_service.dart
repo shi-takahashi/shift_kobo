@@ -6,6 +6,7 @@ import 'package:shift_kobo/models/shift_constraint.dart';
 import 'package:shift_kobo/models/shift_type.dart' as old_shift_type;
 import 'package:shift_kobo/models/staff.dart';
 import 'package:shift_kobo/models/team.dart';
+import 'package:shift_kobo/providers/monthly_requirements_provider.dart';
 import 'package:shift_kobo/providers/shift_provider.dart';
 import 'package:shift_kobo/providers/shift_time_provider.dart';
 import 'package:shift_kobo/providers/staff_provider.dart';
@@ -93,6 +94,7 @@ class ShiftAssignmentService {
     AssignmentStrategy strategy = AssignmentStrategy.fairness,
     int maxConsecutiveDays = 5,
     int minRestHours = 12,
+    MonthlyRequirementsProvider? requirementsProvider,
   }) async {
     List<Shift> assignedShifts = [];
     // 有効なスタッフのみ使用（月間最大シフト数0のスタッフは自動的に除外される）
@@ -125,6 +127,7 @@ class ShiftAssignmentService {
       minRestHours,
       strategy,
       shiftIdCounter,
+      requirementsProvider: requirementsProvider,
     );
     assignedShifts.addAll(preferredDateShifts);
     shiftIdCounter += preferredDateShifts.length;
@@ -144,8 +147,12 @@ class ShiftAssignmentService {
         continue;
       }
 
-      for (String shiftType in dailyShiftRequirements.keys) {
-        int requiredStaffCount = dailyShiftRequirements[shiftType] ?? 0;
+      // この日の必要人数を取得（曜日別・日付個別設定がある場合は優先）
+      final dateRequirements = requirementsProvider?.getRequirementsForDate(currentDate)
+          ?? dailyShiftRequirements;
+
+      for (String shiftType in dateRequirements.keys) {
+        int requiredStaffCount = dateRequirements[shiftType] ?? 0;
 
         // この日のこのシフトタイプで既に割り当てられた人数をカウント
         int alreadyAssigned = assignedShifts.where((shift) =>
@@ -215,8 +222,9 @@ class ShiftAssignmentService {
     int maxConsecutiveDays,
     int minRestHours,
     AssignmentStrategy strategy,
-    int shiftIdCounter,
-  ) async {
+    int shiftIdCounter, {
+    MonthlyRequirementsProvider? requirementsProvider,
+  }) async {
     List<Shift> assignedShifts = [];
 
     // 勤務希望日を持つスタッフを抽出
@@ -267,9 +275,13 @@ class ShiftAssignmentService {
       final date = entry.key;
       final candidates = entry.value;
 
+      // この日の必要人数を取得（曜日別・日付個別設定がある場合は優先）
+      final dateRequirements = requirementsProvider?.getRequirementsForDate(date)
+          ?? dailyShiftRequirements;
+
       // 各シフトタイプについて処理
-      for (String shiftType in dailyShiftRequirements.keys) {
-        int requiredStaffCount = dailyShiftRequirements[shiftType] ?? 0;
+      for (String shiftType in dateRequirements.keys) {
+        int requiredStaffCount = dateRequirements[shiftType] ?? 0;
 
         // この日のこのシフトタイプで既に割り当てられた人数
         int alreadyAssigned = assignedShifts.where((shift) =>

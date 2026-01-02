@@ -4,7 +4,6 @@ import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/assignment_strategy.dart';
-import '../models/shift_time_setting.dart';
 import '../models/team.dart';
 import '../providers/monthly_requirements_provider.dart';
 import '../providers/shift_provider.dart';
@@ -30,7 +29,6 @@ class AutoAssignmentDialog extends StatefulWidget {
 class _AutoAssignmentDialogState extends State<AutoAssignmentDialog> {
   late DateTime _startDate;
   late DateTime _endDate;
-  final Map<String, TextEditingController> _requirementControllers = {};
   bool _isProcessing = false;
   String? _errorMessage;
   AssignmentStrategy _selectedStrategy = AssignmentStrategy.fairness;
@@ -39,11 +37,6 @@ class _AutoAssignmentDialogState extends State<AutoAssignmentDialog> {
   final TextEditingController _maxConsecutiveDaysController = TextEditingController(text: '5');
   final TextEditingController _minRestHoursController = TextEditingController(text: '12');
   Team? _currentTeam;
-
-  String _getStringFromShiftType(ShiftType shiftType, ShiftTimeSetting setting) {
-    // ShiftTimeSettingのdisplayNameを直接使用
-    return setting.displayName;
-  }
 
   @override
   void initState() {
@@ -81,56 +74,8 @@ class _AutoAssignmentDialogState extends State<AutoAssignmentDialog> {
     }
   }
 
-  void _initializeControllers(List<ShiftTimeSetting> activeSettings) {
-    // 既存のコントローラーをクリア
-    for (var controller in _requirementControllers.values) {
-      controller.dispose();
-    }
-    _requirementControllers.clear();
-
-    // アクティブな設定に対してコントローラーを作成
-    for (var setting in activeSettings) {
-      final shiftTypeString = _getStringFromShiftType(setting.shiftType, setting);
-      _requirementControllers[shiftTypeString] = TextEditingController(text: '0');
-    }
-
-    _loadSavedRequirements();
-  }
-
-  Future<void> _loadSavedRequirements() async {
-    final requirementsProvider = context.read<MonthlyRequirementsProvider>();
-
-    setState(() {
-      for (String shiftType in _requirementControllers.keys) {
-        int defaultValue = 0;
-        // 日勤のみデフォルト値を1にする
-        if (shiftType == '日勤') {
-          defaultValue = 1;
-        }
-
-        final savedValue = requirementsProvider.getRequirement(shiftType) != 0 ? requirementsProvider.getRequirement(shiftType) : defaultValue;
-        _requirementControllers[shiftType]!.text = savedValue.toString();
-      }
-    });
-  }
-
-  Future<void> _saveRequirements() async {
-    final requirementsProvider = context.read<MonthlyRequirementsProvider>();
-
-    final requirements = <String, int>{};
-    for (var entry in _requirementControllers.entries) {
-      final value = int.tryParse(entry.value.text) ?? 0;
-      requirements[entry.key] = value;
-    }
-
-    await requirementsProvider.setRequirements(requirements);
-  }
-
   @override
   void dispose() {
-    for (var controller in _requirementControllers.values) {
-      controller.dispose();
-    }
     _maxConsecutiveDaysController.dispose();
     _minRestHoursController.dispose();
     super.dispose();
@@ -178,18 +123,10 @@ class _AutoAssignmentDialogState extends State<AutoAssignmentDialog> {
       builder: (context, shiftTimeProvider, child) {
         final activeSettings = shiftTimeProvider.settings.where((s) => s.isActive).toList();
 
-        // 初回または活性設定変更時にコントローラーを初期化
-        if (_requirementControllers.isEmpty || _requirementControllers.keys.length != activeSettings.length) {
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-            _initializeControllers(activeSettings);
-          });
-        }
-
         return AlertDialog(
           title: const Text('自動シフト割り当て'),
           content: SizedBox(
             width: MediaQuery.of(context).size.width * 0.85,
-            height: MediaQuery.of(context).size.height * 0.65,
             child: SingleChildScrollView(
               child: Column(
                 mainAxisSize: MainAxisSize.min,
@@ -199,13 +136,36 @@ class _AutoAssignmentDialogState extends State<AutoAssignmentDialog> {
                     '${widget.selectedMonth.year}年${widget.selectedMonth.month}月のシフトを自動作成します',
                     style: Theme.of(context).textTheme.bodyMedium,
                   ),
-                  const SizedBox(height: 16),
-                  const Text(
-                    '各シフトタイプの必要人数：',
-                    style: TextStyle(fontWeight: FontWeight.bold),
+                  const SizedBox(height: 12),
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.grey.shade100,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          '月間シフト設定に従ってシフトを自動作成します。',
+                          style: TextStyle(
+                            fontSize: 13,
+                            color: Colors.grey.shade800,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          '※ 必要人数は「チーム」→「月間シフト設定」で確認・変更できます',
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: Colors.grey.shade600,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
-                  const SizedBox(height: 8),
-                  if (activeSettings.isEmpty)
+                  if (activeSettings.isEmpty) ...[
+                    const SizedBox(height: 12),
                     Container(
                       padding: const EdgeInsets.all(16),
                       decoration: BoxDecoration(
@@ -217,9 +177,8 @@ class _AutoAssignmentDialogState extends State<AutoAssignmentDialog> {
                         style: TextStyle(color: Colors.orange.shade700),
                         textAlign: TextAlign.center,
                       ),
-                    )
-                  else
-                    ...activeSettings.map((setting) => _buildRequirementField(setting)),
+                    ),
+                  ],
                   const SizedBox(height: 16),
                   const Text(
                     '制約条件：',
@@ -408,59 +367,6 @@ class _AutoAssignmentDialogState extends State<AutoAssignmentDialog> {
     );
   }
 
-  Widget _buildRequirementField(ShiftTimeSetting setting) {
-    final shiftTypeString = _getStringFromShiftType(setting.shiftType, setting);
-
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4.0),
-      child: Row(
-        children: [
-          CircleAvatar(
-            radius: 8,
-            backgroundColor: setting.shiftType.color,
-            child: Icon(
-              setting.shiftType.icon,
-              size: 12,
-              color: Colors.white,
-            ),
-          ),
-          const SizedBox(width: 8),
-          Expanded(
-            flex: 2,
-            child: Text(
-              setting.displayName,
-              style: const TextStyle(fontSize: 13),
-            ),
-          ),
-          const SizedBox(width: 8),
-          SizedBox(
-            width: 80,
-            child: Text(
-              setting.timeRange,
-              style: const TextStyle(fontSize: 11, color: Colors.grey),
-            ),
-          ),
-          const SizedBox(width: 8),
-          SizedBox(
-            width: 60,
-            child: TextField(
-              controller: _requirementControllers[shiftTypeString],
-              keyboardType: TextInputType.number,
-              textAlign: TextAlign.center,
-              decoration: const InputDecoration(
-                isDense: true,
-                contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-                border: OutlineInputBorder(),
-              ),
-            ),
-          ),
-          const SizedBox(width: 8),
-          const Text('人'),
-        ],
-      ),
-    );
-  }
-
   /// シフト作成して即適用
   Future<void> _generateAndApply() async {
     FocusScope.of(context).unfocus();
@@ -474,52 +380,17 @@ class _AutoAssignmentDialogState extends State<AutoAssignmentDialog> {
       final staffProvider = Provider.of<StaffProvider>(context, listen: false);
       final shiftProvider = Provider.of<ShiftProvider>(context, listen: false);
       final shiftTimeProvider = Provider.of<ShiftTimeProvider>(context, listen: false);
+      final requirementsProvider = context.read<MonthlyRequirementsProvider>();
 
-      // 必要人数のバリデーション
-      String? requirementError;
-      for (var entry in _requirementControllers.entries) {
-        final shiftType = entry.key;
-        final text = entry.value.text.trim();
+      // 基本設定から必要人数を取得
+      final requirements = Map<String, int>.from(requirementsProvider.requirements);
 
-        if (text.isEmpty) {
-          requirementError = '「$shiftType」の人数を入力してください';
-          break;
-        }
-
-        final value = int.tryParse(text);
-        if (value == null) {
-          requirementError = '「$shiftType」の人数は数値で入力してください';
-          break;
-        }
-
-        if (value < 0) {
-          requirementError = '「$shiftType」の人数は0以上で入力してください';
-          break;
-        }
-      }
-
-      if (requirementError != null) {
+      // 少なくとも1つのシフトタイプに1以上の人数が必要
+      if (requirements.isEmpty || requirements.values.every((v) => v <= 0)) {
         setState(() {
           _isProcessing = false;
         });
-        await _showValidationErrorDialog(requirementError);
-        return;
-      }
-
-      // 必要人数を取得
-      final requirements = <String, int>{};
-      for (var entry in _requirementControllers.entries) {
-        final value = int.parse(entry.value.text.trim());
-        if (value > 0) {
-          requirements[entry.key] = value;
-        }
-      }
-
-      if (requirements.isEmpty) {
-        setState(() {
-          _isProcessing = false;
-        });
-        await _showValidationErrorDialog('少なくとも1つのシフトタイプに1以上の人数を設定してください');
+        await _showValidationErrorDialog('月間シフト設定で必要人数を設定してください');
         return;
       }
 
@@ -634,6 +505,7 @@ class _AutoAssignmentDialogState extends State<AutoAssignmentDialog> {
         strategy: _selectedStrategy,
         maxConsecutiveDays: maxConsecutiveDays,
         minRestHours: minRestHours,
+        requirementsProvider: requirementsProvider,
       );
 
       // 5. 新シフトをshiftsに保存
@@ -645,10 +517,7 @@ class _AutoAssignmentDialogState extends State<AutoAssignmentDialog> {
       // 7. shift_active_planを新しいplan_idで更新
       await planService.setActivePlanId(month, newPlanId, strategy: _selectedStrategy.name);
 
-      // 9. 月間必要人数を保存
-      await _saveRequirements();
-
-      // 10. 次回デフォルト表示されるように選択した戦略を端末に保存
+      // 8. 次回デフォルト表示されるように選択した戦略を端末に保存
       await _saveStrategyPreference();
 
       // 11. Analytics
