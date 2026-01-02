@@ -932,7 +932,11 @@ class _StaffEditDialogState extends State<StaffEditDialog> {
 
       // 勤務希望日が設定されている場合はAnalyticsイベントを送信
       if (_preferredDates.isNotEmpty) {
-        await AnalyticsService.logPreferredDatesSet(count: _preferredDates.length);
+        try {
+          await AnalyticsService.logPreferredDatesSet(count: _preferredDates.length);
+        } catch (_) {
+          // Analyticsエラーは無視
+        }
       }
 
       // ロール変更がある場合、AuthServiceで更新
@@ -1024,7 +1028,11 @@ class _StaffEditDialogState extends State<StaffEditDialog> {
 
       // 勤務希望日が設定されている場合はAnalyticsイベントを送信
       if (_preferredDates.isNotEmpty) {
-        await AnalyticsService.logPreferredDatesSet(count: _preferredDates.length);
+        try {
+          await AnalyticsService.logPreferredDatesSet(count: _preferredDates.length);
+        } catch (_) {
+          // Analyticsエラーは無視
+        }
       }
 
       if (!mounted) return;

@@ -387,10 +387,14 @@ class ShiftAssignmentService {
       }
 
       if (totalPreferences > 0) {
-        await AnalyticsService.logPreferredDatesAssigned(
-          totalPreferences: totalPreferences,
-          granted: assignedShifts.length,
-        );
+        try {
+          await AnalyticsService.logPreferredDatesAssigned(
+            totalPreferences: totalPreferences,
+            granted: assignedShifts.length,
+          );
+        } catch (_) {
+          // Analyticsエラーは無視
+        }
         print('勤務希望日: 総数=$totalPreferences, 割り当て=${assignedShifts.length}');
       }
     }
