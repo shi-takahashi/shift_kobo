@@ -101,6 +101,17 @@ class ShiftAssignmentService {
     List<Staff> availableStaff = staffProvider.activeStaffList;
     int shiftIdCounter = 0;
 
+    // アクティブなシフトタイプ名のセットを取得
+    final activeShiftTypeNames = shiftTimeProvider.settings
+        .where((s) => s.isActive)
+        .map((s) => s.displayName)
+        .toSet();
+
+    // 必要人数をアクティブなシフトタイプのみにフィルタリング
+    final filteredRequirements = Map<String, int>.fromEntries(
+      dailyShiftRequirements.entries.where((e) => activeShiftTypeNames.contains(e.key)),
+    );
+
     // デバッグ: スタッフ数を確認
     print('利用可能なスタッフ数: ${availableStaff.length}');
     for (var staff in availableStaff) {
@@ -119,7 +130,7 @@ class ShiftAssignmentService {
     final preferredDateShifts = await _assignPreferredDates(
       startDate,
       endDate,
-      dailyShiftRequirements,
+      filteredRequirements,
       availableStaff,
       staffShiftCounts,
       team,
@@ -128,6 +139,7 @@ class ShiftAssignmentService {
       strategy,
       shiftIdCounter,
       requirementsProvider: requirementsProvider,
+      activeShiftTypeNames: activeShiftTypeNames,
     );
     assignedShifts.addAll(preferredDateShifts);
     shiftIdCounter += preferredDateShifts.length;
@@ -148,8 +160,12 @@ class ShiftAssignmentService {
       }
 
       // この日の必要人数を取得（曜日別・日付個別設定がある場合は優先）
-      final dateRequirements = requirementsProvider?.getRequirementsForDate(currentDate)
-          ?? dailyShiftRequirements;
+      final rawDateRequirements = requirementsProvider?.getRequirementsForDate(currentDate)
+          ?? filteredRequirements;
+      // アクティブなシフトタイプのみにフィルタリング
+      final dateRequirements = Map<String, int>.fromEntries(
+        rawDateRequirements.entries.where((e) => activeShiftTypeNames.contains(e.key)),
+      );
 
       for (String shiftType in dateRequirements.keys) {
         int requiredStaffCount = dateRequirements[shiftType] ?? 0;
@@ -224,6 +240,7 @@ class ShiftAssignmentService {
     AssignmentStrategy strategy,
     int shiftIdCounter, {
     MonthlyRequirementsProvider? requirementsProvider,
+    Set<String>? activeShiftTypeNames,
   }) async {
     List<Shift> assignedShifts = [];
 
@@ -276,8 +293,14 @@ class ShiftAssignmentService {
       final candidates = entry.value;
 
       // この日の必要人数を取得（曜日別・日付個別設定がある場合は優先）
-      final dateRequirements = requirementsProvider?.getRequirementsForDate(date)
+      final rawDateRequirements = requirementsProvider?.getRequirementsForDate(date)
           ?? dailyShiftRequirements;
+      // アクティブなシフトタイプのみにフィルタリング
+      final dateRequirements = activeShiftTypeNames != null
+          ? Map<String, int>.fromEntries(
+              rawDateRequirements.entries.where((e) => activeShiftTypeNames.contains(e.key)),
+            )
+          : rawDateRequirements;
 
       // 各シフトタイプについて処理
       for (String shiftType in dateRequirements.keys) {
