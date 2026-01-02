@@ -1444,7 +1444,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             Text('• シフトデータ'),
             Text('• 制約条件'),
             Text('• シフト時間設定'),
-            Text('• 月間シフト設定'),
+            Text('• シフト割当て設定'),
             SizedBox(height: 16),
           ],
         ),

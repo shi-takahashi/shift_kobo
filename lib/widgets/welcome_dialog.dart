@@ -40,14 +40,16 @@ class WelcomeDialog extends StatelessWidget {
             const SizedBox(height: 16),
             // 管理者とスタッフで説明を分岐
             if (appUser.isAdmin) ...[
-              const Text('1. スタッフ管理でスタッフを登録'),
+              const Text('1. スタッフ画面でスタッフを登録'),
               const SizedBox(height: 8),
-              const Text('2. カレンダーでシフトを自動作成'),
+              const Text('2. チーム画面でシフト割当を設定'),
               const SizedBox(height: 8),
-              const Text('3. 必要に応じて手動で調整'),
+              const Text('3. カレンダー画面でシフトを自動作成'),
+              const SizedBox(height: 8),
+              const Text('4. 必要に応じて手動で調整'),
               if (!kIsWeb) ...[
                 const SizedBox(height: 8),
-                const Text('4. 完成したシフト表を共有'),
+                const Text('5. 完成したシフト表を共有'),
               ],
             ] else ...[
               const Text('1. マイページで自分のシフトを確認'),

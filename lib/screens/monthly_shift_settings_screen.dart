@@ -206,7 +206,7 @@ class _MonthlyShiftSettingsScreenState extends State<MonthlyShiftSettingsScreen>
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('月間シフト設定'),
+        title: const Text('シフト割当て設定'),
         backgroundColor: Theme.of(context).colorScheme.primary,
         foregroundColor: Colors.white,
       ),

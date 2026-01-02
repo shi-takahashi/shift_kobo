@@ -101,7 +101,7 @@ class _TeamSettingsScreenState extends State<TeamSettingsScreen> {
         ),
         ListTile(
           leading: const Icon(Icons.calendar_today),
-          title: const Text('月間シフト設定'),
+          title: const Text('シフト割当て設定'),
           subtitle: const Text('各シフト時間の必要人数を設定'),
           trailing: const Icon(Icons.chevron_right),
           onTap: () {

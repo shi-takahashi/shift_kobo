@@ -150,7 +150,7 @@ class MigrationService {
       await batch.commit();
       print('✅ バッチ書き込み完了');
 
-      // 5. SharedPreferencesから月間シフト設定を移行
+      // 5. SharedPreferencesからシフト割当て設定を移行
       final prefs = await SharedPreferences.getInstance();
       final shiftRequirements = <String, int>{};
 

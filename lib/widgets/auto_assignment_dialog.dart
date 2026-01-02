@@ -148,7 +148,7 @@ class _AutoAssignmentDialogState extends State<AutoAssignmentDialog> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          '月間シフト設定に従ってシフトを自動作成します。',
+                          'シフト割当て設定に従ってシフトを自動作成します。',
                           style: TextStyle(
                             fontSize: 13,
                             color: Colors.grey.shade800,
@@ -160,7 +160,7 @@ class _AutoAssignmentDialogState extends State<AutoAssignmentDialog> {
                           child: OutlinedButton.icon(
                             onPressed: () => _navigateToMonthlyShiftSettings(),
                             icon: const Icon(Icons.settings, size: 16),
-                            label: const Text('月間シフト設定を確認・変更'),
+                            label: const Text('シフト割当て設定を確認・変更'),
                             style: OutlinedButton.styleFrom(
                               padding: const EdgeInsets.symmetric(vertical: 8),
                             ),
@@ -597,7 +597,7 @@ class _AutoAssignmentDialogState extends State<AutoAssignmentDialog> {
     );
   }
 
-  /// 月間シフト設定画面へ遷移
+  /// シフト割当て設定画面へ遷移
   void _navigateToMonthlyShiftSettings() {
     final shiftTimeProvider = Provider.of<ShiftTimeProvider>(context, listen: false);
     final monthlyRequirementsProvider = Provider.of<MonthlyRequirementsProvider>(context, listen: false);
@@ -623,7 +623,7 @@ class _AutoAssignmentDialogState extends State<AutoAssignmentDialog> {
       builder: (dialogContext) => AlertDialog(
         title: const Text('必要人数が未設定です'),
         content: const Text(
-          '自動作成するには、月間シフト設定で各シフトタイプの必要人数を1以上に設定してください。',
+          '自動作成するには、シフト割当て設定で各シフトタイプの必要人数を1以上に設定してください。',
         ),
         actions: [
           TextButton(
@@ -643,7 +643,7 @@ class _AutoAssignmentDialogState extends State<AutoAssignmentDialog> {
       final shiftTimeProvider = Provider.of<ShiftTimeProvider>(context, listen: false);
       final monthlyRequirementsProvider = Provider.of<MonthlyRequirementsProvider>(context, listen: false);
 
-      // 自動作成ダイアログを閉じてから月間シフト設定画面へ遷移
+      // 自動作成ダイアログを閉じてからシフト割当て設定画面へ遷移
       Navigator.of(context).pop();
       Navigator.of(context).push(
         MaterialPageRoute(

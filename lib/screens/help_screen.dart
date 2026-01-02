@@ -1406,7 +1406,7 @@ class _HelpScreenState extends State<HelpScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       _buildStaffSettingItem(
-                        '月間シフト設定',
+                        'シフト割当て設定',
                         '各シフトタイプの必要人数を曜日ごとに設定します。自動割り当て時にこの人数分のスタッフが割り当てられます。曜日毎の設定や特定日のみ割り当てを変えることも可能です',
                       ),
                       _buildStaffSettingItem(
