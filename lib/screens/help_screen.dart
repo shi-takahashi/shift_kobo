@@ -1342,23 +1342,6 @@ class _HelpScreenState extends State<HelpScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // チーム画面へのアクセス
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: Colors.deepPurple.shade50,
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Text(
-                    '画面下部の「チーム」タブから開きます',
-                    style: TextStyle(
-                      fontSize: 13,
-                      color: Colors.grey.shade800,
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 16),
-
                 // 共有機能
                 Text(
                   '共有機能',
@@ -1424,7 +1407,7 @@ class _HelpScreenState extends State<HelpScreen> {
                     children: [
                       _buildStaffSettingItem(
                         '月間シフト設定',
-                        '各シフトタイプの必要人数を曜日ごとに設定します。自動割り当て時にこの人数分のスタッフが割り当てられます',
+                        '各シフトタイプの必要人数を曜日ごとに設定します。自動割り当て時にこの人数分のスタッフが割り当てられます。曜日毎の設定や特定日のみ割り当てを変えることも可能です',
                       ),
                       _buildStaffSettingItem(
                         'チーム休み設定',
