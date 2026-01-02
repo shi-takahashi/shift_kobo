@@ -42,7 +42,7 @@ class WelcomeDialog extends StatelessWidget {
             if (appUser.isAdmin) ...[
               const Text('1. スタッフ画面でスタッフを登録'),
               const SizedBox(height: 8),
-              const Text('2. チーム画面でシフト割当を設定'),
+              const Text('2. チーム画面でシフト時間と割当を設定'),
               const SizedBox(height: 8),
               const Text('3. カレンダー画面でシフトを自動作成'),
               const SizedBox(height: 8),
