@@ -3,8 +3,8 @@ import 'package:provider/provider.dart';
 
 import '../../services/auth_service.dart';
 import '../home_screen.dart';
-import 'signup_screen.dart';
 import 'role_selection_screen.dart';
+import 'signup_screen.dart';
 
 /// オンライン版からの新規ユーザー向けウェルカム画面
 class WelcomeScreen extends StatefulWidget {
@@ -91,7 +91,7 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
                     _FeatureItem(
                       icon: Icons.table_chart,
                       text: 'シフト表の出力',
-                      description: 'PNG・Excel形式で簡単に出力できます',
+                      description: 'PDF・PNG・Excel形式で簡単に出力できます',
                       color: Colors.blue,
                     ),
                     SizedBox(height: 8),
@@ -132,13 +132,15 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
 
               // サブボタン: アカウント作成（データ引き継ぎ目的）
               OutlinedButton.icon(
-                onPressed: _isLoading ? null : () {
-                  Navigator.of(context).pushReplacement(
-                    MaterialPageRoute(
-                      builder: (_) => const SignupScreen(),
-                    ),
-                  );
-                },
+                onPressed: _isLoading
+                    ? null
+                    : () {
+                        Navigator.of(context).pushReplacement(
+                          MaterialPageRoute(
+                            builder: (_) => const SignupScreen(),
+                          ),
+                        );
+                      },
                 icon: const Icon(Icons.app_registration),
                 label: const Text('アカウント登録'),
                 style: OutlinedButton.styleFrom(
@@ -163,13 +165,15 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
               // 戻るリンク
               Center(
                 child: TextButton.icon(
-                  onPressed: _isLoading ? null : () {
-                    Navigator.of(context).pushReplacement(
-                      MaterialPageRoute(
-                        builder: (_) => const RoleSelectionScreen(),
-                      ),
-                    );
-                  },
+                  onPressed: _isLoading
+                      ? null
+                      : () {
+                          Navigator.of(context).pushReplacement(
+                            MaterialPageRoute(
+                              builder: (_) => const RoleSelectionScreen(),
+                            ),
+                          );
+                        },
                   icon: const Icon(Icons.arrow_back, size: 18),
                   label: const Text('最初の画面に戻る'),
                 ),
