@@ -37,6 +37,7 @@ class _StaffEditDialogState extends State<StaffEditDialog> {
   late List<DateTime> _preferredDates; // 勤務希望日
   late bool _holidaysOff; // 祝日を休み希望とするか
   bool _showPastDaysOff = false; // 過去の休み希望日を表示するか
+  bool _showPastPreferredDates = false; // 過去の勤務希望日を表示するか
 
   // ロール管理用
   AppUser? _linkedUser;
@@ -680,8 +681,12 @@ class _StaffEditDialogState extends State<StaffEditDialog> {
     final now = DateTime.now();
     final firstDayOfCurrentMonth = DateTime(now.year, now.month, 1);
 
-    // 今月以降の希望日のみ表示
-    final displayPreferredDates = _preferredDates.where((date) => date.isAfter(firstDayOfCurrentMonth.subtract(const Duration(days: 1)))).toList();
+    // 表示する日付をフィルタリング
+    final displayPreferredDates =
+        _showPastPreferredDates ? _preferredDates : _preferredDates.where((date) => date.isAfter(firstDayOfCurrentMonth.subtract(const Duration(days: 1)))).toList();
+
+    // 過去の勤務希望日の件数
+    final pastCount = _preferredDates.where((date) => date.isBefore(firstDayOfCurrentMonth)).length;
 
     return Card(
       color: Colors.blue.shade50,
@@ -726,21 +731,44 @@ class _StaffEditDialogState extends State<StaffEditDialog> {
                 ),
               ],
             ),
+            if (pastCount > 0) ...[
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  Checkbox(
+                    value: _showPastPreferredDates,
+                    onChanged: (value) {
+                      setState(() {
+                        _showPastPreferredDates = value ?? false;
+                      });
+                    },
+                  ),
+                  Expanded(
+                    child: Text(
+                      '過去の勤務希望日も表示（${pastCount}件）',
+                      style: const TextStyle(fontSize: 13),
+                    ),
+                  ),
+                ],
+              ),
+            ],
             if (displayPreferredDates.isNotEmpty) ...[
               const SizedBox(height: 16),
               Wrap(
                 spacing: 8,
                 runSpacing: 8,
                 children: displayPreferredDates.map((date) {
+                  final isPast = date.isBefore(firstDayOfCurrentMonth);
                   return Chip(
                     label: Text(
                       DateFormat('M/d(E)', 'ja').format(date),
                       style: TextStyle(
                         fontSize: 12,
-                        color: Colors.blue.shade900,
+                        color: isPast ? Colors.grey : Colors.blue.shade900,
+                        decoration: isPast ? TextDecoration.lineThrough : null,
                       ),
                     ),
-                    backgroundColor: Colors.blue.shade100,
+                    backgroundColor: isPast ? Colors.grey.shade200 : Colors.blue.shade100,
                     side: BorderSide.none,
                     deleteIcon: const Icon(Icons.close, size: 16),
                     onDeleted: () {
@@ -751,10 +779,19 @@ class _StaffEditDialogState extends State<StaffEditDialog> {
                   );
                 }).toList(),
               ),
-            ] else ...[
+            ] else if (_preferredDates.isEmpty) ...[
               const SizedBox(height: 8),
               Text(
                 '設定されていません',
+                style: TextStyle(
+                  fontSize: 13,
+                  color: Colors.blue.shade700,
+                ),
+              ),
+            ] else ...[
+              const SizedBox(height: 8),
+              Text(
+                '今月以降の勤務希望日はありません',
                 style: TextStyle(
                   fontSize: 13,
                   color: Colors.blue.shade700,
