@@ -31,13 +31,14 @@ class StaffAdapter extends TypeAdapter<Staff> {
       specificDaysOff: (fields[11] as List?)?.cast<String>(),
       userId: fields[12] as String?,
       holidaysOff: fields[13] as bool,
+      preferredDates: (fields[14] as List?)?.cast<String>(),
     );
   }
 
   @override
   void write(BinaryWriter writer, Staff obj) {
     writer
-      ..writeByte(14)
+      ..writeByte(15)
       ..writeByte(0)
       ..write(obj.id)
       ..writeByte(1)
@@ -65,7 +66,9 @@ class StaffAdapter extends TypeAdapter<Staff> {
       ..writeByte(12)
       ..write(obj.userId)
       ..writeByte(13)
-      ..write(obj.holidaysOff);
+      ..write(obj.holidaysOff)
+      ..writeByte(14)
+      ..write(obj.preferredDates);
   }
 
   @override

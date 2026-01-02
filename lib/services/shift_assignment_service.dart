@@ -1,3 +1,5 @@
+import 'dart:math';
+
 import 'package:shift_kobo/models/assignment_strategy.dart';
 import 'package:shift_kobo/models/shift.dart';
 import 'package:shift_kobo/models/shift_constraint.dart';
@@ -7,6 +9,7 @@ import 'package:shift_kobo/models/team.dart';
 import 'package:shift_kobo/providers/shift_provider.dart';
 import 'package:shift_kobo/providers/shift_time_provider.dart';
 import 'package:shift_kobo/providers/staff_provider.dart';
+import 'package:shift_kobo/services/analytics_service.dart';
 import 'package:holiday_jp/holiday_jp.dart' as holiday_jp;
 
 class ShiftAssignmentService {
@@ -99,13 +102,38 @@ class ShiftAssignmentService {
     // デバッグ: スタッフ数を確認
     print('利用可能なスタッフ数: ${availableStaff.length}');
     for (var staff in availableStaff) {
-      print('スタッフ: ${staff.name}, 最大シフト数: ${staff.maxShiftsPerMonth}');
+      print('スタッフ: ${staff.name}, 最大シフト数: ${staff.maxShiftsPerMonth}, 勤務希望日: ${staff.preferredDates.length}件');
     }
 
     Map<String, int> staffShiftCounts = {};
     for (Staff staff in availableStaff) {
       staffShiftCounts[staff.id] = 0;
     }
+
+    // ========================================
+    // 第1段階: 勤務希望日を優先的に割り当て
+    // ========================================
+    print('=== 第1段階: 勤務希望日の割り当て開始 ===');
+    final preferredDateShifts = await _assignPreferredDates(
+      startDate,
+      endDate,
+      dailyShiftRequirements,
+      availableStaff,
+      staffShiftCounts,
+      team,
+      maxConsecutiveDays,
+      minRestHours,
+      strategy,
+      shiftIdCounter,
+    );
+    assignedShifts.addAll(preferredDateShifts);
+    shiftIdCounter += preferredDateShifts.length;
+    print('第1段階で割り当てられたシフト数: ${preferredDateShifts.length}');
+
+    // ========================================
+    // 第2段階: 残りのシフトを既存ロジックで割り当て
+    // ========================================
+    print('=== 第2段階: 残りシフトの割り当て開始 ===');
 
     DateTime currentDate = startDate;
     while (!currentDate.isAfter(endDate)) {
@@ -119,7 +147,17 @@ class ShiftAssignmentService {
       for (String shiftType in dailyShiftRequirements.keys) {
         int requiredStaffCount = dailyShiftRequirements[shiftType] ?? 0;
 
-        for (int i = 0; i < requiredStaffCount; i++) {
+        // この日のこのシフトタイプで既に割り当てられた人数をカウント
+        int alreadyAssigned = assignedShifts.where((shift) =>
+            shift.date.year == currentDate.year &&
+            shift.date.month == currentDate.month &&
+            shift.date.day == currentDate.day &&
+            shift.shiftType == shiftType).length;
+
+        // 残りの枠数分だけ割り当て
+        int remainingSlots = requiredStaffCount - alreadyAssigned;
+
+        for (int i = 0; i < remainingSlots; i++) {
           Staff? assignedStaff = _findBestStaffForShift(
             currentDate,
             shiftType,
@@ -163,6 +201,200 @@ class ShiftAssignmentService {
     }
 
     print('作成されたシフト数: ${assignedShifts.length}');
+    return assignedShifts;
+  }
+
+  /// 第1段階: 勤務希望日を優先的に割り当て
+  Future<List<Shift>> _assignPreferredDates(
+    DateTime startDate,
+    DateTime endDate,
+    Map<String, int> dailyShiftRequirements,
+    List<Staff> availableStaff,
+    Map<String, int> staffShiftCounts,
+    Team? team,
+    int maxConsecutiveDays,
+    int minRestHours,
+    AssignmentStrategy strategy,
+    int shiftIdCounter,
+  ) async {
+    List<Shift> assignedShifts = [];
+
+    // 勤務希望日を持つスタッフを抽出
+    List<Staff> staffWithPreferences = availableStaff.where((staff) => staff.preferredDates.isNotEmpty).toList();
+
+    if (staffWithPreferences.isEmpty) {
+      print('勤務希望日を設定しているスタッフはいません');
+      return assignedShifts;
+    }
+
+    // 各スタッフの希望日充足数を追跡（この生成内でのみ使用）
+    Map<String, int> preferredDateGrantedCount = {};
+    for (var staff in staffWithPreferences) {
+      preferredDateGrantedCount[staff.id] = 0;
+    }
+
+    // 日付ごとに希望者をグループ化
+    Map<DateTime, List<Staff>> preferencesByDate = {};
+
+    for (var staff in staffWithPreferences) {
+      for (var dateStr in staff.preferredDates) {
+        final date = DateTime.parse(dateStr);
+        final dateOnly = DateTime(date.year, date.month, date.day);
+
+        // 期間内の日付のみ対象
+        if (dateOnly.isBefore(startDate) || dateOnly.isAfter(endDate)) {
+          continue;
+        }
+
+        // チーム休みの日はスキップ
+        if (team != null && _isTeamHoliday(team, dateOnly)) {
+          continue;
+        }
+
+        // 勤務不可制約チェック
+        if (!_isStaffAvailableOnDate(staff, dateOnly)) {
+          print('${staff.name}の希望日 ${dateOnly.toString().split(' ')[0]} は勤務不可制約により除外');
+          continue;
+        }
+
+        preferencesByDate[dateOnly] ??= [];
+        preferencesByDate[dateOnly]!.add(staff);
+      }
+    }
+
+    // 各日付について割り当て処理
+    for (var entry in preferencesByDate.entries) {
+      final date = entry.key;
+      final candidates = entry.value;
+
+      // 各シフトタイプについて処理
+      for (String shiftType in dailyShiftRequirements.keys) {
+        int requiredStaffCount = dailyShiftRequirements[shiftType] ?? 0;
+
+        // この日のこのシフトタイプで既に割り当てられた人数
+        int alreadyAssigned = assignedShifts.where((shift) =>
+            shift.date.year == date.year &&
+            shift.date.month == date.month &&
+            shift.date.day == date.day &&
+            shift.shiftType == shiftType).length;
+
+        int remainingSlots = requiredStaffCount - alreadyAssigned;
+        if (remainingSlots <= 0) continue;
+
+        // 有効な候補者をフィルタリング
+        List<Staff> validCandidates = candidates.where((staff) {
+          // 月間最大シフト数チェック
+          if (staffShiftCounts[staff.id]! >= staff.maxShiftsPerMonth) {
+            return false;
+          }
+
+          // シフトタイプ制約をチェック
+          final oldShiftTypeName = _mapCustomToOldShiftType(shiftType);
+          if (staff.unavailableShiftTypes.contains(shiftType) || staff.unavailableShiftTypes.contains(oldShiftTypeName)) {
+            return false;
+          }
+
+          // 既にこの日にシフトがある場合は除外
+          bool hasShiftOnDate = assignedShifts.any((shift) =>
+              shift.staffId == staff.id &&
+              shift.date.year == date.year &&
+              shift.date.month == date.month &&
+              shift.date.day == date.day);
+          if (hasShiftOnDate) return false;
+
+          // 連続勤務日数チェック
+          if (_getConsecutiveWorkDays(staff.id, date, assignedShifts) >= maxConsecutiveDays) {
+            return false;
+          }
+
+          // 勤務間インターバルチェック
+          if (!_checkWorkInterval(staff.id, date, shiftType, assignedShifts, minRestHours)) {
+            return false;
+          }
+
+          return true;
+        }).toList();
+
+        if (validCandidates.isEmpty) continue;
+
+        // ハイブリッド方式で候補者をソート
+        final random = Random();
+        validCandidates.sort((a, b) {
+          // 1. 充足率で比較（低い方が優先）
+          final aPreferredCount = a.preferredDates.length;
+          final bPreferredCount = b.preferredDates.length;
+          final aGranted = preferredDateGrantedCount[a.id] ?? 0;
+          final bGranted = preferredDateGrantedCount[b.id] ?? 0;
+
+          final aRate = aPreferredCount > 0 ? aGranted / aPreferredCount : 0.0;
+          final bRate = bPreferredCount > 0 ? bGranted / bPreferredCount : 0.0;
+
+          if ((aRate - bRate).abs() > 0.001) {
+            return aRate.compareTo(bRate);
+          }
+
+          // 2. 希望日数で比較（少ない方が優先）
+          if (aPreferredCount != bPreferredCount) {
+            return aPreferredCount.compareTo(bPreferredCount);
+          }
+
+          // 3. ランダム
+          return random.nextInt(3) - 1;
+        });
+
+        // 枠数分だけ割り当て
+        int assignedCount = 0;
+        for (var staff in validCandidates) {
+          if (assignedCount >= remainingSlots) break;
+
+          final timeRange = _getShiftTimeRange(shiftType, date);
+          if (timeRange == null) continue;
+
+          shiftIdCounter++;
+          String uniqueId = 'auto_pref_${DateTime.now().millisecondsSinceEpoch}_$shiftIdCounter';
+          Shift newShift = Shift(
+            id: uniqueId,
+            date: date,
+            startTime: timeRange.$1,
+            endTime: timeRange.$2,
+            staffId: staff.id,
+            shiftType: shiftType,
+            assignmentStrategy: strategy.name,
+          );
+
+          print('【勤務希望日】シフト作成: ${staff.name} → ${date.toString().split(' ')[0]} $shiftType');
+
+          assignedShifts.add(newShift);
+          staffShiftCounts[staff.id] = (staffShiftCounts[staff.id] ?? 0) + 1;
+          preferredDateGrantedCount[staff.id] = (preferredDateGrantedCount[staff.id] ?? 0) + 1;
+          assignedCount++;
+        }
+      }
+    }
+
+    // Analyticsイベントを送信（希望日が設定されていた場合のみ）
+    if (staffWithPreferences.isNotEmpty) {
+      // 期間内の希望日総数を計算
+      int totalPreferences = 0;
+      for (var staff in staffWithPreferences) {
+        for (var dateStr in staff.preferredDates) {
+          final date = DateTime.parse(dateStr);
+          final dateOnly = DateTime(date.year, date.month, date.day);
+          if (!dateOnly.isBefore(startDate) && !dateOnly.isAfter(endDate)) {
+            totalPreferences++;
+          }
+        }
+      }
+
+      if (totalPreferences > 0) {
+        await AnalyticsService.logPreferredDatesAssigned(
+          totalPreferences: totalPreferences,
+          granted: assignedShifts.length,
+        );
+        print('勤務希望日: 総数=$totalPreferences, 割り当て=${assignedShifts.length}');
+      }
+    }
+
     return assignedShifts;
   }
 

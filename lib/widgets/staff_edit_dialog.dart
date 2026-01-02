@@ -8,6 +8,7 @@ import '../models/app_user.dart';
 import '../models/staff.dart';
 import '../providers/shift_time_provider.dart';
 import '../providers/staff_provider.dart';
+import '../services/analytics_service.dart';
 import '../services/auth_service.dart';
 import 'auth_gate.dart';
 
@@ -33,6 +34,7 @@ class _StaffEditDialogState extends State<StaffEditDialog> {
   late List<int> _selectedDaysOff;
   late List<String> _unavailableShiftTypes;
   late List<DateTime> _specificDaysOff;
+  late List<DateTime> _preferredDates; // 勤務希望日
   late bool _holidaysOff; // 祝日を休み希望とするか
   bool _showPastDaysOff = false; // 過去の休み希望日を表示するか
 
@@ -54,6 +56,7 @@ class _StaffEditDialogState extends State<StaffEditDialog> {
       _selectedDaysOff = List.from(widget.existingStaff!.preferredDaysOff);
       _unavailableShiftTypes = List.from(widget.existingStaff!.unavailableShiftTypes);
       _specificDaysOff = widget.existingStaff!.specificDaysOff.map((dateStr) => DateTime.parse(dateStr)).toList();
+      _preferredDates = widget.existingStaff!.preferredDates.map((dateStr) => DateTime.parse(dateStr)).toList();
       _holidaysOff = widget.existingStaff!.holidaysOff;
 
       // 紐付け済みの場合、ユーザー情報とロールを取得
@@ -67,6 +70,7 @@ class _StaffEditDialogState extends State<StaffEditDialog> {
       _selectedDaysOff = [];
       _unavailableShiftTypes = [];
       _specificDaysOff = [];
+      _preferredDates = [];
       _holidaysOff = false;
     }
   }
@@ -159,6 +163,8 @@ class _StaffEditDialogState extends State<StaffEditDialog> {
                         _buildDaysOffSection(),
                         const SizedBox(height: 24),
                         _buildSpecificDaysOffSection(),
+                        const SizedBox(height: 24),
+                        _buildPreferredDatesSection(),
                         const SizedBox(height: 24),
                         _buildUnavailableShiftTypesSection(),
                       ],
@@ -688,6 +694,121 @@ class _StaffEditDialogState extends State<StaffEditDialog> {
     );
   }
 
+  Widget _buildPreferredDatesSection() {
+    // 日付順にソート
+    _preferredDates.sort((a, b) => a.compareTo(b));
+
+    // 今月の最初の日を取得
+    final now = DateTime.now();
+    final firstDayOfCurrentMonth = DateTime(now.year, now.month, 1);
+
+    // 今月以降の希望日のみ表示
+    final displayPreferredDates = _preferredDates.where((date) => date.isAfter(firstDayOfCurrentMonth.subtract(const Duration(days: 1)))).toList();
+
+    return Card(
+      color: Colors.blue.shade50,
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Icon(Icons.favorite, color: Colors.blue.shade700, size: 20),
+                          const SizedBox(width: 8),
+                          Text(
+                            '勤務希望日',
+                            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                              color: Colors.blue.shade900,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        'シフトに入りたい日を設定',
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: Colors.blue.shade700,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                FilledButton.tonalIcon(
+                  onPressed: _showPreferredDatesDialog,
+                  icon: const Icon(Icons.edit_calendar, size: 18),
+                  label: const Text('設定'),
+                ),
+              ],
+            ),
+            if (displayPreferredDates.isNotEmpty) ...[
+              const SizedBox(height: 16),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: displayPreferredDates.map((date) {
+                  return Chip(
+                    label: Text(
+                      DateFormat('M/d(E)', 'ja').format(date),
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Colors.blue.shade900,
+                      ),
+                    ),
+                    backgroundColor: Colors.blue.shade100,
+                    side: BorderSide.none,
+                  );
+                }).toList(),
+              ),
+            ] else ...[
+              const SizedBox(height: 8),
+              Text(
+                '設定されていません',
+                style: TextStyle(
+                  fontSize: 13,
+                  color: Colors.blue.shade700,
+                ),
+              ),
+            ],
+            const SizedBox(height: 8),
+            Text(
+              '※ 勤務不可日・曜日と重なる場合は勤務不可が優先されます',
+              style: TextStyle(
+                fontSize: 11,
+                color: Colors.blue.shade600,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _showPreferredDatesDialog() async {
+    final result = await showDialog<List<DateTime>>(
+      context: context,
+      builder: (context) => _PreferredDatesDialog(
+        initialDates: _preferredDates,
+        unavailableDaysOff: _selectedDaysOff,
+        specificDaysOff: _specificDaysOff,
+        holidaysOff: _holidaysOff,
+      ),
+    );
+
+    if (result != null) {
+      setState(() {
+        _preferredDates = result;
+      });
+    }
+  }
+
   Widget _buildUnavailableShiftTypesSection() {
     final shiftTimeProvider = Provider.of<ShiftTimeProvider>(context, listen: false);
     final activeShiftTypes = shiftTimeProvider.settings.where((setting) => setting.isActive).map((setting) => setting.displayName).toList();
@@ -793,6 +914,7 @@ class _StaffEditDialogState extends State<StaffEditDialog> {
         preferredDaysOff: List.from(_selectedDaysOff),
         unavailableShiftTypes: List.from(_unavailableShiftTypes),
         specificDaysOff: _specificDaysOff.map((date) => DateTime(date.year, date.month, date.day).toIso8601String()).toList(),
+        preferredDates: _preferredDates.map((date) => DateTime(date.year, date.month, date.day).toIso8601String()).toList(),
         holidaysOff: _holidaysOff,
         isActive: widget.existingStaff!.isActive,
         createdAt: widget.existingStaff!.createdAt,
@@ -807,6 +929,11 @@ class _StaffEditDialogState extends State<StaffEditDialog> {
 
       // スタッフ情報を更新
       await staffProvider.updateStaff(updatedStaff);
+
+      // 勤務希望日が設定されている場合はAnalyticsイベントを送信
+      if (_preferredDates.isNotEmpty) {
+        await AnalyticsService.logPreferredDatesSet(count: _preferredDates.length);
+      }
 
       // ロール変更がある場合、AuthServiceで更新
       bool isSelfRoleChange = false;
@@ -887,12 +1014,18 @@ class _StaffEditDialogState extends State<StaffEditDialog> {
         preferredDaysOff: List.from(_selectedDaysOff),
         unavailableShiftTypes: List.from(_unavailableShiftTypes),
         specificDaysOff: _specificDaysOff.map((date) => DateTime(date.year, date.month, date.day).toIso8601String()).toList(),
+        preferredDates: _preferredDates.map((date) => DateTime(date.year, date.month, date.day).toIso8601String()).toList(),
         holidaysOff: _holidaysOff,
         isActive: true,
         createdAt: DateTime.now(),
       );
 
       await staffProvider.addStaff(staff);
+
+      // 勤務希望日が設定されている場合はAnalyticsイベントを送信
+      if (_preferredDates.isNotEmpty) {
+        await AnalyticsService.logPreferredDatesSet(count: _preferredDates.length);
+      }
 
       if (!mounted) return;
       Navigator.pop(context);
@@ -984,6 +1117,390 @@ class _StaffEditDialogState extends State<StaffEditDialog> {
           ),
         ],
       ),
+    );
+  }
+}
+
+/// 勤務希望日選択ダイアログ
+class _PreferredDatesDialog extends StatefulWidget {
+  final List<DateTime> initialDates;
+  final List<int> unavailableDaysOff; // 勤務不可曜日
+  final List<DateTime> specificDaysOff; // 勤務不可日
+  final bool holidaysOff; // 祝日を休み希望とするか
+
+  const _PreferredDatesDialog({
+    required this.initialDates,
+    required this.unavailableDaysOff,
+    required this.specificDaysOff,
+    required this.holidaysOff,
+  });
+
+  @override
+  State<_PreferredDatesDialog> createState() => _PreferredDatesDialogState();
+}
+
+class _PreferredDatesDialogState extends State<_PreferredDatesDialog> {
+  late List<DateTime> _selectedDates;
+  DateTime _focusedDay = DateTime.now();
+
+  @override
+  void initState() {
+    super.initState();
+    _selectedDates = List.from(widget.initialDates);
+  }
+
+  /// 日付が勤務不可日かどうかをチェック
+  bool _isUnavailableDate(DateTime date) {
+    // 勤務不可曜日チェック（1=月曜, 7=日曜）
+    final weekday = date.weekday;
+    if (widget.unavailableDaysOff.contains(weekday)) {
+      return true;
+    }
+
+    // 勤務不可日チェック
+    for (final offDate in widget.specificDaysOff) {
+      if (offDate.year == date.year && offDate.month == date.month && offDate.day == date.day) {
+        return true;
+      }
+    }
+
+    return false;
+  }
+
+  /// 日付が選択されているかどうかをチェック
+  bool _isSelectedDate(DateTime date) {
+    return _selectedDates.any((d) => d.year == date.year && d.month == date.month && d.day == date.day);
+  }
+
+  /// 日付の選択/解除
+  void _toggleDate(DateTime date) {
+    setState(() {
+      if (_isSelectedDate(date)) {
+        _selectedDates.removeWhere((d) => d.year == date.year && d.month == date.month && d.day == date.day);
+      } else {
+        _selectedDates.add(DateTime(date.year, date.month, date.day));
+      }
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Dialog(
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Container(
+        width: MediaQuery.of(context).size.width * 0.9,
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // ヘッダー
+            Row(
+              children: [
+                Icon(Icons.favorite, color: Colors.blue.shade700),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    '勤務希望日の設定',
+                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                      color: Colors.blue.shade900,
+                    ),
+                  ),
+                ),
+                IconButton(
+                  onPressed: () => Navigator.pop(context),
+                  icon: const Icon(Icons.close),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'シフトに入りたい日をタップして選択',
+              style: TextStyle(
+                fontSize: 13,
+                color: Colors.grey.shade600,
+              ),
+            ),
+            const SizedBox(height: 16),
+
+            // カレンダー
+            _buildCalendar(),
+
+            // 凡例
+            const SizedBox(height: 16),
+            _buildLegend(),
+
+            // 選択中の日付
+            if (_selectedDates.isNotEmpty) ...[
+              const SizedBox(height: 16),
+              _buildSelectedDates(),
+            ],
+
+            // ボタン
+            const SizedBox(height: 16),
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton(
+                    onPressed: () => Navigator.pop(context),
+                    child: const Text('キャンセル'),
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: FilledButton(
+                    onPressed: () => Navigator.pop(context, _selectedDates),
+                    child: const Text('保存'),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCalendar() {
+    final now = DateTime.now();
+    final firstDay = DateTime(now.year, now.month, 1);
+    final lastDay = DateTime(now.year + 1, now.month, 0);
+
+    return Container(
+      decoration: BoxDecoration(
+        border: Border.all(color: Colors.grey.shade300),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Column(
+        children: [
+          // 月切り替えヘッダー
+          Container(
+            padding: const EdgeInsets.symmetric(vertical: 8),
+            decoration: BoxDecoration(
+              color: Colors.grey.shade100,
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(8)),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                IconButton(
+                  onPressed: () {
+                    setState(() {
+                      _focusedDay = DateTime(_focusedDay.year, _focusedDay.month - 1);
+                      if (_focusedDay.isBefore(firstDay)) {
+                        _focusedDay = firstDay;
+                      }
+                    });
+                  },
+                  icon: const Icon(Icons.chevron_left),
+                ),
+                Text(
+                  DateFormat('yyyy年M月', 'ja').format(_focusedDay),
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                IconButton(
+                  onPressed: () {
+                    setState(() {
+                      _focusedDay = DateTime(_focusedDay.year, _focusedDay.month + 1);
+                      if (_focusedDay.isAfter(lastDay)) {
+                        _focusedDay = lastDay;
+                      }
+                    });
+                  },
+                  icon: const Icon(Icons.chevron_right),
+                ),
+              ],
+            ),
+          ),
+
+          // 曜日ヘッダー
+          Container(
+            padding: const EdgeInsets.symmetric(vertical: 8),
+            child: Row(
+              children: ['日', '月', '火', '水', '木', '金', '土'].map((day) {
+                final isWeekend = day == '日' || day == '土';
+                return Expanded(
+                  child: Center(
+                    child: Text(
+                      day,
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                        color: isWeekend ? Colors.red.shade400 : Colors.grey.shade700,
+                      ),
+                    ),
+                  ),
+                );
+              }).toList(),
+            ),
+          ),
+
+          // 日付グリッド
+          _buildDayGrid(),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDayGrid() {
+    final firstDayOfMonth = DateTime(_focusedDay.year, _focusedDay.month, 1);
+    final lastDayOfMonth = DateTime(_focusedDay.year, _focusedDay.month + 1, 0);
+    final daysInMonth = lastDayOfMonth.day;
+    final firstWeekday = firstDayOfMonth.weekday % 7; // 日曜を0に
+
+    final today = DateTime.now();
+    final todayOnly = DateTime(today.year, today.month, today.day);
+
+    List<Widget> rows = [];
+    List<Widget> currentRow = [];
+
+    // 前月の空白
+    for (int i = 0; i < firstWeekday; i++) {
+      currentRow.add(const Expanded(child: SizedBox()));
+    }
+
+    // 日付
+    for (int day = 1; day <= daysInMonth; day++) {
+      final date = DateTime(_focusedDay.year, _focusedDay.month, day);
+      final isToday = date.year == todayOnly.year && date.month == todayOnly.month && date.day == todayOnly.day;
+      final isPast = date.isBefore(todayOnly);
+      final isUnavailable = _isUnavailableDate(date);
+      final isSelected = _isSelectedDate(date);
+      final isWeekend = date.weekday == DateTime.sunday || date.weekday == DateTime.saturday;
+
+      currentRow.add(
+        Expanded(
+          child: GestureDetector(
+            onTap: (isPast || isUnavailable) ? null : () => _toggleDate(date),
+            child: Container(
+              margin: const EdgeInsets.all(2),
+              decoration: BoxDecoration(
+                color: isSelected
+                    ? Colors.blue.shade400
+                    : isUnavailable
+                        ? Colors.grey.shade200
+                        : null,
+                borderRadius: BorderRadius.circular(8),
+                border: isToday ? Border.all(color: Colors.blue.shade700, width: 2) : null,
+              ),
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              child: Center(
+                child: Text(
+                  day.toString(),
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: isToday ? FontWeight.bold : FontWeight.normal,
+                    color: isSelected
+                        ? Colors.white
+                        : isPast
+                            ? Colors.grey.shade400
+                            : isUnavailable
+                                ? Colors.grey.shade500
+                                : isWeekend
+                                    ? Colors.red.shade400
+                                    : Colors.black87,
+                    decoration: isUnavailable ? TextDecoration.lineThrough : null,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+
+      if (currentRow.length == 7) {
+        rows.add(Row(children: currentRow));
+        currentRow = [];
+      }
+    }
+
+    // 最後の行の空白を埋める
+    while (currentRow.isNotEmpty && currentRow.length < 7) {
+      currentRow.add(const Expanded(child: SizedBox()));
+    }
+    if (currentRow.isNotEmpty) {
+      rows.add(Row(children: currentRow));
+    }
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      child: Column(children: rows),
+    );
+  }
+
+  Widget _buildLegend() {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        _buildLegendItem(Colors.blue.shade400, '希望日'),
+        const SizedBox(width: 16),
+        _buildLegendItem(Colors.grey.shade300, '勤務不可'),
+      ],
+    );
+  }
+
+  Widget _buildLegendItem(Color color, String label) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: 16,
+          height: 16,
+          decoration: BoxDecoration(
+            color: color,
+            borderRadius: BorderRadius.circular(4),
+          ),
+        ),
+        const SizedBox(width: 4),
+        Text(
+          label,
+          style: const TextStyle(fontSize: 12),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildSelectedDates() {
+    final sortedDates = List<DateTime>.from(_selectedDates)..sort((a, b) => a.compareTo(b));
+    final now = DateTime.now();
+    final firstDayOfCurrentMonth = DateTime(now.year, now.month, 1);
+
+    // 今月以降のみ表示
+    final displayDates = sortedDates.where((date) => date.isAfter(firstDayOfCurrentMonth.subtract(const Duration(days: 1)))).toList();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          '選択中: ${displayDates.length}日',
+          style: TextStyle(
+            fontSize: 13,
+            fontWeight: FontWeight.bold,
+            color: Colors.blue.shade900,
+          ),
+        ),
+        const SizedBox(height: 8),
+        Wrap(
+          spacing: 6,
+          runSpacing: 6,
+          children: displayDates.map((date) {
+            return Chip(
+              label: Text(
+                DateFormat('M/d(E)', 'ja').format(date),
+                style: const TextStyle(fontSize: 11),
+              ),
+              deleteIcon: const Icon(Icons.close, size: 14),
+              onDeleted: () => _toggleDate(date),
+              padding: EdgeInsets.zero,
+              materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            );
+          }).toList(),
+        ),
+      ],
     );
   }
 }

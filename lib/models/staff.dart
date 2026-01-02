@@ -47,6 +47,9 @@ class Staff extends HiveObject {
   @HiveField(13)
   bool holidaysOff; // 祝日を休み希望とするか
 
+  @HiveField(14)
+  List<String> preferredDates = []; // 勤務希望日（ISO8601形式の日付文字列リスト）
+
   Staff({
     required this.id,
     required this.name,
@@ -62,11 +65,13 @@ class Staff extends HiveObject {
     List<String>? specificDaysOff,
     this.userId,
     this.holidaysOff = false, // デフォルトはチェックなし
+    List<String>? preferredDates,
   })  : preferredDaysOff = preferredDaysOff ?? [],
         createdAt = createdAt ?? DateTime.now() {
     this.constraints = constraints ?? [];
     this.unavailableShiftTypes = unavailableShiftTypes ?? [];
     this.specificDaysOff = specificDaysOff ?? [];
+    this.preferredDates = preferredDates ?? [];
   }
 
   Map<String, dynamic> toJson() {
@@ -83,6 +88,7 @@ class Staff extends HiveObject {
       'specificDaysOff': specificDaysOff,
       'userId': userId,
       'holidaysOff': holidaysOff,
+      'preferredDates': preferredDates,
     };
   }
 
@@ -100,6 +106,7 @@ class Staff extends HiveObject {
       specificDaysOff: List<String>.from(json['specificDaysOff'] ?? []),
       userId: json['userId'],
       holidaysOff: json['holidaysOff'] ?? false,
+      preferredDates: List<String>.from(json['preferredDates'] ?? []),
     );
   }
 }

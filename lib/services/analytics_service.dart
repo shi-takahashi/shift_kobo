@@ -80,4 +80,30 @@ class AnalyticsService {
       },
     );
   }
+
+  /// 勤務希望日を設定したイベント
+  static Future<void> logPreferredDatesSet({
+    required int count,
+  }) async {
+    await _analytics.logEvent(
+      name: 'preferred_dates_set',
+      parameters: {
+        'count': count,
+      },
+    );
+  }
+
+  /// 自動割り当てで勤務希望日が考慮されたイベント
+  static Future<void> logPreferredDatesAssigned({
+    required int totalPreferences,
+    required int granted,
+  }) async {
+    await _analytics.logEvent(
+      name: 'preferred_dates_assigned',
+      parameters: {
+        'total_preferences': totalPreferences,
+        'granted': granted,
+      },
+    );
+  }
 }
