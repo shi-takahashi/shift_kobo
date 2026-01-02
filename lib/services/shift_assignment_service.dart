@@ -101,6 +101,21 @@ class ShiftAssignmentService {
     List<Staff> availableStaff = staffProvider.activeStaffList;
     int shiftIdCounter = 0;
 
+    // 前月のシフトを取得（連続勤務日数・勤務間インターバルのチェック用）
+    // スタッフ個別設定の最大値を考慮して取得範囲を決定
+    // （個別設定がチーム設定より大きい場合があるため）
+    int effectiveMaxConsecutive = maxConsecutiveDays;
+    for (final staff in availableStaff) {
+      final staffMax = staff.maxConsecutiveDays;
+      if (staffMax != null && staffMax > effectiveMaxConsecutive) {
+        effectiveMaxConsecutive = staffMax;
+      }
+    }
+    final previousMonthEnd = startDate.subtract(const Duration(days: 1));
+    final previousMonthStart = startDate.subtract(Duration(days: effectiveMaxConsecutive + 1));
+    final previousMonthShifts = shiftProvider.getShiftsInRange(previousMonthStart, previousMonthEnd);
+    print('前月シフト取得: ${previousMonthStart.toString().split(' ')[0]} 〜 ${previousMonthEnd.toString().split(' ')[0]} (${previousMonthShifts.length}件, 最大連続日数=$effectiveMaxConsecutive)');
+
     // アクティブなシフトタイプ名のセットを取得
     final activeShiftTypeNames = shiftTimeProvider.settings
         .where((s) => s.isActive)
@@ -140,6 +155,7 @@ class ShiftAssignmentService {
       shiftIdCounter,
       requirementsProvider: requirementsProvider,
       activeShiftTypeNames: activeShiftTypeNames,
+      previousMonthShifts: previousMonthShifts,
     );
     assignedShifts.addAll(preferredDateShifts);
     shiftIdCounter += preferredDateShifts.length;
@@ -190,6 +206,7 @@ class ShiftAssignmentService {
             strategy,
             maxConsecutiveDays,
             minRestHours,
+            previousMonthShifts: previousMonthShifts,
           );
 
           if (assignedStaff != null) {
@@ -241,6 +258,7 @@ class ShiftAssignmentService {
     int shiftIdCounter, {
     MonthlyRequirementsProvider? requirementsProvider,
     Set<String>? activeShiftTypeNames,
+    List<Shift> previousMonthShifts = const [],
   }) async {
     List<Shift> assignedShifts = [];
 
@@ -337,15 +355,15 @@ class ShiftAssignmentService {
               shift.date.day == date.day);
           if (hasShiftOnDate) return false;
 
-          // 連続勤務日数チェック（個別設定を優先）
+          // 連続勤務日数チェック（個別設定を優先、前月も考慮）
           final effectiveMaxConsecutive = _getEffectiveMaxConsecutiveDays(staff, maxConsecutiveDays);
-          if (_getConsecutiveWorkDays(staff.id, date, assignedShifts) >= effectiveMaxConsecutive) {
+          if (_getConsecutiveWorkDays(staff.id, date, assignedShifts, previousMonthShifts) >= effectiveMaxConsecutive) {
             return false;
           }
 
-          // 勤務間インターバルチェック（個別設定を優先）
+          // 勤務間インターバルチェック（個別設定を優先、前月も考慮）
           final effectiveMinRest = _getEffectiveMinRestHours(staff, minRestHours);
-          if (!_checkWorkInterval(staff.id, date, shiftType, assignedShifts, effectiveMinRest)) {
+          if (!_checkWorkInterval(staff.id, date, shiftType, assignedShifts, effectiveMinRest, previousMonthShifts)) {
             return false;
           }
 
@@ -447,8 +465,9 @@ class ShiftAssignmentService {
     List<Shift> assignedShifts,
     AssignmentStrategy strategy,
     int maxConsecutiveDays,
-    int minRestHours,
-  ) {
+    int minRestHours, {
+    List<Shift> previousMonthShifts = const [],
+  }) {
     List<Staff> candidates = availableStaff.where((staff) {
       if (!_isStaffAvailableOnDate(staff, date)) {
         return false;
@@ -473,16 +492,16 @@ class ShiftAssignmentService {
         return false;
       }
 
-      // 連続勤務日数をチェック（個別設定を優先）
+      // 連続勤務日数をチェック（個別設定を優先、前月も考慮）
       final effectiveMaxConsecutive = _getEffectiveMaxConsecutiveDays(staff, maxConsecutiveDays);
-      if (_getConsecutiveWorkDays(staff.id, date, assignedShifts) >= effectiveMaxConsecutive) {
+      if (_getConsecutiveWorkDays(staff.id, date, assignedShifts, previousMonthShifts) >= effectiveMaxConsecutive) {
         print('${staff.name}は連続勤務日数制限($effectiveMaxConsecutive日)により除外');
         return false;
       }
 
-      // 勤務間インターバルをチェック（個別設定を優先）
+      // 勤務間インターバルをチェック（個別設定を優先、前月も考慮）
       final effectiveMinRest = _getEffectiveMinRestHours(staff, minRestHours);
-      if (!_checkWorkInterval(staff.id, date, shiftType, assignedShifts, effectiveMinRest)) {
+      if (!_checkWorkInterval(staff.id, date, shiftType, assignedShifts, effectiveMinRest, previousMonthShifts)) {
         print('${staff.name}は勤務間インターバル不足($effectiveMinRest時間必要)により除外');
         return false;
       }
@@ -700,13 +719,16 @@ class ShiftAssignmentService {
     return staff.minRestHours ?? teamMinRestHours;
   }
 
-  // 連続勤務日数を計算
-  int _getConsecutiveWorkDays(String staffId, DateTime date, List<Shift> assignedShifts) {
+  // 連続勤務日数を計算（前月のシフトも考慮）
+  int _getConsecutiveWorkDays(String staffId, DateTime date, List<Shift> assignedShifts, [List<Shift> previousMonthShifts = const []]) {
     int consecutiveDays = 0;
     DateTime checkDate = date.subtract(const Duration(days: 1));
 
+    // 今月のシフトと前月のシフトを結合してチェック
+    final allShifts = [...assignedShifts, ...previousMonthShifts];
+
     while (true) {
-      bool hasShift = assignedShifts.any(
+      bool hasShift = allShifts.any(
           (shift) => shift.staffId == staffId && shift.date.year == checkDate.year && shift.date.month == checkDate.month && shift.date.day == checkDate.day);
 
       if (!hasShift) break;
@@ -733,14 +755,17 @@ class ShiftAssignmentService {
     return date.difference(lastShiftDate).inDays;
   }
 
-  // 勤務間インターバルをチェック
-  bool _checkWorkInterval(String staffId, DateTime date, String shiftType, List<Shift> assignedShifts, int minRestHours) {
+  // 勤務間インターバルをチェック（前月のシフトも考慮）
+  bool _checkWorkInterval(String staffId, DateTime date, String shiftType, List<Shift> assignedShifts, int minRestHours, [List<Shift> previousMonthShifts = const []]) {
     // 前日と翌日のシフトをチェック
     DateTime previousDay = date.subtract(const Duration(days: 1));
     DateTime nextDay = date.add(const Duration(days: 1));
 
-    // 前日のシフトを取得
-    Shift? previousShift = assignedShifts
+    // 今月のシフトと前月のシフトを結合
+    final allShifts = [...assignedShifts, ...previousMonthShifts];
+
+    // 前日のシフトを取得（前月のシフトも含めてチェック）
+    Shift? previousShift = allShifts
         .where((shift) =>
             shift.staffId == staffId && shift.date.year == previousDay.year && shift.date.month == previousDay.month && shift.date.day == previousDay.day)
         .firstOrNull;
@@ -759,7 +784,9 @@ class ShiftAssignmentService {
 
     // 前日シフトとのインターバルチェック
     if (previousShift != null) {
-      if (!_hasValidInterval(previousShift.endTime, currentStart, minRestHours)) {
+      // 日をまたぐシフト（夜勤など）のendTimeを正しく調整
+      final adjustedEndTime = _adjustOvernightEndTime(previousShift);
+      if (!_hasValidInterval(adjustedEndTime, currentStart, minRestHours)) {
         return false;
       }
     }
@@ -772,6 +799,25 @@ class ShiftAssignmentService {
     }
 
     return true;
+  }
+
+  /// 日をまたぐシフトのendTimeを正しく調整する
+  /// endTimeがstartTimeより前の時間で、かつdateと同じ日付の場合、翌日として扱う
+  DateTime _adjustOvernightEndTime(Shift shift) {
+    final endTimeOfDay = shift.endTime.hour * 60 + shift.endTime.minute;
+    final startTimeOfDay = shift.startTime.hour * 60 + shift.startTime.minute;
+
+    // 終了時間が開始時間より前（日をまたぐシフト）
+    if (endTimeOfDay < startTimeOfDay) {
+      // endTimeの日付がshift.dateと同じ場合、翌日に調整
+      if (shift.endTime.year == shift.date.year &&
+          shift.endTime.month == shift.date.month &&
+          shift.endTime.day == shift.date.day) {
+        return shift.endTime.add(const Duration(days: 1));
+      }
+    }
+
+    return shift.endTime;
   }
 
   // 2つの時間の間に十分なインターバルがあるかチェック

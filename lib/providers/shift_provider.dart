@@ -268,6 +268,16 @@ class ShiftProvider extends ChangeNotifier {
     }).toList();
   }
 
+  /// 指定期間内のシフトを取得
+  List<Shift> getShiftsInRange(DateTime startDate, DateTime endDate) {
+    final start = DateTime(startDate.year, startDate.month, startDate.day);
+    final end = DateTime(endDate.year, endDate.month, endDate.day);
+    return _shifts.where((shift) {
+      final shiftDate = DateTime(shift.date.year, shift.date.month, shift.date.day);
+      return !shiftDate.isBefore(start) && !shiftDate.isAfter(end);
+    }).toList();
+  }
+
   List<Shift> getShiftsByStaffId(String staffId) {
     return _shifts.where((shift) => shift.staffId == staffId).toList();
   }
