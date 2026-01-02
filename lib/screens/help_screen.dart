@@ -1185,6 +1185,76 @@ class _HelpScreenState extends State<HelpScreen> {
                 ),
                 const SizedBox(height: 16),
 
+                // 個別制約設定
+                Text(
+                  '個別制約設定',
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.grey.shade800,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.purple.shade50,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _buildStaffSettingItem(
+                        '連続勤務日数上限',
+                        'このスタッフが連続して勤務できる最大日数を設定。空欄の場合はチーム設定が適用されます',
+                      ),
+                      _buildStaffSettingItem(
+                        '勤務間インターバル',
+                        '前のシフト終了から次のシフト開始までに必要な最低時間。空欄の場合はチーム設定が適用されます',
+                      ),
+                      const SizedBox(height: 8),
+                      Container(
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(6),
+                          border: Border.all(color: Colors.purple.shade200),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Icon(Icons.lightbulb_outline, color: Colors.purple.shade700, size: 16),
+                                const SizedBox(width: 6),
+                                Text(
+                                  '活用例',
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.purple.shade900,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 6),
+                            Text(
+                              '責任者やリーダーなど、シフトが埋まらない時に柔軟に対応できるスタッフに対して、チーム設定より緩い制約を設定できます。\n'
+                              '例: チーム設定が連続5日の場合、責任者だけ連続7日まで許可',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: Colors.grey.shade700,
+                                height: 1.4,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 16),
+
                 // スタッフの無効化・削除
                 Text(
                   'スタッフの無効化・削除',

@@ -54,6 +54,8 @@ class StaffProvider extends ChangeNotifier {
           userId: data['userId'],
           holidaysOff: data['holidaysOff'] ?? false,
           preferredDates: List<String>.from(data['preferredDates'] ?? []),
+          maxConsecutiveDays: data['maxConsecutiveDays'],
+          minRestHours: data['minRestHours'],
         );
       }).toList();
 
@@ -80,6 +82,8 @@ class StaffProvider extends ChangeNotifier {
       'specificDaysOff': staff.specificDaysOff,
       'holidaysOff': staff.holidaysOff,
       'preferredDates': staff.preferredDates,
+      'maxConsecutiveDays': staff.maxConsecutiveDays,
+      'minRestHours': staff.minRestHours,
       'createdAt': FieldValue.serverTimestamp(),
     };
 
@@ -115,6 +119,8 @@ class StaffProvider extends ChangeNotifier {
       'specificDaysOff': staff.specificDaysOff,
       'holidaysOff': staff.holidaysOff,
       'preferredDates': staff.preferredDates,
+      'maxConsecutiveDays': staff.maxConsecutiveDays,
+      'minRestHours': staff.minRestHours,
       'updatedAt': FieldValue.serverTimestamp(),
     };
 

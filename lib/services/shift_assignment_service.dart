@@ -302,13 +302,15 @@ class ShiftAssignmentService {
               shift.date.day == date.day);
           if (hasShiftOnDate) return false;
 
-          // 連続勤務日数チェック
-          if (_getConsecutiveWorkDays(staff.id, date, assignedShifts) >= maxConsecutiveDays) {
+          // 連続勤務日数チェック（個別設定を優先）
+          final effectiveMaxConsecutive = _getEffectiveMaxConsecutiveDays(staff, maxConsecutiveDays);
+          if (_getConsecutiveWorkDays(staff.id, date, assignedShifts) >= effectiveMaxConsecutive) {
             return false;
           }
 
-          // 勤務間インターバルチェック
-          if (!_checkWorkInterval(staff.id, date, shiftType, assignedShifts, minRestHours)) {
+          // 勤務間インターバルチェック（個別設定を優先）
+          final effectiveMinRest = _getEffectiveMinRestHours(staff, minRestHours);
+          if (!_checkWorkInterval(staff.id, date, shiftType, assignedShifts, effectiveMinRest)) {
             return false;
           }
 
@@ -436,15 +438,17 @@ class ShiftAssignmentService {
         return false;
       }
 
-      // 連続勤務日数をチェック
-      if (_getConsecutiveWorkDays(staff.id, date, assignedShifts) >= maxConsecutiveDays) {
-        print('${staff.name}は連続勤務日数制限により除外');
+      // 連続勤務日数をチェック（個別設定を優先）
+      final effectiveMaxConsecutive = _getEffectiveMaxConsecutiveDays(staff, maxConsecutiveDays);
+      if (_getConsecutiveWorkDays(staff.id, date, assignedShifts) >= effectiveMaxConsecutive) {
+        print('${staff.name}は連続勤務日数制限($effectiveMaxConsecutive日)により除外');
         return false;
       }
 
-      // 勤務間インターバルをチェック
-      if (!_checkWorkInterval(staff.id, date, shiftType, assignedShifts, minRestHours)) {
-        print('${staff.name}は勤務間インターバル不足により除外');
+      // 勤務間インターバルをチェック（個別設定を優先）
+      final effectiveMinRest = _getEffectiveMinRestHours(staff, minRestHours);
+      if (!_checkWorkInterval(staff.id, date, shiftType, assignedShifts, effectiveMinRest)) {
+        print('${staff.name}は勤務間インターバル不足($effectiveMinRest時間必要)により除外');
         return false;
       }
 
@@ -649,6 +653,16 @@ class ShiftAssignmentService {
           return 2;
       }
     }
+  }
+
+  /// スタッフの有効な連続勤務日数上限を取得（個別設定 > チーム設定）
+  int _getEffectiveMaxConsecutiveDays(Staff staff, int teamMaxConsecutiveDays) {
+    return staff.maxConsecutiveDays ?? teamMaxConsecutiveDays;
+  }
+
+  /// スタッフの有効な勤務間インターバルを取得（個別設定 > チーム設定）
+  int _getEffectiveMinRestHours(Staff staff, int teamMinRestHours) {
+    return staff.minRestHours ?? teamMinRestHours;
   }
 
   // 連続勤務日数を計算

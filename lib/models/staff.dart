@@ -50,6 +50,12 @@ class Staff extends HiveObject {
   @HiveField(14)
   List<String> preferredDates = []; // 勤務希望日（ISO8601形式の日付文字列リスト）
 
+  @HiveField(15)
+  int? maxConsecutiveDays; // 個別の連続勤務日数上限（nullならチーム設定を使用）
+
+  @HiveField(16)
+  int? minRestHours; // 個別の勤務間インターバル（nullならチーム設定を使用）
+
   Staff({
     required this.id,
     required this.name,
@@ -66,6 +72,8 @@ class Staff extends HiveObject {
     this.userId,
     this.holidaysOff = false, // デフォルトはチェックなし
     List<String>? preferredDates,
+    this.maxConsecutiveDays,
+    this.minRestHours,
   })  : preferredDaysOff = preferredDaysOff ?? [],
         createdAt = createdAt ?? DateTime.now() {
     this.constraints = constraints ?? [];
@@ -89,6 +97,8 @@ class Staff extends HiveObject {
       'userId': userId,
       'holidaysOff': holidaysOff,
       'preferredDates': preferredDates,
+      'maxConsecutiveDays': maxConsecutiveDays,
+      'minRestHours': minRestHours,
     };
   }
 
@@ -107,6 +117,8 @@ class Staff extends HiveObject {
       userId: json['userId'],
       holidaysOff: json['holidaysOff'] ?? false,
       preferredDates: List<String>.from(json['preferredDates'] ?? []),
+      maxConsecutiveDays: json['maxConsecutiveDays'],
+      minRestHours: json['minRestHours'],
     );
   }
 }

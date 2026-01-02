@@ -38,6 +38,10 @@ class _StaffEditDialogState extends State<StaffEditDialog> {
   late bool _holidaysOff; // 祝日を休み希望とするか
   bool _showPastDaysOff = false; // 過去の休み希望日を表示するか
   bool _showPastPreferredDates = false; // 過去の勤務希望日を表示するか
+  int? _maxConsecutiveDays; // 個別の連続勤務日数上限
+  int? _minRestHours; // 個別の勤務間インターバル
+  bool _useCustomMaxConsecutiveDays = false; // 個別連続勤務日数上限を使用するか
+  bool _useCustomMinRestHours = false; // 個別勤務間インターバルを使用するか
 
   // ロール管理用
   AppUser? _linkedUser;
@@ -59,6 +63,10 @@ class _StaffEditDialogState extends State<StaffEditDialog> {
       _specificDaysOff = widget.existingStaff!.specificDaysOff.map((dateStr) => DateTime.parse(dateStr)).toList();
       _preferredDates = widget.existingStaff!.preferredDates.map((dateStr) => DateTime.parse(dateStr)).toList();
       _holidaysOff = widget.existingStaff!.holidaysOff;
+      _maxConsecutiveDays = widget.existingStaff!.maxConsecutiveDays;
+      _minRestHours = widget.existingStaff!.minRestHours;
+      _useCustomMaxConsecutiveDays = widget.existingStaff!.maxConsecutiveDays != null;
+      _useCustomMinRestHours = widget.existingStaff!.minRestHours != null;
 
       // 紐付け済みの場合、ユーザー情報とロールを取得
       _loadUserRoleInfo();
@@ -168,6 +176,8 @@ class _StaffEditDialogState extends State<StaffEditDialog> {
                         _buildPreferredDatesSection(),
                         const SizedBox(height: 24),
                         _buildUnavailableShiftTypesSection(),
+                        const SizedBox(height: 24),
+                        _buildIndividualConstraintsSection(),
                       ],
                     ),
                   ),
@@ -682,8 +692,9 @@ class _StaffEditDialogState extends State<StaffEditDialog> {
     final firstDayOfCurrentMonth = DateTime(now.year, now.month, 1);
 
     // 表示する日付をフィルタリング
-    final displayPreferredDates =
-        _showPastPreferredDates ? _preferredDates : _preferredDates.where((date) => date.isAfter(firstDayOfCurrentMonth.subtract(const Duration(days: 1)))).toList();
+    final displayPreferredDates = _showPastPreferredDates
+        ? _preferredDates
+        : _preferredDates.where((date) => date.isAfter(firstDayOfCurrentMonth.subtract(const Duration(days: 1)))).toList();
 
     // 過去の勤務希望日の件数
     final pastCount = _preferredDates.where((date) => date.isBefore(firstDayOfCurrentMonth)).length;
@@ -709,8 +720,8 @@ class _StaffEditDialogState extends State<StaffEditDialog> {
                           Text(
                             '勤務希望日',
                             style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                              color: Colors.blue.shade900,
-                            ),
+                                  color: Colors.blue.shade900,
+                                ),
                           ),
                         ],
                       ),
@@ -718,8 +729,8 @@ class _StaffEditDialogState extends State<StaffEditDialog> {
                       Text(
                         'シフトに入りたい日を設定',
                         style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: Colors.blue.shade700,
-                        ),
+                              color: Colors.blue.shade700,
+                            ),
                       ),
                     ],
                   ),
@@ -892,6 +903,225 @@ class _StaffEditDialogState extends State<StaffEditDialog> {
     );
   }
 
+  Widget _buildIndividualConstraintsSection() {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(Icons.tune, color: Colors.purple.shade700, size: 20),
+                const SizedBox(width: 8),
+                Text(
+                  '個別制約設定',
+                  style: Theme.of(context).textTheme.titleMedium,
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'チーム設定より優先される個別の制約を設定',
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+            const SizedBox(height: 12),
+            // 連続勤務日数上限
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: _useCustomMaxConsecutiveDays ? Colors.purple.shade50 : Colors.grey.shade100,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      SizedBox(
+                        width: 24,
+                        height: 24,
+                        child: Checkbox(
+                          value: _useCustomMaxConsecutiveDays,
+                          onChanged: (value) {
+                            setState(() {
+                              _useCustomMaxConsecutiveDays = value ?? false;
+                              if (!_useCustomMaxConsecutiveDays) {
+                                _maxConsecutiveDays = null;
+                              }
+                            });
+                          },
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          '連続勤務日数上限を個別に設定',
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: _useCustomMaxConsecutiveDays ? Colors.purple.shade900 : Colors.grey.shade700,
+                            fontWeight: _useCustomMaxConsecutiveDays ? FontWeight.bold : FontWeight.normal,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  if (_useCustomMaxConsecutiveDays) ...[
+                    const SizedBox(height: 12),
+                    Row(
+                      children: [
+                        const SizedBox(width: 32),
+                        SizedBox(
+                          width: 100,
+                          child: TextFormField(
+                            initialValue: _maxConsecutiveDays?.toString() ?? '',
+                            decoration: const InputDecoration(
+                              hintText: '',
+                              suffixText: '日',
+                              border: OutlineInputBorder(),
+                              contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                              isDense: true,
+                            ),
+                            keyboardType: TextInputType.number,
+                            inputFormatters: [
+                              FilteringTextInputFormatter.digitsOnly,
+                            ],
+                            onChanged: (value) {
+                              setState(() {
+                                _maxConsecutiveDays = value.isEmpty ? null : int.tryParse(value);
+                              });
+                            },
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Text(
+                            'まで連続勤務可能',
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: Colors.grey.shade700,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ],
+              ),
+            ),
+            const SizedBox(height: 12),
+            // 勤務間インターバル
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: _useCustomMinRestHours ? Colors.purple.shade50 : Colors.grey.shade100,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      SizedBox(
+                        width: 24,
+                        height: 24,
+                        child: Checkbox(
+                          value: _useCustomMinRestHours,
+                          onChanged: (value) {
+                            setState(() {
+                              _useCustomMinRestHours = value ?? false;
+                              if (!_useCustomMinRestHours) {
+                                _minRestHours = null;
+                              }
+                            });
+                          },
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          '勤務間インターバルを個別に設定',
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: _useCustomMinRestHours ? Colors.purple.shade900 : Colors.grey.shade700,
+                            fontWeight: _useCustomMinRestHours ? FontWeight.bold : FontWeight.normal,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  if (_useCustomMinRestHours) ...[
+                    const SizedBox(height: 12),
+                    Row(
+                      children: [
+                        const SizedBox(width: 32),
+                        SizedBox(
+                          width: 100,
+                          child: TextFormField(
+                            initialValue: _minRestHours?.toString() ?? '',
+                            decoration: const InputDecoration(
+                              hintText: '',
+                              suffixText: '時間',
+                              border: OutlineInputBorder(),
+                              contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                              isDense: true,
+                            ),
+                            keyboardType: TextInputType.number,
+                            inputFormatters: [
+                              FilteringTextInputFormatter.digitsOnly,
+                            ],
+                            onChanged: (value) {
+                              setState(() {
+                                _minRestHours = value.isEmpty ? null : int.tryParse(value);
+                              });
+                            },
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Text(
+                            '以上空ける',
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: Colors.grey.shade700,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ],
+              ),
+            ),
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.purple.shade50,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.info_outline, color: Colors.purple.shade700, size: 18),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      '責任者などが他のスタッフより柔軟に勤務できるように設定できます',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Colors.purple.shade900,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildActionButtons() {
     return Row(
       children: [
@@ -947,6 +1177,8 @@ class _StaffEditDialogState extends State<StaffEditDialog> {
         isActive: widget.existingStaff!.isActive,
         createdAt: widget.existingStaff!.createdAt,
         userId: widget.existingStaff!.userId,
+        maxConsecutiveDays: _useCustomMaxConsecutiveDays ? _maxConsecutiveDays : null,
+        minRestHours: _useCustomMinRestHours ? _minRestHours : null,
       );
 
       // ロール変更がある場合、確認ダイアログを表示
@@ -1050,6 +1282,8 @@ class _StaffEditDialogState extends State<StaffEditDialog> {
         holidaysOff: _holidaysOff,
         isActive: true,
         createdAt: DateTime.now(),
+        maxConsecutiveDays: _useCustomMaxConsecutiveDays ? _maxConsecutiveDays : null,
+        minRestHours: _useCustomMinRestHours ? _minRestHours : null,
       );
 
       await staffProvider.addStaff(staff);
@@ -1240,8 +1474,8 @@ class _PreferredDatesDialogState extends State<_PreferredDatesDialog> {
                   child: Text(
                     '勤務希望日の設定',
                     style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                      color: Colors.blue.shade900,
-                    ),
+                          color: Colors.blue.shade900,
+                        ),
                   ),
                 ),
                 IconButton(
@@ -1600,8 +1834,8 @@ class _SpecificDaysOffDialogState extends State<_SpecificDaysOffDialog> {
                   child: Text(
                     '休み希望日の設定',
                     style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                      color: Colors.orange.shade900,
-                    ),
+                          color: Colors.orange.shade900,
+                        ),
                   ),
                 ),
                 IconButton(
