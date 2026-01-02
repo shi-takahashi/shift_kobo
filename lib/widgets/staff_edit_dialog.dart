@@ -589,32 +589,10 @@ class _StaffEditDialogState extends State<StaffEditDialog> {
                     ],
                   ),
                 ),
-                IconButton.filled(
-                  onPressed: () async {
-                    final selectedDate = await showDatePicker(
-                      context: context,
-                      initialDate: DateTime.now(),
-                      firstDate: DateTime.now(),
-                      lastDate: DateTime.now().add(const Duration(days: 365)),
-                      locale: const Locale('ja'),
-                    );
-
-                    if (selectedDate != null) {
-                      setState(() {
-                        // 日付のみを保存（時刻は00:00:00）
-                        final dateOnly = DateTime(
-                          selectedDate.year,
-                          selectedDate.month,
-                          selectedDate.day,
-                        );
-                        if (!_specificDaysOff.any((d) => d.year == dateOnly.year && d.month == dateOnly.month && d.day == dateOnly.day)) {
-                          _specificDaysOff.add(dateOnly);
-                        }
-                      });
-                    }
-                  },
-                  icon: const Icon(Icons.add, size: 20),
-                  tooltip: '休み希望日を追加',
+                FilledButton.tonalIcon(
+                  onPressed: _showSpecificDaysOffDialog,
+                  icon: const Icon(Icons.edit_calendar, size: 18),
+                  label: const Text('設定'),
                 ),
               ],
             ),
@@ -648,7 +626,7 @@ class _StaffEditDialogState extends State<StaffEditDialog> {
                   final isPast = date.isBefore(firstDayOfCurrentMonth);
                   return Chip(
                     label: Text(
-                      DateFormat('yyyy/MM/dd(E)', 'ja').format(date),
+                      DateFormat('M/d(E)', 'ja').format(date),
                       style: TextStyle(
                         fontSize: 12,
                         color: isPast ? Colors.grey : null,
@@ -764,6 +742,12 @@ class _StaffEditDialogState extends State<StaffEditDialog> {
                     ),
                     backgroundColor: Colors.blue.shade100,
                     side: BorderSide.none,
+                    deleteIcon: const Icon(Icons.close, size: 16),
+                    onDeleted: () {
+                      setState(() {
+                        _preferredDates.remove(date);
+                      });
+                    },
                   );
                 }).toList(),
               ),
@@ -779,6 +763,14 @@ class _StaffEditDialogState extends State<StaffEditDialog> {
             ],
             const SizedBox(height: 8),
             Text(
+              '※ 他のスタッフの希望日との兼ね合いで、必ずしも希望通りになるとは限りません',
+              style: TextStyle(
+                fontSize: 11,
+                color: Colors.blue.shade600,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
               '※ 勤務不可日・曜日と重なる場合は勤務不可が優先されます',
               style: TextStyle(
                 fontSize: 11,
@@ -789,6 +781,21 @@ class _StaffEditDialogState extends State<StaffEditDialog> {
         ),
       ),
     );
+  }
+
+  Future<void> _showSpecificDaysOffDialog() async {
+    final result = await showDialog<List<DateTime>>(
+      context: context,
+      builder: (context) => _SpecificDaysOffDialog(
+        initialDates: _specificDaysOff,
+      ),
+    );
+
+    if (result != null) {
+      setState(() {
+        _specificDaysOff = result;
+      });
+    }
   }
 
   Future<void> _showPreferredDatesDialog() async {
@@ -1489,6 +1496,356 @@ class _PreferredDatesDialogState extends State<_PreferredDatesDialog> {
             fontSize: 13,
             fontWeight: FontWeight.bold,
             color: Colors.blue.shade900,
+          ),
+        ),
+        const SizedBox(height: 8),
+        Wrap(
+          spacing: 6,
+          runSpacing: 6,
+          children: displayDates.map((date) {
+            return Chip(
+              label: Text(
+                DateFormat('M/d(E)', 'ja').format(date),
+                style: const TextStyle(fontSize: 11),
+              ),
+              deleteIcon: const Icon(Icons.close, size: 14),
+              onDeleted: () => _toggleDate(date),
+              padding: EdgeInsets.zero,
+              materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            );
+          }).toList(),
+        ),
+      ],
+    );
+  }
+}
+
+/// 休み希望日（特定日）選択ダイアログ
+class _SpecificDaysOffDialog extends StatefulWidget {
+  final List<DateTime> initialDates;
+
+  const _SpecificDaysOffDialog({
+    required this.initialDates,
+  });
+
+  @override
+  State<_SpecificDaysOffDialog> createState() => _SpecificDaysOffDialogState();
+}
+
+class _SpecificDaysOffDialogState extends State<_SpecificDaysOffDialog> {
+  late List<DateTime> _selectedDates;
+  DateTime _focusedDay = DateTime.now();
+
+  @override
+  void initState() {
+    super.initState();
+    _selectedDates = List.from(widget.initialDates);
+  }
+
+  /// 日付が選択されているかどうかをチェック
+  bool _isSelectedDate(DateTime date) {
+    return _selectedDates.any((d) => d.year == date.year && d.month == date.month && d.day == date.day);
+  }
+
+  /// 日付の選択/解除
+  void _toggleDate(DateTime date) {
+    setState(() {
+      if (_isSelectedDate(date)) {
+        _selectedDates.removeWhere((d) => d.year == date.year && d.month == date.month && d.day == date.day);
+      } else {
+        _selectedDates.add(DateTime(date.year, date.month, date.day));
+      }
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Dialog(
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Container(
+        width: MediaQuery.of(context).size.width * 0.9,
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // ヘッダー
+            Row(
+              children: [
+                Icon(Icons.event_busy, color: Colors.orange.shade700),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    '休み希望日の設定',
+                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                      color: Colors.orange.shade900,
+                    ),
+                  ),
+                ),
+                IconButton(
+                  onPressed: () => Navigator.pop(context),
+                  icon: const Icon(Icons.close),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Text(
+              '休みを希望する日をタップして選択',
+              style: TextStyle(
+                fontSize: 13,
+                color: Colors.grey.shade600,
+              ),
+            ),
+            const SizedBox(height: 16),
+
+            // カレンダー
+            _buildCalendar(),
+
+            // 凡例
+            const SizedBox(height: 16),
+            _buildLegend(),
+
+            // 選択中の日付
+            if (_selectedDates.isNotEmpty) ...[
+              const SizedBox(height: 16),
+              _buildSelectedDates(),
+            ],
+
+            // ボタン
+            const SizedBox(height: 16),
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton(
+                    onPressed: () => Navigator.pop(context),
+                    child: const Text('キャンセル'),
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: FilledButton(
+                    onPressed: () => Navigator.pop(context, _selectedDates),
+                    child: const Text('保存'),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCalendar() {
+    final now = DateTime.now();
+    final firstDay = DateTime(now.year, now.month, 1);
+    final lastDay = DateTime(now.year + 1, now.month, 0);
+
+    return Container(
+      decoration: BoxDecoration(
+        border: Border.all(color: Colors.grey.shade300),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Column(
+        children: [
+          // 月切り替えヘッダー
+          Container(
+            padding: const EdgeInsets.symmetric(vertical: 8),
+            decoration: BoxDecoration(
+              color: Colors.grey.shade100,
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(8)),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                IconButton(
+                  onPressed: () {
+                    setState(() {
+                      _focusedDay = DateTime(_focusedDay.year, _focusedDay.month - 1);
+                      if (_focusedDay.isBefore(firstDay)) {
+                        _focusedDay = firstDay;
+                      }
+                    });
+                  },
+                  icon: const Icon(Icons.chevron_left),
+                ),
+                Text(
+                  DateFormat('yyyy年M月', 'ja').format(_focusedDay),
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                IconButton(
+                  onPressed: () {
+                    setState(() {
+                      _focusedDay = DateTime(_focusedDay.year, _focusedDay.month + 1);
+                      if (_focusedDay.isAfter(lastDay)) {
+                        _focusedDay = lastDay;
+                      }
+                    });
+                  },
+                  icon: const Icon(Icons.chevron_right),
+                ),
+              ],
+            ),
+          ),
+
+          // 曜日ヘッダー
+          Container(
+            padding: const EdgeInsets.symmetric(vertical: 8),
+            child: Row(
+              children: ['日', '月', '火', '水', '木', '金', '土'].map((day) {
+                final isWeekend = day == '日' || day == '土';
+                return Expanded(
+                  child: Center(
+                    child: Text(
+                      day,
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                        color: isWeekend ? Colors.red.shade400 : Colors.grey.shade700,
+                      ),
+                    ),
+                  ),
+                );
+              }).toList(),
+            ),
+          ),
+
+          // 日付グリッド
+          _buildDayGrid(),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDayGrid() {
+    final firstDayOfMonth = DateTime(_focusedDay.year, _focusedDay.month, 1);
+    final lastDayOfMonth = DateTime(_focusedDay.year, _focusedDay.month + 1, 0);
+    final daysInMonth = lastDayOfMonth.day;
+    final firstWeekday = firstDayOfMonth.weekday % 7; // 日曜を0に
+
+    final today = DateTime.now();
+    final todayOnly = DateTime(today.year, today.month, today.day);
+
+    List<Widget> rows = [];
+    List<Widget> currentRow = [];
+
+    // 前月の空白
+    for (int i = 0; i < firstWeekday; i++) {
+      currentRow.add(const Expanded(child: SizedBox()));
+    }
+
+    // 日付
+    for (int day = 1; day <= daysInMonth; day++) {
+      final date = DateTime(_focusedDay.year, _focusedDay.month, day);
+      final isToday = date.year == todayOnly.year && date.month == todayOnly.month && date.day == todayOnly.day;
+      final isPast = date.isBefore(todayOnly);
+      final isSelected = _isSelectedDate(date);
+      final isWeekend = date.weekday == DateTime.sunday || date.weekday == DateTime.saturday;
+
+      currentRow.add(
+        Expanded(
+          child: GestureDetector(
+            onTap: isPast ? null : () => _toggleDate(date),
+            child: Container(
+              margin: const EdgeInsets.all(2),
+              decoration: BoxDecoration(
+                color: isSelected ? Colors.orange.shade400 : null,
+                borderRadius: BorderRadius.circular(8),
+                border: isToday ? Border.all(color: Colors.orange.shade700, width: 2) : null,
+              ),
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              child: Center(
+                child: Text(
+                  day.toString(),
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: isToday ? FontWeight.bold : FontWeight.normal,
+                    color: isSelected
+                        ? Colors.white
+                        : isPast
+                            ? Colors.grey.shade400
+                            : isWeekend
+                                ? Colors.red.shade400
+                                : Colors.black87,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+
+      if (currentRow.length == 7) {
+        rows.add(Row(children: currentRow));
+        currentRow = [];
+      }
+    }
+
+    // 最後の行の空白を埋める
+    while (currentRow.isNotEmpty && currentRow.length < 7) {
+      currentRow.add(const Expanded(child: SizedBox()));
+    }
+    if (currentRow.isNotEmpty) {
+      rows.add(Row(children: currentRow));
+    }
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      child: Column(children: rows),
+    );
+  }
+
+  Widget _buildLegend() {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        _buildLegendItem(Colors.orange.shade400, '休み希望日'),
+      ],
+    );
+  }
+
+  Widget _buildLegendItem(Color color, String label) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: 16,
+          height: 16,
+          decoration: BoxDecoration(
+            color: color,
+            borderRadius: BorderRadius.circular(4),
+          ),
+        ),
+        const SizedBox(width: 4),
+        Text(
+          label,
+          style: const TextStyle(fontSize: 12),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildSelectedDates() {
+    final sortedDates = List<DateTime>.from(_selectedDates)..sort((a, b) => a.compareTo(b));
+    final now = DateTime.now();
+    final firstDayOfCurrentMonth = DateTime(now.year, now.month, 1);
+
+    // 今月以降のみ表示
+    final displayDates = sortedDates.where((date) => date.isAfter(firstDayOfCurrentMonth.subtract(const Duration(days: 1)))).toList();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          '選択中: ${displayDates.length}日',
+          style: TextStyle(
+            fontSize: 13,
+            fontWeight: FontWeight.bold,
+            color: Colors.orange.shade900,
           ),
         ),
         const SizedBox(height: 8),
