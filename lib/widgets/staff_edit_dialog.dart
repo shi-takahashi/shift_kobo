@@ -798,22 +798,6 @@ class _StaffEditDialogState extends State<StaffEditDialog> {
                 ),
               ),
             ],
-            const SizedBox(height: 8),
-            Text(
-              '※ 他のスタッフの希望日との兼ね合いで、必ずしも希望通りになるとは限りません',
-              style: TextStyle(
-                fontSize: 11,
-                color: Colors.blue.shade600,
-              ),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              '※ 勤務不可日・曜日と重なる場合は勤務不可が優先されます',
-              style: TextStyle(
-                fontSize: 11,
-                color: Colors.blue.shade600,
-              ),
-            ),
           ],
         ),
       ),

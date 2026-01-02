@@ -36,6 +36,10 @@ class _HelpScreenState extends State<HelpScreen> {
           const SizedBox(height: 16),
           _buildCalendarOperationsCard(),
           const SizedBox(height: 16),
+          _buildStaffOperationsCard(),
+          const SizedBox(height: 16),
+          _buildTeamOperationsCard(),
+          const SizedBox(height: 16),
           _buildInviteMembersCard(),
           const SizedBox(height: 24),
           _buildSectionTitle('スタッフ向け（アプリ参加者）'),
@@ -971,6 +975,418 @@ class _HelpScreenState extends State<HelpScreen> {
                         style: TextStyle(
                           fontSize: 12,
                           color: Colors.grey.shade600,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStaffOperationsCard() {
+    return Card(
+      elevation: 2,
+      child: ExpansionTile(
+        leading: const Icon(Icons.people, color: Colors.indigo),
+        title: const Text(
+          'スタッフ画面の操作',
+          style: TextStyle(fontWeight: FontWeight.bold),
+        ),
+        children: [
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // スタッフの追加・編集
+                Text(
+                  'スタッフを追加・編集する',
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.grey.shade800,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.indigo.shade50,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        '追加：「スタッフ」タブ > 「スタッフを追加」ボタン',
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: Colors.grey.shade800,
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        '編集：スタッフ一覧から該当スタッフをタップ',
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: Colors.grey.shade800,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 16),
+
+                // 基本情報
+                Text(
+                  '基本情報',
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.grey.shade800,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                _buildStaffSettingItem(
+                  '名前',
+                  'シフト表に表示される名前です',
+                ),
+                _buildStaffSettingItem(
+                  '電話番号・メールアドレス',
+                  '任意。メールアドレスを入力すると、同じアドレスでアプリに参加したスタッフと自動紐付けされます',
+                ),
+                _buildStaffSettingItem(
+                  '月間最大シフト数',
+                  '0にすると自動割り当ての対象外になります（手動では追加可能）',
+                ),
+                const SizedBox(height: 16),
+
+                // 休み希望
+                Text(
+                  '休み希望の設定',
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.grey.shade800,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.orange.shade50,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _buildStaffSettingItem(
+                        '休み希望曜日',
+                        '毎週決まった曜日に休みを希望する場合に設定',
+                      ),
+                      _buildStaffSettingItem(
+                        '祝日を休み希望とする',
+                        'チェックすると祝日を自動的に休み希望として扱います',
+                      ),
+                      _buildStaffSettingItem(
+                        '休み希望日（特定日）',
+                        '特定の日付で休みを希望する場合に設定。「設定」ボタンからカレンダーで複数日を選択できます',
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 16),
+
+                // 勤務希望日
+                Text(
+                  '勤務希望日の設定',
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.grey.shade800,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.blue.shade50,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _buildStaffSettingItem(
+                        '勤務希望日',
+                        'シフトに入りたい日を設定。「設定」ボタンからカレンダーで複数日を選択できます',
+                      ),
+                      const SizedBox(height: 8),
+                      Container(
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(6),
+                          border: Border.all(color: Colors.blue.shade200),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Icon(Icons.info_outline, color: Colors.blue.shade700, size: 16),
+                                const SizedBox(width: 6),
+                                Text(
+                                  '勤務希望日の注意点',
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.blue.shade900,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 6),
+                            Text(
+                              '• 他のスタッフの希望日との兼ね合いで、必ずしも希望通りになるとは限りません\n'
+                              '• 休み希望（曜日・特定日・祝日）と重なる場合は、休み希望が優先されます\n'
+                              '• 自動割り当て時に考慮され、できるだけ公平に割り振られます',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: Colors.grey.shade700,
+                                height: 1.4,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 16),
+
+                // 勤務不可シフトタイプ
+                Text(
+                  '勤務不可シフトタイプ',
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.grey.shade800,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                _buildStaffSettingItem(
+                  '',
+                  '特定のシフトタイプ（早番、遅番など）に入れないスタッフの場合に設定。選択したシフトタイプは自動割り当ての対象外になります',
+                ),
+                const SizedBox(height: 16),
+
+                // スタッフの無効化・削除
+                Text(
+                  'スタッフの無効化・削除',
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.grey.shade800,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.red.shade50,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'スタッフ一覧で該当スタッフの「︙」メニューから操作できます',
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: Colors.grey.shade800,
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      _buildStaffSettingItem(
+                        '無効化',
+                        '一時的にシフト割り当ての対象外にします。スタッフ情報は残り、後から有効に戻せます',
+                      ),
+                      _buildStaffSettingItem(
+                        '削除',
+                        'スタッフ情報を完全に削除します。アプリ利用中のスタッフの場合はアカウントも削除されます',
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStaffSettingItem(String title, String description) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (title.isNotEmpty)
+            Text(
+              title,
+              style: const TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          Text(
+            description,
+            style: TextStyle(
+              fontSize: 12,
+              color: Colors.grey.shade700,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTeamOperationsCard() {
+    return Card(
+      elevation: 2,
+      child: ExpansionTile(
+        leading: const Icon(Icons.groups, color: Colors.deepPurple),
+        title: const Text(
+          'チーム画面の操作',
+          style: TextStyle(fontWeight: FontWeight.bold),
+        ),
+        children: [
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // チーム画面へのアクセス
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.deepPurple.shade50,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Text(
+                    '画面下部の「チーム」タブから開きます',
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: Colors.grey.shade800,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+
+                // 共有機能
+                Text(
+                  '共有機能',
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.grey.shade800,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                _buildStaffSettingItem(
+                  'チーム招待',
+                  'スタッフをチームに招待します。詳しくは「チーム共有機能について」をご覧ください',
+                ),
+                const SizedBox(height: 16),
+
+                // 基本設定
+                Text(
+                  '基本設定',
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.grey.shade800,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.teal.shade50,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _buildStaffSettingItem(
+                        'シフト時間設定',
+                        '各シフトタイプ（早番、遅番など）の開始・終了時間、表示名を設定します。使わないシフトタイプは無効にできます',
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 16),
+
+                // 自動シフト作成
+                Text(
+                  '自動シフト作成',
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.grey.shade800,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.blue.shade50,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _buildStaffSettingItem(
+                        '月間シフト設定',
+                        '各シフトタイプの必要人数を曜日ごとに設定します。自動割り当て時にこの人数分のスタッフが割り当てられます',
+                      ),
+                      _buildStaffSettingItem(
+                        'チーム休み設定',
+                        'チーム全体の休みを設定します。曜日（毎週○曜定休）、祝日、特定日（年末年始など）を指定できます。設定した日は自動割り当ての対象外になります',
+                      ),
+                      _buildStaffSettingItem(
+                        '制約条件設定',
+                        '連続勤務日数の上限と、勤務間インターバル（前のシフト終了から次のシフト開始までの最低時間）を設定します',
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: Colors.orange.shade50,
+                    borderRadius: BorderRadius.circular(6),
+                    border: Border.all(color: Colors.orange.shade200),
+                  ),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Icon(Icons.lightbulb_outline, color: Colors.orange.shade700, size: 16),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          'これらの設定は自動割り当て時に適用されます。手動でシフトを追加する場合は制約に関係なく追加できます',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Colors.orange.shade900,
+                          ),
                         ),
                       ),
                     ],
