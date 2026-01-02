@@ -13,6 +13,7 @@ import '../models/shift_plan.dart';
 import '../models/shift_time_setting.dart';
 import '../models/shift_type.dart' as old_shift_type;
 import '../models/staff.dart';
+import '../providers/constraint_request_provider.dart';
 import '../providers/monthly_requirements_provider.dart';
 import '../providers/shift_provider.dart';
 import '../providers/shift_time_provider.dart';
@@ -1032,6 +1033,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
     final staffProvider = context.read<StaffProvider>();
     final shiftTimeProvider = context.read<ShiftTimeProvider>();
     final monthlyRequirementsProvider = context.read<MonthlyRequirementsProvider>();
+    final constraintRequestProvider = context.read<ConstraintRequestProvider>();
 
     showDialog<bool>(
       context: context,
@@ -1042,6 +1044,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
           ChangeNotifierProvider<StaffProvider>.value(value: staffProvider),
           ChangeNotifierProvider<ShiftTimeProvider>.value(value: shiftTimeProvider),
           ChangeNotifierProvider<MonthlyRequirementsProvider>.value(value: monthlyRequirementsProvider),
+          ChangeNotifierProvider<ConstraintRequestProvider>.value(value: constraintRequestProvider),
         ],
         child: AutoAssignmentDialog(
           selectedMonth: _focusedDay,

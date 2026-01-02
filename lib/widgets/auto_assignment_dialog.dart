@@ -9,6 +9,7 @@ import '../providers/monthly_requirements_provider.dart';
 import '../providers/shift_provider.dart';
 import '../providers/shift_time_provider.dart';
 import '../providers/staff_provider.dart';
+import '../screens/monthly_shift_settings_screen.dart';
 import '../services/ad_service.dart';
 import '../services/analytics_service.dart';
 import '../services/shift_assignment_service.dart';
@@ -153,12 +154,16 @@ class _AutoAssignmentDialogState extends State<AutoAssignmentDialog> {
                             color: Colors.grey.shade800,
                           ),
                         ),
-                        const SizedBox(height: 4),
-                        Text(
-                          '※ 必要人数は「チーム」→「月間シフト設定」で確認・変更できます',
-                          style: TextStyle(
-                            fontSize: 11,
-                            color: Colors.grey.shade600,
+                        const SizedBox(height: 8),
+                        SizedBox(
+                          width: double.infinity,
+                          child: OutlinedButton.icon(
+                            onPressed: () => _navigateToMonthlyShiftSettings(),
+                            icon: const Icon(Icons.settings, size: 16),
+                            label: const Text('月間シフト設定を確認・変更'),
+                            style: OutlinedButton.styleFrom(
+                              padding: const EdgeInsets.symmetric(vertical: 8),
+                            ),
                           ),
                         ),
                       ],
@@ -390,7 +395,7 @@ class _AutoAssignmentDialogState extends State<AutoAssignmentDialog> {
         setState(() {
           _isProcessing = false;
         });
-        await _showValidationErrorDialog('月間シフト設定で必要人数を設定してください');
+        await _showRequirementsNotSetDialog();
         return;
       }
 
@@ -590,6 +595,68 @@ class _AutoAssignmentDialogState extends State<AutoAssignmentDialog> {
         ],
       ),
     );
+  }
+
+  /// 月間シフト設定画面へ遷移
+  void _navigateToMonthlyShiftSettings() {
+    final shiftTimeProvider = Provider.of<ShiftTimeProvider>(context, listen: false);
+    final monthlyRequirementsProvider = Provider.of<MonthlyRequirementsProvider>(context, listen: false);
+
+    Navigator.of(context).pop();
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) => MultiProvider(
+          providers: [
+            ChangeNotifierProvider<ShiftTimeProvider>.value(value: shiftTimeProvider),
+            ChangeNotifierProvider<MonthlyRequirementsProvider>.value(value: monthlyRequirementsProvider),
+          ],
+          child: const MonthlyShiftSettingsScreen(),
+        ),
+      ),
+    );
+  }
+
+  /// 必要人数が設定されていない場合のダイアログ
+  Future<void> _showRequirementsNotSetDialog() async {
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('必要人数が未設定です'),
+        content: const Text(
+          '自動作成するには、月間シフト設定で各シフトタイプの必要人数を1以上に設定してください。',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('キャンセル'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: const Text('設定画面へ'),
+          ),
+        ],
+      ),
+    );
+
+    if (result == true && mounted) {
+      // 現在のProviderを取得
+      final shiftTimeProvider = Provider.of<ShiftTimeProvider>(context, listen: false);
+      final monthlyRequirementsProvider = Provider.of<MonthlyRequirementsProvider>(context, listen: false);
+
+      // 自動作成ダイアログを閉じてから月間シフト設定画面へ遷移
+      Navigator.of(context).pop();
+      Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (context) => MultiProvider(
+            providers: [
+              ChangeNotifierProvider<ShiftTimeProvider>.value(value: shiftTimeProvider),
+              ChangeNotifierProvider<MonthlyRequirementsProvider>.value(value: monthlyRequirementsProvider),
+            ],
+            child: const MonthlyShiftSettingsScreen(),
+          ),
+        ),
+      );
+    }
   }
 
   /// シフト作成完了メッセージを表示

@@ -131,13 +131,8 @@ class _MonthlyShiftSettingsScreenState extends State<MonthlyShiftSettingsScreen>
       for (String shiftType in _requirementControllers.keys) {
         int savedValue;
 
-        // 設定が存在する場合はその値を使用（0も含む）
-        if (requirementsProvider.hasRequirement(shiftType)) {
-          savedValue = requirementsProvider.getRequirement(shiftType);
-        } else {
-          // 設定が存在しない場合はデフォルト値（日勤のみ1、他は0）
-          savedValue = (shiftType == '日勤') ? 1 : 0;
-        }
+        // 設定が存在する場合はその値を使用、存在しない場合は0
+        savedValue = requirementsProvider.getRequirement(shiftType);
 
         final valueStr = savedValue.toString();
         _requirementControllers[shiftType]!.text = valueStr;
