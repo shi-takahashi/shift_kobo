@@ -5,6 +5,7 @@ import '../models/shift.dart';
 import '../models/staff.dart';
 import '../providers/staff_provider.dart';
 import '../providers/shift_provider.dart';
+import '../providers/shift_time_provider.dart';
 import '../utils/constraint_checker.dart';
 import '../services/analytics_service.dart';
 
@@ -139,6 +140,7 @@ class _ShiftQuickActionDialogState extends State<ShiftQuickActionDialog> {
   void _showStaffChangeDialog(BuildContext context) {
     final staffProvider = context.read<StaffProvider>();
     final shiftProvider = context.read<ShiftProvider>();
+    final shiftTimeProvider = context.read<ShiftTimeProvider>();
     final activeStaff = staffProvider.activeStaffList;
 
     showDialog(
@@ -165,7 +167,7 @@ class _ShiftQuickActionDialogState extends State<ShiftQuickActionDialog> {
                     : null,
                 onTap: isCurrentStaff
                     ? null
-                    : () => _changeStaffWithProvider(dialogContext, staff, shiftProvider),
+                    : () => _changeStaffWithProvider(dialogContext, staff, shiftProvider, shiftTimeProvider),
               );
             },
           ),
@@ -199,19 +201,31 @@ class _ShiftQuickActionDialogState extends State<ShiftQuickActionDialog> {
     });
   }
 
-  void _changeStaffWithProvider(BuildContext dialogContext, Staff newStaff, ShiftProvider shiftProvider) async {
-    // スタッフ変更の制約チェック - 重複チェック
-    final conflictShifts = shiftProvider.getShiftsForDate(widget.shift.date)
+  void _changeStaffWithProvider(BuildContext dialogContext, Staff newStaff, ShiftProvider shiftProvider, ShiftTimeProvider shiftTimeProvider) async {
+    // スタッフ変更の制約チェック - 時間重複チェック
+    // 個別シフトの実際の時間を使用してチェック
+    final existingShifts = shiftProvider.getShiftsForDate(widget.shift.date)
         .where((s) => s.staffId == newStaff.id && s.id != widget.shift.id)
         .toList();
-    final conflictShift = conflictShifts.isNotEmpty ? conflictShifts.first : null;
 
-    if (conflictShift != null) {
+    // 時間が重複するシフトがあるかチェック
+    Shift? overlappingShift;
+    for (final existingShift in existingShifts) {
+      if (shiftTimeProvider.doShiftTimesOverlap(
+          widget.shift.startTime, widget.shift.endTime,
+          existingShift.startTime, existingShift.endTime)) {
+        overlappingShift = existingShift;
+        break;
+      }
+    }
+
+    if (overlappingShift != null) {
       Navigator.of(dialogContext).pop();
       _showConflictDialog(dialogContext,
-        '${newStaff.name}は既に${widget.shift.date.month}/${widget.shift.date.day}に'
-        '${conflictShift.shiftType}のシフトが入っています。\n\n'
-        '同じ日に同じスタッフを複数のシフトに割り当てることはできません。'
+        '${newStaff.name}は${widget.shift.date.month}/${widget.shift.date.day}に'
+        '既に${overlappingShift.shiftType}のシフトが入っており、'
+        '${widget.shift.shiftType}と時間が重複します。\n\n'
+        '同じ日に時間が重複するシフトを割り当てることはできません。'
       );
       return;
     }

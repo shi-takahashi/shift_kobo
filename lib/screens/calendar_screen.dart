@@ -126,8 +126,102 @@ class _CalendarScreenState extends State<CalendarScreen> {
     }
 
     final staffProvider = context.read<StaffProvider>();
+    final shiftProvider = context.read<ShiftProvider>();
+    final shiftTimeProvider = context.read<ShiftTimeProvider>();
     final sourceStaff = staffProvider.getStaffById(sourceShift.staffId);
     final targetStaff = staffProvider.getStaffById(targetShift.staffId);
+
+    // 時間重複チェック（物理的に不可能なシフトを防ぐ）
+    // 入れ替え後: sourceStaff(A)がtargetDateに、targetStaff(B)がsourceDateに移動
+    // 個別シフトの実際の時間を使用してチェック
+
+    // 1. sourceStaff(A)がtargetDateで既存シフトと重複しないか
+    // A が targetShift の時間帯で入るので、targetShift の時間と既存シフトの時間を比較
+    final sourceStaffShiftsOnTargetDate = shiftProvider
+        .getShiftsForDate(targetShift.date)
+        .where((s) =>
+            s.staffId == sourceShift.staffId &&
+            s.id != sourceShift.id &&
+            s.id != targetShift.id)
+        .toList();
+
+    String? sourceStaffOverlapWith;
+    for (final existingShift in sourceStaffShiftsOnTargetDate) {
+      if (shiftTimeProvider.doShiftTimesOverlap(
+          targetShift.startTime, targetShift.endTime,
+          existingShift.startTime, existingShift.endTime)) {
+        sourceStaffOverlapWith = existingShift.shiftType;
+        break;
+      }
+    }
+
+    // 2. targetStaff(B)がsourceDateで既存シフトと重複しないか
+    // B が sourceShift の時間帯で入るので、sourceShift の時間と既存シフトの時間を比較
+    final targetStaffShiftsOnSourceDate = shiftProvider
+        .getShiftsForDate(sourceShift.date)
+        .where((s) =>
+            s.staffId == targetShift.staffId &&
+            s.id != sourceShift.id &&
+            s.id != targetShift.id)
+        .toList();
+
+    String? targetStaffOverlapWith;
+    for (final existingShift in targetStaffShiftsOnSourceDate) {
+      if (shiftTimeProvider.doShiftTimesOverlap(
+          sourceShift.startTime, sourceShift.endTime,
+          existingShift.startTime, existingShift.endTime)) {
+        targetStaffOverlapWith = existingShift.shiftType;
+        break;
+      }
+    }
+
+    // 重複がある場合はエラーダイアログを表示
+    if (sourceStaffOverlapWith != null || targetStaffOverlapWith != null) {
+      _cancelSwapMode();
+      if (mounted) {
+        showDialog(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: Row(
+              children: [
+                Icon(Icons.error_outline, color: Colors.red, size: 24),
+                const SizedBox(width: 8),
+                const Text('入れ替えできません'),
+              ],
+            ),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text('入れ替えを行うと、同じ日に時間が重複するシフトが発生します。'),
+                const SizedBox(height: 16),
+                if (sourceStaffOverlapWith != null)
+                  Text(
+                    '${sourceStaff?.name ?? "不明"}さん: '
+                    '${targetShift.date.month}/${targetShift.date.day}に'
+                    '${targetShift.shiftType}と$sourceStaffOverlapWithが重複',
+                    style: TextStyle(color: Colors.red.shade700),
+                  ),
+                if (targetStaffOverlapWith != null)
+                  Text(
+                    '${targetStaff?.name ?? "不明"}さん: '
+                    '${sourceShift.date.month}/${sourceShift.date.day}に'
+                    '${sourceShift.shiftType}と$targetStaffOverlapWithが重複',
+                    style: TextStyle(color: Colors.red.shade700),
+                  ),
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(),
+                child: const Text('OK'),
+              ),
+            ],
+          ),
+        );
+      }
+      return;
+    }
 
     // 制約チェック
     // 入れ替え元スタッフが入れ替え先のシフト（日付・シフトタイプ）に入る場合の制約
@@ -251,8 +345,6 @@ class _CalendarScreenState extends State<CalendarScreen> {
     if (confirmed != true) {
       return;
     }
-
-    final shiftProvider = context.read<ShiftProvider>();
 
     // スタッフIDを入れ替え
     final sourceStaffId = sourceShift.staffId;
@@ -1234,6 +1326,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
 
     final shiftProvider = context.read<ShiftProvider>();
     final staffProvider = context.read<StaffProvider>();
+    final shiftTimeProvider = context.read<ShiftTimeProvider>();
 
     showDialog(
       context: context,
@@ -1242,6 +1335,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
         providers: [
           ChangeNotifierProvider<ShiftProvider>.value(value: shiftProvider),
           ChangeNotifierProvider<StaffProvider>.value(value: staffProvider),
+          ChangeNotifierProvider<ShiftTimeProvider>.value(value: shiftTimeProvider),
         ],
         child: ShiftQuickActionDialog(
           shift: shift,
@@ -1260,16 +1354,32 @@ class _CalendarScreenState extends State<CalendarScreen> {
   Future<void> _moveShiftToDate(Shift shift, DateTime newDate) async {
     final shiftProvider = context.read<ShiftProvider>();
     final staffProvider = context.read<StaffProvider>();
+    final shiftTimeProvider = context.read<ShiftTimeProvider>();
     final staff = staffProvider.getStaffById(shift.staffId);
 
-    // 移動先の日付に同じスタッフのシフトがないかチェック
-    final conflictShifts = shiftProvider.getShiftsForDate(newDate).where((s) => s.staffId == shift.staffId).toList();
-    final conflictShift = conflictShifts.isNotEmpty ? conflictShifts.first : null;
+    // 移動先の日付に同じスタッフの時間が重複するシフトがないかチェック
+    // 個別シフトの実際の時間を使用してチェック
+    final existingShifts = shiftProvider
+        .getShiftsForDate(newDate)
+        .where((s) => s.staffId == shift.staffId)
+        .toList();
 
-    if (conflictShift != null) {
+    Shift? overlappingShift;
+    for (final existingShift in existingShifts) {
+      if (shiftTimeProvider.doShiftTimesOverlap(
+          shift.startTime, shift.endTime,
+          existingShift.startTime, existingShift.endTime)) {
+        overlappingShift = existingShift;
+        break;
+      }
+    }
+
+    if (overlappingShift != null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('移動先の日付に既にシフトが入っています'),
+        SnackBar(
+          content: Text(
+            '移動先の日付に${overlappingShift.shiftType}が入っており、時間が重複します',
+          ),
           backgroundColor: Colors.red,
         ),
       );

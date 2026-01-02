@@ -221,6 +221,88 @@ class ShiftTimeProvider extends ChangeNotifier {
         setting.displayName == name);
   }
 
+  /// 表示名からシフト設定を取得
+  ShiftTimeSetting? getSettingByDisplayName(String displayName) {
+    try {
+      return _settings.firstWhere((s) => s.displayName == displayName);
+    } catch (e) {
+      return null;
+    }
+  }
+
+  /// 2つのシフトタイプ（表示名）の時間が重複するかチェック
+  /// 夜勤などの日をまたぐシフトも正しく処理
+  /// 注意: これはシフトタイプのデフォルト時間でチェックする。
+  /// 個別シフトの実際の時間でチェックする場合は doShiftTimesOverlap を使用
+  bool doShiftsOverlap(String shiftType1, String shiftType2) {
+    final setting1 = getSettingByDisplayName(shiftType1);
+    final setting2 = getSettingByDisplayName(shiftType2);
+
+    if (setting1 == null || setting2 == null) {
+      // 設定が見つからない場合は重複とみなす（安全側に倒す）
+      return true;
+    }
+
+    return _doTimeRangesOverlap(
+      setting1.startTime,
+      setting1.endTime,
+      setting2.startTime,
+      setting2.endTime,
+    );
+  }
+
+  /// 2つのシフトの実際の時間が重複するかチェック
+  /// 個別シフトに設定された startTime/endTime を使用
+  bool doShiftTimesOverlap(DateTime start1, DateTime end1, DateTime start2, DateTime end2) {
+    // DateTime から時間文字列に変換
+    final s1 = '${start1.hour.toString().padLeft(2, '0')}:${start1.minute.toString().padLeft(2, '0')}';
+    final e1 = '${end1.hour.toString().padLeft(2, '0')}:${end1.minute.toString().padLeft(2, '0')}';
+    final s2 = '${start2.hour.toString().padLeft(2, '0')}:${start2.minute.toString().padLeft(2, '0')}';
+    final e2 = '${end2.hour.toString().padLeft(2, '0')}:${end2.minute.toString().padLeft(2, '0')}';
+
+    return _doTimeRangesOverlap(s1, e1, s2, e2);
+  }
+
+  /// 2つの時間範囲が重複するかチェック
+  /// 夜勤などの日をまたぐシフト（endTime < startTime）も正しく処理
+  bool _doTimeRangesOverlap(
+    String start1,
+    String end1,
+    String start2,
+    String end2,
+  ) {
+    final s1 = _timeToMinutes(start1);
+    final e1 = _timeToMinutes(end1);
+    final s2 = _timeToMinutes(start2);
+    final e2 = _timeToMinutes(end2);
+
+    // 日をまたぐかどうかを判定
+    final crossesMidnight1 = e1 <= s1;
+    final crossesMidnight2 = e2 <= s2;
+
+    if (!crossesMidnight1 && !crossesMidnight2) {
+      // 両方とも日をまたがない通常のシフト
+      // 重複条件: s1 < e2 && s2 < e1
+      return s1 < e2 && s2 < e1;
+    } else if (crossesMidnight1 && crossesMidnight2) {
+      // 両方とも日をまたぐ場合は常に重複
+      return true;
+    } else {
+      // 一方だけが日をまたぐ場合
+      // 日をまたぐシフトを2つの区間に分割して考える
+      if (crossesMidnight1) {
+        // shift1が日をまたぐ: [s1, 24:00) と [0:00, e1)
+        // shift2との重複をチェック
+        return (s1 < 1440 && s2 < 1440 && s1 < e2) || // s1-24:00 と s2-e2の重複
+            (s2 < e1); // 0:00-e1 と s2-e2の重複
+      } else {
+        // shift2が日をまたぐ: [s2, 24:00) と [0:00, e2)
+        return (s2 < 1440 && s1 < 1440 && s2 < e1) || // s2-24:00 と s1-e1の重複
+            (s1 < e2); // 0:00-e2 と s1-e1の重複
+      }
+    }
+  }
+
   /// データの再読み込み（バックアップ復元後などに使用）
   Future<void> reload() async {
     _subscribeToSettings();
