@@ -237,11 +237,84 @@ class _BannerAdWidgetState extends State<BannerAdWidget> with WidgetsBindingObse
       );
     }
 
-    // バナー広告を表示
+    // バナー広告を表示（エラー時はプレースホルダーを表示）
     return Container(
       height: 50,
       color: Colors.grey[100],
-      child: AdWidget(ad: _bannerAd!),
+      child: _AdWidgetWrapper(
+        bannerAd: _bannerAd!,
+        onError: () {
+          // 広告でエラーが発生した場合は再読み込み
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted) {
+              setState(() {
+                _isAdLoaded = false;
+              });
+              _loadBannerAd(resetSizeIndex: true);
+            }
+          });
+        },
+      ),
     );
+  }
+}
+
+/// AdWidgetをラップしてエラーをキャッチするウィジェット
+class _AdWidgetWrapper extends StatefulWidget {
+  final BannerAd bannerAd;
+  final VoidCallback onError;
+
+  const _AdWidgetWrapper({
+    required this.bannerAd,
+    required this.onError,
+  });
+
+  @override
+  State<_AdWidgetWrapper> createState() => _AdWidgetWrapperState();
+}
+
+class _AdWidgetWrapperState extends State<_AdWidgetWrapper> {
+  bool _hasError = false;
+
+  @override
+  Widget build(BuildContext context) {
+    if (_hasError) {
+      return const Center(
+        child: Text(
+          '広告読み込み中...',
+          style: TextStyle(color: Colors.grey, fontSize: 12),
+        ),
+      );
+    }
+
+    return Builder(
+      builder: (context) {
+        try {
+          return AdWidget(ad: widget.bannerAd);
+        } catch (e) {
+          print('バナー広告表示エラー: $e');
+          _scheduleErrorRecovery();
+          return const Center(
+            child: Text(
+              '広告読み込み中...',
+              style: TextStyle(color: Colors.grey, fontSize: 12),
+            ),
+          );
+        }
+      },
+    );
+  }
+
+  void _scheduleErrorRecovery() {
+    if (!_hasError) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          setState(() {
+            _hasError = true;
+          });
+          widget.onError();
+        }
+      });
+    }
   }
 }
