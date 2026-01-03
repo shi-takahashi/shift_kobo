@@ -60,8 +60,21 @@ class _CalendarScreenState extends State<CalendarScreen> {
     _selectedShifts = ValueNotifier(_getShiftsForDay(_selectedDay!));
     _loadTeamUserRoles();
 
+    // ShiftProviderの変更をリッスンして、選択日のシフトを自動更新
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final shiftProvider = context.read<ShiftProvider>();
+      shiftProvider.addListener(_onShiftProviderChanged);
+    });
+
     // Analytics: 画面表示イベント
     AnalyticsService.logScreenView('calendar_screen');
+  }
+
+  void _onShiftProviderChanged() {
+    // ShiftProviderのデータが変更されたら、選択日のシフトリストを更新
+    if (_selectedDay != null && mounted) {
+      _selectedShifts.value = _getShiftsForDay(_selectedDay!);
+    }
   }
 
   /// チーム内の全ユーザーのロール情報をキャッシュ
@@ -94,6 +107,13 @@ class _CalendarScreenState extends State<CalendarScreen> {
 
   @override
   void dispose() {
+    // ShiftProviderのリスナーを削除
+    try {
+      final shiftProvider = context.read<ShiftProvider>();
+      shiftProvider.removeListener(_onShiftProviderChanged);
+    } catch (_) {
+      // Providerが既に破棄されている場合は無視
+    }
     _selectedShifts.dispose();
     super.dispose();
   }
@@ -1348,8 +1368,13 @@ class _CalendarScreenState extends State<CalendarScreen> {
       ),
     ).then((_) {
       if (_selectedDay != null) {
-        setState(() {});
-        _selectedShifts.value = _getShiftsForDay(_selectedDay!);
+        // 少し遅延させてからデータを再取得（Firestoreリスナーの更新を待つため）
+        Future.delayed(const Duration(milliseconds: 100), () {
+          if (mounted) {
+            setState(() {});
+            _selectedShifts.value = _getShiftsForDay(_selectedDay!);
+          }
+        });
       }
     });
   }
