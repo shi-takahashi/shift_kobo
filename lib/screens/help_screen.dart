@@ -80,7 +80,7 @@ class _HelpScreenState extends State<HelpScreen> {
             const Text(
               'シフト工房は、シフト作成を自動化・効率化するアプリです。\n\n'
               '• スタッフの希望を考慮した自動シフト作成\n'
-              '• PNG・Excel形式での出力\n'
+              '• PDF・PNG・Excel形式での出力\n'
               '• スタッフを招待してリアルタイム共有（任意）',
               style: TextStyle(fontSize: 14, height: 1.5),
             ),
@@ -1415,7 +1415,7 @@ class _HelpScreenState extends State<HelpScreen> {
                     children: [
                       _buildStaffSettingItem(
                         'シフト割当て設定',
-                        '各シフトタイプの必要人数を曜日ごとに設定します。自動割り当て時にこの人数分のスタッフが割り当てられます。曜日毎の設定や特定日のみ割り当てを変えることも可能です',
+                        '各シフトタイプの必要人数を設定します。自動割り当て時にこの人数分のスタッフが割り当てられます。曜日毎の設定や特定日のみ割り当てを変えることも可能です',
                       ),
                       _buildStaffSettingItem(
                         'チーム休み設定',
