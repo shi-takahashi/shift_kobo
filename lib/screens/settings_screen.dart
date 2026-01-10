@@ -244,6 +244,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
             subtitle: Text(FirebaseAuth.instance.currentUser!.email ?? ''),
           ),
 
+        // パスワード変更（登録済みユーザーのみ）
+        if (FirebaseAuth.instance.currentUser != null && widget.appUser.email != null)
+          ListTile(
+            leading: const Icon(Icons.lock_reset),
+            title: const Text('パスワード変更'),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: _showChangePasswordDialog,
+          ),
+
         // ログアウトボタン（登録済みユーザーのみ）
         if (FirebaseAuth.instance.currentUser != null && widget.appUser.email != null)
           ListTile(
@@ -567,6 +576,241 @@ class _SettingsScreenState extends State<SettingsScreen> {
       // ダイアログのアニメーションが完了してからdisposeする
       WidgetsBinding.instance.addPostFrameCallback((_) {
         controller.dispose();
+      });
+    }
+  }
+
+  /// パスワード変更ダイアログを表示
+  Future<void> _showChangePasswordDialog() async {
+    final currentPasswordController = TextEditingController();
+    final newPasswordController = TextEditingController();
+    final confirmPasswordController = TextEditingController();
+    final formKey = GlobalKey<FormState>();
+
+    try {
+      await showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (dialogContext) {
+          bool isLoading = false;
+          bool obscureCurrentPassword = true;
+          bool obscureNewPassword = true;
+          bool obscureConfirmPassword = true;
+
+          return StatefulBuilder(
+            builder: (context, setDialogState) => AlertDialog(
+              title: const Text('パスワード変更'),
+              content: SizedBox(
+                width: 300,
+                child: Form(
+                  key: formKey,
+                  child: SingleChildScrollView(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        // 現在のパスワード
+                        TextFormField(
+                          controller: currentPasswordController,
+                          obscureText: obscureCurrentPassword,
+                          decoration: InputDecoration(
+                            labelText: '現在のパスワード',
+                            border: const OutlineInputBorder(),
+                            prefixIcon: const Icon(Icons.lock),
+                            suffixIcon: IconButton(
+                              icon: Icon(
+                                obscureCurrentPassword
+                                    ? Icons.visibility_off
+                                    : Icons.visibility,
+                              ),
+                              onPressed: () {
+                                setDialogState(() {
+                                  obscureCurrentPassword = !obscureCurrentPassword;
+                                });
+                              },
+                            ),
+                          ),
+                          validator: (value) {
+                            if (value == null || value.isEmpty) {
+                              return '入力してください';
+                            }
+                            return null;
+                          },
+                        ),
+                        const SizedBox(height: 16),
+                        // 新しいパスワード
+                        TextFormField(
+                          controller: newPasswordController,
+                          obscureText: obscureNewPassword,
+                          decoration: InputDecoration(
+                            labelText: '新しいパスワード',
+                            border: const OutlineInputBorder(),
+                            prefixIcon: const Icon(Icons.lock_reset),
+                            suffixIcon: IconButton(
+                              icon: Icon(
+                                obscureNewPassword
+                                    ? Icons.visibility_off
+                                    : Icons.visibility,
+                              ),
+                              onPressed: () {
+                                setDialogState(() {
+                                  obscureNewPassword = !obscureNewPassword;
+                                });
+                              },
+                            ),
+                          ),
+                          validator: (value) {
+                            if (value == null || value.isEmpty) {
+                              return '入力してください';
+                            }
+                            if (value.length < 6) {
+                              return '6文字以上で入力してください';
+                            }
+                            return null;
+                          },
+                        ),
+                        const SizedBox(height: 16),
+                        // 新しいパスワード（確認）
+                        TextFormField(
+                          controller: confirmPasswordController,
+                          obscureText: obscureConfirmPassword,
+                          decoration: InputDecoration(
+                            labelText: 'パスワード（確認）',
+                            border: const OutlineInputBorder(),
+                            prefixIcon: const Icon(Icons.lock_reset),
+                            suffixIcon: IconButton(
+                              icon: Icon(
+                                obscureConfirmPassword
+                                    ? Icons.visibility_off
+                                    : Icons.visibility,
+                              ),
+                              onPressed: () {
+                                setDialogState(() {
+                                  obscureConfirmPassword = !obscureConfirmPassword;
+                                });
+                              },
+                            ),
+                          ),
+                          validator: (value) {
+                            if (value == null || value.isEmpty) {
+                              return '入力してください';
+                            }
+                            if (value != newPasswordController.text) {
+                              return 'パスワードが一致しません';
+                            }
+                            return null;
+                          },
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: isLoading ? null : () => Navigator.of(dialogContext).pop(),
+                  child: const Text('キャンセル'),
+                ),
+                FilledButton(
+                  onPressed: isLoading
+                      ? null
+                      : () async {
+                          if (!formKey.currentState!.validate()) {
+                            return;
+                          }
+
+                          setDialogState(() {
+                            isLoading = true;
+                          });
+
+                          try {
+                            final authService = AuthService();
+
+                            // 1. 現在のパスワードで再認証
+                            await authService.reauthenticateWithPassword(
+                              currentPasswordController.text,
+                            );
+
+                            // 2. パスワード更新
+                            await FirebaseAuth.instance.currentUser!.updatePassword(
+                              newPasswordController.text,
+                            );
+
+                            // ダイアログを閉じる
+                            if (dialogContext.mounted) {
+                              Navigator.of(dialogContext).pop();
+                            }
+
+                            // 成功メッセージ
+                            if (mounted) {
+                              ScaffoldMessenger.of(this.context).showSnackBar(
+                                const SnackBar(
+                                  content: Text('パスワードを変更しました'),
+                                  backgroundColor: Colors.green,
+                                ),
+                              );
+                            }
+                          } on FirebaseAuthException catch (e) {
+                            setDialogState(() {
+                              isLoading = false;
+                            });
+
+                            String errorMessage;
+                            switch (e.code) {
+                              case 'wrong-password':
+                                errorMessage = '現在のパスワードが正しくありません';
+                                break;
+                              case 'weak-password':
+                                errorMessage = 'パスワードが弱すぎます';
+                                break;
+                              default:
+                                errorMessage = 'エラー: ${e.message ?? e.code}';
+                            }
+
+                            if (dialogContext.mounted) {
+                              ScaffoldMessenger.of(dialogContext).showSnackBar(
+                                SnackBar(
+                                  content: Text(errorMessage),
+                                  backgroundColor: Colors.red,
+                                ),
+                              );
+                            }
+                          } catch (e) {
+                            setDialogState(() {
+                              isLoading = false;
+                            });
+
+                            if (dialogContext.mounted) {
+                              ScaffoldMessenger.of(dialogContext).showSnackBar(
+                                SnackBar(
+                                  content: Text('エラー: $e'),
+                                  backgroundColor: Colors.red,
+                                ),
+                              );
+                            }
+                          }
+                        },
+                  child: isLoading
+                      ? const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.white,
+                          ),
+                        )
+                      : const Text('変更'),
+                ),
+              ],
+            ),
+          );
+        },
+      );
+    } finally {
+      // ダイアログが閉じた後、次のフレームでコントローラーを破棄
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        currentPasswordController.dispose();
+        newPasswordController.dispose();
+        confirmPasswordController.dispose();
       });
     }
   }

@@ -528,6 +528,10 @@ class AuthService {
       await user.reauthenticateWithCredential(credential);
       print('✅ 再認証成功');
     } on FirebaseAuthException catch (e) {
+      // 再認証時はパスワード間違いのメッセージを明確にする
+      if (e.code == 'invalid-credential' || e.code == 'wrong-password') {
+        throw 'パスワードが間違っています';
+      }
       throw _handleAuthException(e);
     } catch (e) {
       throw '❌ 再認証に失敗しました: $e';
