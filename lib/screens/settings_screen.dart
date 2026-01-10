@@ -868,12 +868,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Future<void> _sendContactEmail() async {
     const emailAddress = 'takapps.dev@gmail.com';
     final version = _packageInfo?.version ?? '不明';
-    final buildNumber = _packageInfo?.buildNumber ?? '不明';
     final osInfo = Platform.isAndroid
         ? 'Android'
         : Platform.isIOS
             ? 'iOS'
             : 'その他';
+    final uid = FirebaseAuth.instance.currentUser?.uid ?? '未ログイン';
 
     final subject = Uri.encodeComponent('【シフト工房】お問い合わせ');
     final body = Uri.encodeComponent('━━━━━━━━━━━━━━\n'
@@ -883,10 +883,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
         '\n'
         '\n'
         '━━━━━━━━━━━━━━\n'
-        '【アプリ情報】\n'
+        '【アプリ情報】※削除しないでください\n'
         'バージョン：$version\n'
-        'ビルド番号：$buildNumber\n'
         'OS：$osInfo\n'
+        'ユーザーID：$uid\n'
         '━━━━━━━━━━━━━━');
 
     final emailUrl = Uri.parse('mailto:$emailAddress?subject=$subject&body=$body');
