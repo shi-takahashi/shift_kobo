@@ -6,6 +6,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../models/app_user.dart';
 import '../providers/constraint_request_provider.dart';
 import '../providers/monthly_requirements_provider.dart';
+import '../providers/shift_lock_provider.dart';
 import '../providers/shift_provider.dart';
 import '../providers/shift_time_provider.dart';
 import '../providers/staff_provider.dart';
@@ -275,12 +276,13 @@ class _HomeScreenState extends State<HomeScreen> {
         ChangeNotifierProvider(create: (_) => ShiftTimeProvider(teamId: teamId)),
         ChangeNotifierProvider(create: (_) => MonthlyRequirementsProvider(teamId: teamId)),
         ChangeNotifierProvider(create: (_) => ConstraintRequestProvider(teamId: teamId)),
+        ChangeNotifierProvider(create: (_) => ShiftLockProvider(teamId: teamId)),
       ],
-      child: Consumer5<StaffProvider, ShiftProvider, ShiftTimeProvider, MonthlyRequirementsProvider, ConstraintRequestProvider>(
-        builder: (context, staffProvider, shiftProvider, shiftTimeProvider, monthlyProvider, requestProvider, child) {
+      child: Consumer6<StaffProvider, ShiftProvider, ShiftTimeProvider, MonthlyRequirementsProvider, ConstraintRequestProvider, ShiftLockProvider>(
+        builder: (context, staffProvider, shiftProvider, shiftTimeProvider, monthlyProvider, requestProvider, lockProvider, child) {
           // すべてのProviderのデータロード完了を待つ
           final isLoading =
-              staffProvider.isLoading || shiftProvider.isLoading || shiftTimeProvider.isLoading || monthlyProvider.isLoading || requestProvider.isLoading;
+              staffProvider.isLoading || shiftProvider.isLoading || shiftTimeProvider.isLoading || monthlyProvider.isLoading || requestProvider.isLoading || lockProvider.isLoading;
 
           if (isLoading) {
             return _buildLoadingScreen(context);

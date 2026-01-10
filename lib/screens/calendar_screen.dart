@@ -15,6 +15,7 @@ import '../models/shift_type.dart' as old_shift_type;
 import '../models/staff.dart';
 import '../providers/constraint_request_provider.dart';
 import '../providers/monthly_requirements_provider.dart';
+import '../providers/shift_lock_provider.dart';
 import '../providers/shift_provider.dart';
 import '../providers/shift_time_provider.dart';
 import '../providers/staff_provider.dart';
@@ -543,8 +544,10 @@ class _CalendarScreenState extends State<CalendarScreen> {
                               return FutureBuilder<List<ShiftPlan>>(
                                 future: ShiftPlanService(teamId: shiftProvider.teamId!).getPlansForMonth('${_focusedDay.year}-${_focusedDay.month}'),
                                 builder: (context, snapshot) {
-                                  // 切替ボタンは複数プランがある場合のみ表示（shift_plansが1件以上）
-                                  final showSwitchButton = snapshot.hasData && snapshot.data != null && snapshot.data!.isNotEmpty;
+                                  // 切替ボタンは複数プランがある場合のみ表示（shift_plansが1件以上、締め済みは非表示）
+                                  final lockProvider = context.watch<ShiftLockProvider>();
+                                  final isLocked = lockProvider.isLocked(_focusedDay.year, _focusedDay.month);
+                                  final showSwitchButton = !isLocked && snapshot.hasData && snapshot.data != null && snapshot.data!.isNotEmpty;
 
                                   return Row(
                                     mainAxisSize: MainAxisSize.min,
@@ -679,49 +682,59 @@ class _CalendarScreenState extends State<CalendarScreen> {
                       ),
                     ),
                     const SizedBox(width: 8),
-                    // 管理者のみ自動作成ボタンを表示
-                    if (widget.appUser.isAdmin) ...[
-                      Container(
-                        decoration: BoxDecoration(
-                          color: Colors.blue.shade600,
-                          borderRadius: BorderRadius.circular(8.0),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.blue.shade200,
-                              blurRadius: 3,
-                              offset: const Offset(0, 2),
-                            ),
-                          ],
-                        ),
-                        child: InkWell(
-                          onTap: () => _showAutoAssignmentDialog(context),
-                          borderRadius: BorderRadius.circular(8.0),
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                const Icon(
-                                  Icons.auto_fix_high,
-                                  size: 16,
-                                  color: Colors.white,
+                    // 管理者のみ自動作成ボタンを表示（締め済み月は非表示）
+                    if (widget.appUser.isAdmin)
+                      Consumer<ShiftLockProvider>(
+                        builder: (context, lockProvider, child) {
+                          final isLocked = lockProvider.isLocked(_focusedDay.year, _focusedDay.month);
+                          if (isLocked) return const SizedBox.shrink();
+                          return Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Container(
+                                decoration: BoxDecoration(
+                                  color: Colors.blue.shade600,
+                                  borderRadius: BorderRadius.circular(8.0),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: Colors.blue.shade200,
+                                      blurRadius: 3,
+                                      offset: const Offset(0, 2),
+                                    ),
+                                  ],
                                 ),
-                                const SizedBox(width: 4),
-                                const Text(
-                                  '自動作成',
-                                  style: TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 13,
-                                    fontWeight: FontWeight.w600,
+                                child: InkWell(
+                                  onTap: () => _showAutoAssignmentDialog(context),
+                                  borderRadius: BorderRadius.circular(8.0),
+                                  child: Padding(
+                                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        const Icon(
+                                          Icons.auto_fix_high,
+                                          size: 16,
+                                          color: Colors.white,
+                                        ),
+                                        const SizedBox(width: 4),
+                                        const Text(
+                                          '自動作成',
+                                          style: TextStyle(
+                                            color: Colors.white,
+                                            fontSize: 13,
+                                            fontWeight: FontWeight.w600,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
                                   ),
                                 ),
-                              ],
-                            ),
-                          ),
-                        ),
+                              ),
+                              const SizedBox(width: 16),
+                            ],
+                          );
+                        },
                       ),
-                      const SizedBox(width: 16),
-                    ],
                     if (!widget.appUser.isAdmin) const SizedBox(width: 16),
                   ],
                 ),
@@ -829,8 +842,26 @@ class _CalendarScreenState extends State<CalendarScreen> {
                           }
                         },
                       ),
-                      // 右側スペーサー（大きく）
-                      Expanded(flex: 3, child: Container()),
+                      // 右側スペーサー
+                      Expanded(flex: 2, child: Container()),
+                      // 締めボタン（管理者のみ）
+                      if (widget.appUser.isAdmin)
+                        Consumer<ShiftLockProvider>(
+                          builder: (context, lockProvider, child) {
+                            final isLocked = lockProvider.isLocked(_focusedDay.year, _focusedDay.month);
+                            return IconButton(
+                              icon: Icon(
+                                isLocked ? Icons.lock : Icons.lock_open,
+                                size: 22,
+                                color: isLocked ? Colors.red.shade700 : Colors.grey.shade600,
+                              ),
+                              tooltip: isLocked ? '締め解除' : '締める',
+                              onPressed: () => _showLockConfirmDialog(isLocked),
+                            );
+                          },
+                        ),
+                      if (!widget.appUser.isAdmin)
+                        const SizedBox(width: 48), // アイコンボタン分のスペース確保
                     ],
                   ),
                 ),
@@ -1632,6 +1663,136 @@ class _CalendarScreenState extends State<CalendarScreen> {
       return assignmentStrategy.displayName;
     } catch (e) {
       return '手動';
+    }
+  }
+
+  /// 締め確認ダイアログを表示
+  Future<void> _showLockConfirmDialog(bool isCurrentlyLocked) async {
+    final lockProvider = context.read<ShiftLockProvider>();
+    final year = _focusedDay.year;
+    final month = _focusedDay.month;
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Row(
+          children: [
+            Icon(
+              isCurrentlyLocked ? Icons.lock_open : Icons.lock,
+              color: isCurrentlyLocked ? Colors.green : Colors.red,
+              size: 24,
+            ),
+            const SizedBox(width: 8),
+            Text(isCurrentlyLocked ? 'シフト締め解除' : 'シフト締め'),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              isCurrentlyLocked
+                  ? '$year年$month月のシフトを締め解除しますか？'
+                  : '$year年$month月のシフトを締めますか？',
+              style: const TextStyle(fontSize: 16),
+            ),
+            const SizedBox(height: 16),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: isCurrentlyLocked ? Colors.green.shade50 : Colors.orange.shade50,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(
+                  color: isCurrentlyLocked ? Colors.green.shade300 : Colors.orange.shade300,
+                ),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (isCurrentlyLocked) ...[
+                    Text(
+                      '締め解除すると：',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        color: Colors.green.shade800,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      '• 自動作成・プラン切替が可能になります\n'
+                      '• スタッフからの申請が可能になります',
+                      style: TextStyle(color: Colors.green.shade700, fontSize: 13),
+                    ),
+                  ] else ...[
+                    Text(
+                      '締めると：',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        color: Colors.orange.shade800,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      '• 自動作成・プラン切替ができなくなります\n'
+                      '• スタッフからの申請ができなくなります\n'
+                      '• 手動でのシフト変更は引き続き可能です',
+                      style: TextStyle(color: Colors.orange.shade700, fontSize: 13),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('キャンセル'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: isCurrentlyLocked ? Colors.green : Colors.red,
+            ),
+            child: Text(isCurrentlyLocked ? '締め解除' : '締める'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      try {
+        if (isCurrentlyLocked) {
+          await lockProvider.unlockShift(year, month, widget.appUser.uid);
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('$year年$month月のシフトを締め解除しました'),
+                backgroundColor: Colors.green,
+              ),
+            );
+          }
+        } else {
+          await lockProvider.lockShift(year, month, widget.appUser.uid);
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('$year年$month月のシフトを締めました'),
+                backgroundColor: Colors.red.shade700,
+              ),
+            );
+          }
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('エラーが発生しました: $e'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      }
     }
   }
 }

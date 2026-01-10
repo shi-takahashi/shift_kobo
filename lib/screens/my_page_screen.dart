@@ -13,6 +13,7 @@ import '../models/constraint_request.dart';
 import '../providers/staff_provider.dart';
 import '../providers/shift_provider.dart';
 import '../providers/shift_time_provider.dart';
+import '../providers/shift_lock_provider.dart';
 import '../providers/constraint_request_provider.dart';
 import '../models/shift_type.dart' as old_shift_type;
 import '../services/analytics_service.dart';
@@ -2487,6 +2488,7 @@ class _MyPageScreenState extends State<MyPageScreen> {
     List<DateTime> approvedDates,
   ) async {
     final requestProvider = context.read<ConstraintRequestProvider>();
+    final lockProvider = context.read<ShiftLockProvider>();
     final uuid = const Uuid();
 
     // 既存のpending申請を削除
@@ -2499,10 +2501,21 @@ class _MyPageScreenState extends State<MyPageScreen> {
     }
 
     int newRequestCount = 0;
+    List<String> lockedMonths = [];
 
     // 追加申請：selectedDatesにあるが、approvedDatesにない
     for (final date in selectedDates) {
       final normalizedDate = DateTime(date.year, date.month, date.day);
+
+      // 締めチェック
+      if (lockProvider.isLocked(normalizedDate.year, normalizedDate.month)) {
+        final monthStr = '${normalizedDate.year}年${normalizedDate.month}月';
+        if (!lockedMonths.contains(monthStr)) {
+          lockedMonths.add(monthStr);
+        }
+        continue;
+      }
+
       final isApproved = approvedDates.any((approved) =>
           approved.year == normalizedDate.year &&
           approved.month == normalizedDate.month &&
@@ -2552,6 +2565,16 @@ class _MyPageScreenState extends State<MyPageScreen> {
     // 削除申請：approvedDatesにあるが、selectedDatesにない
     for (final approvedDate in approvedDates) {
       final normalizedApproved = DateTime(approvedDate.year, approvedDate.month, approvedDate.day);
+
+      // 締めチェック
+      if (lockProvider.isLocked(normalizedApproved.year, normalizedApproved.month)) {
+        final monthStr = '${normalizedApproved.year}年${normalizedApproved.month}月';
+        if (!lockedMonths.contains(monthStr)) {
+          lockedMonths.add(monthStr);
+        }
+        continue;
+      }
+
       final isSelected = selectedDates.any((selected) =>
           selected.year == normalizedApproved.year &&
           selected.month == normalizedApproved.month &&
@@ -2608,13 +2631,26 @@ class _MyPageScreenState extends State<MyPageScreen> {
 
     if (mounted) {
       setState(() {});
-      final message = widget.appUser.isAdmin
-          ? '休み希望日を更新しました'
-          : newRequestCount > 0
-              ? '休み希望日を申請しました。管理者の承認をお待ちください。'
-              : '変更はありませんでした。';
+
+      String message;
+      Color? bgColor;
+      if (lockedMonths.isNotEmpty) {
+        message = '${lockedMonths.join("、")}は締め済みのため変更できません';
+        bgColor = Colors.orange;
+      } else if (widget.appUser.isAdmin) {
+        message = '休み希望日を更新しました';
+      } else if (newRequestCount > 0) {
+        message = '休み希望日を申請しました。管理者の承認をお待ちください。';
+      } else {
+        message = '変更はありませんでした。';
+      }
+
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(message), duration: const Duration(seconds: 3)),
+        SnackBar(
+          content: Text(message),
+          duration: const Duration(seconds: 3),
+          backgroundColor: bgColor,
+        ),
       );
     }
   }
@@ -2626,6 +2662,7 @@ class _MyPageScreenState extends State<MyPageScreen> {
     List<DateTime> approvedDates,
   ) async {
     final requestProvider = context.read<ConstraintRequestProvider>();
+    final lockProvider = context.read<ShiftLockProvider>();
     final uuid = const Uuid();
 
     // 既存のpending申請を削除
@@ -2638,10 +2675,21 @@ class _MyPageScreenState extends State<MyPageScreen> {
     }
 
     int newRequestCount = 0;
+    List<String> lockedMonths = [];
 
     // 追加申請：selectedDatesにあるが、approvedDatesにない
     for (final date in selectedDates) {
       final normalizedDate = DateTime(date.year, date.month, date.day);
+
+      // 締めチェック
+      if (lockProvider.isLocked(normalizedDate.year, normalizedDate.month)) {
+        final monthStr = '${normalizedDate.year}年${normalizedDate.month}月';
+        if (!lockedMonths.contains(monthStr)) {
+          lockedMonths.add(monthStr);
+        }
+        continue;
+      }
+
       final isApproved = approvedDates.any((approved) =>
           approved.year == normalizedDate.year &&
           approved.month == normalizedDate.month &&
@@ -2691,6 +2739,16 @@ class _MyPageScreenState extends State<MyPageScreen> {
     // 削除申請：approvedDatesにあるが、selectedDatesにない
     for (final approvedDate in approvedDates) {
       final normalizedApproved = DateTime(approvedDate.year, approvedDate.month, approvedDate.day);
+
+      // 締めチェック
+      if (lockProvider.isLocked(normalizedApproved.year, normalizedApproved.month)) {
+        final monthStr = '${normalizedApproved.year}年${normalizedApproved.month}月';
+        if (!lockedMonths.contains(monthStr)) {
+          lockedMonths.add(monthStr);
+        }
+        continue;
+      }
+
       final isSelected = selectedDates.any((selected) =>
           selected.year == normalizedApproved.year &&
           selected.month == normalizedApproved.month &&
@@ -2747,13 +2805,26 @@ class _MyPageScreenState extends State<MyPageScreen> {
 
     if (mounted) {
       setState(() {});
-      final message = widget.appUser.isAdmin
-          ? '勤務希望日を更新しました'
-          : newRequestCount > 0
-              ? '勤務希望日を申請しました。管理者の承認をお待ちください。'
-              : '変更はありませんでした。';
+
+      String message;
+      Color? bgColor;
+      if (lockedMonths.isNotEmpty) {
+        message = '${lockedMonths.join("、")}は締め済みのため変更できません';
+        bgColor = Colors.orange;
+      } else if (widget.appUser.isAdmin) {
+        message = '勤務希望日を更新しました';
+      } else if (newRequestCount > 0) {
+        message = '勤務希望日を申請しました。管理者の承認をお待ちください。';
+      } else {
+        message = '変更はありませんでした。';
+      }
+
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(message), duration: const Duration(seconds: 3)),
+        SnackBar(
+          content: Text(message),
+          duration: const Duration(seconds: 3),
+          backgroundColor: bgColor,
+        ),
       );
     }
   }
