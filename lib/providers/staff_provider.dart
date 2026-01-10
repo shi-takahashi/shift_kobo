@@ -124,11 +124,6 @@ class StaffProvider extends ChangeNotifier {
       'updatedAt': FieldValue.serverTimestamp(),
     };
 
-    // userIdがnullでない場合のみ設定
-    if (staff.userId != null) {
-      data['userId'] = staff.userId;
-    }
-
     await _firestore
         .collection('teams')
         .doc(teamId)
@@ -136,18 +131,30 @@ class StaffProvider extends ChangeNotifier {
         .doc(staff.id)
         .update(data);
 
-    // メールアドレスが設定されている場合、自動紐付けを試行
-    if (staff.email != null && staff.email!.isNotEmpty) {
-      await _tryAutoLinkByEmail(staff.id, staff.email!);
-    }
+    // メールアドレスに基づいて紐付けを更新（紐付け・解除両対応）
+    await _updateLinkByEmail(staff.id, staff.email);
   }
 
-  /// メールアドレスでユーザーと自動紐付けを試行
-  Future<void> _tryAutoLinkByEmail(String staffId, String email) async {
+  /// メールアドレスに基づいてユーザー紐付けを更新（紐付け・解除両対応）
+  Future<void> _updateLinkByEmail(String staffId, String? email) async {
     if (teamId == null) return;
 
     try {
-      // 1. チームスタッフから同じメールアドレスのユーザーを検索
+      // メールアドレスが空の場合は紐付け解除
+      if (email == null || email.isEmpty) {
+        await _firestore
+            .collection('teams')
+            .doc(teamId)
+            .collection('staff')
+            .doc(staffId)
+            .update({
+          'userId': null,
+          'updatedAt': FieldValue.serverTimestamp(),
+        });
+        return;
+      }
+
+      // メールアドレスが設定されている場合、一致するユーザーを検索
       final usersQuery = await _firestore
           .collection('users')
           .where('email', isEqualTo: email)
@@ -156,7 +163,7 @@ class StaffProvider extends ChangeNotifier {
           .get();
 
       if (usersQuery.docs.isNotEmpty) {
-        // 2. 一致するユーザーが見つかった場合、userIdを設定
+        // 一致するユーザーが見つかった場合、紐付け
         final userId = usersQuery.docs.first.id;
         await _firestore
             .collection('teams')
@@ -167,12 +174,26 @@ class StaffProvider extends ChangeNotifier {
           'userId': userId,
           'updatedAt': FieldValue.serverTimestamp(),
         });
-
       } else {
+        // 一致するユーザーがいない場合、紐付け解除
+        await _firestore
+            .collection('teams')
+            .doc(teamId)
+            .collection('staff')
+            .doc(staffId)
+            .update({
+          'userId': null,
+          'updatedAt': FieldValue.serverTimestamp(),
+        });
       }
     } catch (e) {
-      // 紐付け失敗してもスタッフ更新は成功扱い（エラーを投げない）
+      debugPrint('⚠️ [StaffProvider] 紐付け更新エラー: $e');
     }
+  }
+
+  /// メールアドレスでユーザーと自動紐付けを試行（addStaff用）
+  Future<void> _tryAutoLinkByEmail(String staffId, String email) async {
+    await _updateLinkByEmail(staffId, email);
   }
 
   Future<void> deleteStaff(String staffId) async {
