@@ -152,6 +152,8 @@ class ConstraintRequestCard extends StatelessWidget {
     switch (request.requestType) {
       case ConstraintRequest.typeSpecificDay:
         return '$prefix特定日の休み希望';
+      case ConstraintRequest.typePreferredDate:
+        return '$prefix勤務希望日';
       case ConstraintRequest.typeWeekday:
         return '$prefix休み希望曜日';
       case ConstraintRequest.typeShiftType:
@@ -169,6 +171,11 @@ class ConstraintRequestCard extends StatelessWidget {
     final actionText = request.isDelete ? 'を削除' : '';
     switch (request.requestType) {
       case ConstraintRequest.typeSpecificDay:
+        if (request.specificDate != null) {
+          return '${DateFormat('yyyy/MM/dd(E)', 'ja').format(request.specificDate!)}$actionText';
+        }
+        return '不明な日付';
+      case ConstraintRequest.typePreferredDate:
         if (request.specificDate != null) {
           return '${DateFormat('yyyy/MM/dd(E)', 'ja').format(request.specificDate!)}$actionText';
         }
@@ -201,6 +208,8 @@ class ConstraintRequestCard extends StatelessWidget {
     switch (request.requestType) {
       case ConstraintRequest.typeSpecificDay:
         return Icons.event_busy;
+      case ConstraintRequest.typePreferredDate:
+        return Icons.favorite;
       case ConstraintRequest.typeWeekday:
         return Icons.calendar_today;
       case ConstraintRequest.typeShiftType:

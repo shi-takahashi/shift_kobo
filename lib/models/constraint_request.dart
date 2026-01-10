@@ -56,6 +56,7 @@ class ConstraintRequest {
   static const String typeShiftType = 'shiftType';
   static const String typeMaxShiftsPerMonth = 'maxShiftsPerMonth';
   static const String typeHoliday = 'holiday';
+  static const String typePreferredDate = 'preferredDate'; // 勤務希望日
 
   // 定数：ステータス
   static const String statusPending = 'pending';

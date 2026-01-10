@@ -321,6 +321,11 @@ exports.onConstraintRequestCreated = onDocumentCreated(
         } else if (requestType === "maxShiftsPerMonth") {
           title = "月間最大シフト数の変更申請";
           body = `${staffName}さんが月間最大シフト数の変更を申請しました`;
+        } else if (requestType === "preferredDate") {
+          title = isDelete ? "勤務希望日の取り消し" : "新しい勤務希望日申請";
+          body = isDelete ?
+            `${staffName}さんが勤務希望日を取り消しました` :
+            `${staffName}さんが勤務希望日を申請しました`;
         } else {
           console.log(`⚠️ 不明なrequestType: ${requestType}`);
           return;
@@ -510,6 +515,11 @@ exports.onConstraintRequestUpdated = onDocumentUpdated(
           } else if (requestType === "maxShiftsPerMonth") {
             title = "月間最大シフト数の変更が承認されました";
             body = "申請した月間最大シフト数の変更が承認されました";
+          } else if (requestType === "preferredDate") {
+            title = isDelete ? "勤務希望日の取り消しが承認されました" : "勤務希望日が承認されました";
+            body = isDelete ?
+              "申請した勤務希望日の取り消しが承認されました" :
+              "申請した勤務希望日が承認されました";
           } else {
             title = "申請が承認されました";
             body = "申請が承認されました";
@@ -527,6 +537,9 @@ exports.onConstraintRequestUpdated = onDocumentUpdated(
             body = "申請が却下されました。詳細はアプリで確認してください";
           } else if (requestType === "maxShiftsPerMonth") {
             title = "月間最大シフト数の変更が却下されました";
+            body = "申請が却下されました。詳細はアプリで確認してください";
+          } else if (requestType === "preferredDate") {
+            title = isDelete ? "勤務希望日の取り消しが却下されました" : "勤務希望日が却下されました";
             body = "申請が却下されました。詳細はアプリで確認してください";
           } else {
             title = "申請が却下されました";

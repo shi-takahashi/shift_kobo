@@ -244,6 +244,25 @@ class ConstraintRequestProvider extends ChangeNotifier {
           'updatedAt': FieldValue.serverTimestamp(),
         });
       }
+    } else if (request.requestType == ConstraintRequest.typePreferredDate) {
+      // 勤務希望日
+      final updatedPreferredDates = List<String>.from(staff.preferredDates);
+      if (request.specificDate != null) {
+        final dateStr = request.specificDate!.toIso8601String();
+        if (request.isDelete) {
+          // 削除申請の場合：リストから削除
+          updatedPreferredDates.remove(dateStr);
+        } else {
+          // 追加申請の場合：リストに追加
+          if (!updatedPreferredDates.contains(dateStr)) {
+            updatedPreferredDates.add(dateStr);
+          }
+        }
+      }
+      batch.update(staffRef, {
+        'preferredDates': updatedPreferredDates,
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
     }
 
     // バッチコミット
