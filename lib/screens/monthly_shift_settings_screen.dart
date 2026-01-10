@@ -26,6 +26,9 @@ class _MonthlyShiftSettingsScreenState extends State<MonthlyShiftSettingsScreen>
   bool _useWeekdaySettings = false;
   final Map<int, Map<String, int>> _weekdaySettings = {};
 
+  // 日付個別設定用
+  bool _showPastDateSettings = false;
+
   // 曜日名
   static const List<String> _weekdayNames = ['月', '火', '水', '木', '金', '土', '日'];
 
@@ -625,7 +628,32 @@ class _MonthlyShiftSettingsScreenState extends State<MonthlyShiftSettingsScreen>
     MonthlyRequirementsProvider requirementsProvider,
   ) {
     final dateReqs = requirementsProvider.dateRequirements;
-    final sortedDates = dateReqs.keys.toList()..sort();
+    final now = DateTime.now();
+    final firstDayOfCurrentMonth = DateTime(now.year, now.month, 1);
+
+    // 当月以降の日付のみフィルタリング（_showPastDateSettingsがtrueの場合は全て表示）
+    final sortedDates = dateReqs.keys
+        .where((dateKey) {
+          if (_showPastDateSettings) return true;
+          try {
+            final date = DateTime.parse(dateKey);
+            return !date.isBefore(firstDayOfCurrentMonth);
+          } catch (e) {
+            return false;
+          }
+        })
+        .toList()
+      ..sort();
+
+    // 過去（先月以前）の日付の件数をカウント
+    final pastCount = dateReqs.keys.where((dateKey) {
+      try {
+        final date = DateTime.parse(dateKey);
+        return date.isBefore(firstDayOfCurrentMonth);
+      } catch (e) {
+        return false;
+      }
+    }).length;
 
     return Card(
       child: Padding(
@@ -689,6 +717,25 @@ class _MonthlyShiftSettingsScreenState extends State<MonthlyShiftSettingsScreen>
                 ),
               ),
               const SizedBox(height: 8),
+            ],
+            // 過去の設定がある場合、表示/非表示トグルを表示
+            if (pastCount > 0) ...[
+              const SizedBox(height: 8),
+              Center(
+                child: TextButton(
+                  onPressed: () {
+                    setState(() {
+                      _showPastDateSettings = !_showPastDateSettings;
+                    });
+                  },
+                  child: Text(
+                    _showPastDateSettings
+                        ? '過去の設定を非表示'
+                        : '過去の設定を表示 ($pastCount件)',
+                    style: const TextStyle(fontSize: 12),
+                  ),
+                ),
+              ),
             ],
           ],
         ),
