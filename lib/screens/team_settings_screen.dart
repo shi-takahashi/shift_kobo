@@ -1,4 +1,3 @@
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -37,13 +36,13 @@ class _TeamSettingsScreenState extends State<TeamSettingsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // 匿名ユーザーかどうかを判定
-    final isAnonymous = FirebaseAuth.instance.currentUser?.isAnonymous ?? true;
+    // 匿名ユーザーかどうかを判定（emailがnullの場合は匿名）
+    final isRegisteredUser = widget.appUser.email != null;
 
     return ListView(
       children: [
         // 匿名ユーザーには共有機能を非表示
-        if (!isAnonymous) ...[
+        if (isRegisteredUser) ...[
           const Padding(
             padding: EdgeInsets.fromLTRB(16.0, 16.0, 16.0, 8.0),
             child: Text(
