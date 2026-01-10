@@ -129,7 +129,12 @@ class _AutoAssignmentDialogState extends State<AutoAssignmentDialog> {
         final hasNoStaff = allStaff.isEmpty;
         final hasNoActiveStaff = allStaff.isNotEmpty && activeStaff.isEmpty;
         final requirements = requirementsProvider.requirements;
-        final hasNoRequirements = requirements.isEmpty || requirements.values.every((v) => v <= 0);
+        // 有効なシフトタイプに対する必要人数が1以上あるかチェック
+        final hasValidRequirements = activeSettings.any((setting) {
+          final requirement = requirements[setting.displayName] ?? 0;
+          return requirement > 0;
+        });
+        final hasNoRequirements = !hasValidRequirements;
 
         return AlertDialog(
           title: const Text('自動シフト割り当て'),
