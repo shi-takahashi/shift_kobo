@@ -1,3 +1,4 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -36,32 +37,38 @@ class _TeamSettingsScreenState extends State<TeamSettingsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // 匿名ユーザーかどうかを判定
+    final isAnonymous = FirebaseAuth.instance.currentUser?.isAnonymous ?? true;
+
     return ListView(
       children: [
-        const Padding(
-          padding: EdgeInsets.fromLTRB(16.0, 16.0, 16.0, 8.0),
-          child: Text(
-            '共有機能',
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
+        // 匿名ユーザーには共有機能を非表示
+        if (!isAnonymous) ...[
+          const Padding(
+            padding: EdgeInsets.fromLTRB(16.0, 16.0, 16.0, 8.0),
+            child: Text(
+              '共有機能',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+              ),
             ),
           ),
-        ),
-        ListTile(
-          leading: const Icon(Icons.group_add),
-          title: const Text('チーム招待'),
-          subtitle: const Text('スタッフを招待する'),
-          trailing: const Icon(Icons.chevron_right),
-          onTap: () {
-            Navigator.of(context).push(
-              MaterialPageRoute(
-                builder: (context) => const TeamInviteScreen(),
-              ),
-            );
-          },
-        ),
-        const Divider(),
+          ListTile(
+            leading: const Icon(Icons.group_add),
+            title: const Text('チーム招待'),
+            subtitle: const Text('スタッフを招待する'),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () {
+              Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (context) => const TeamInviteScreen(),
+                ),
+              );
+            },
+          ),
+          const Divider(),
+        ],
         const Padding(
           padding: EdgeInsets.fromLTRB(16.0, 16.0, 16.0, 8.0),
           child: Text(
