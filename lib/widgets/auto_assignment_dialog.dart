@@ -10,6 +10,7 @@ import '../providers/shift_provider.dart';
 import '../providers/shift_time_provider.dart';
 import '../providers/staff_provider.dart';
 import '../screens/monthly_shift_settings_screen.dart';
+import '../screens/shift_time_settings_screen.dart';
 import '../services/ad_service.dart';
 import '../services/analytics_service.dart';
 import '../services/shift_assignment_service.dart';
@@ -120,9 +121,15 @@ class _AutoAssignmentDialogState extends State<AutoAssignmentDialog> {
 
   @override
   Widget build(BuildContext context) {
-    return Consumer<ShiftTimeProvider>(
-      builder: (context, shiftTimeProvider, child) {
+    return Consumer3<ShiftTimeProvider, StaffProvider, MonthlyRequirementsProvider>(
+      builder: (context, shiftTimeProvider, staffProvider, requirementsProvider, child) {
         final activeSettings = shiftTimeProvider.settings.where((s) => s.isActive).toList();
+        final allStaff = staffProvider.staff;
+        final activeStaff = staffProvider.activeStaffList;
+        final hasNoStaff = allStaff.isEmpty;
+        final hasNoActiveStaff = allStaff.isNotEmpty && activeStaff.isEmpty;
+        final requirements = requirementsProvider.requirements;
+        final hasNoRequirements = requirements.isEmpty || requirements.values.every((v) => v <= 0);
 
         return AlertDialog(
           title: const Text('自動シフト割り当て'),
@@ -148,7 +155,7 @@ class _AutoAssignmentDialogState extends State<AutoAssignmentDialog> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'シフト割当て設定に従ってシフトを自動作成します。',
+                          'シフト時間設定とシフト割り当て設定に従ってシフトを自動作成します。',
                           style: TextStyle(
                             fontSize: 13,
                             color: Colors.grey.shade800,
@@ -158,9 +165,21 @@ class _AutoAssignmentDialogState extends State<AutoAssignmentDialog> {
                         SizedBox(
                           width: double.infinity,
                           child: OutlinedButton.icon(
+                            onPressed: () => _navigateToShiftTimeSettings(),
+                            icon: const Icon(Icons.schedule, size: 16),
+                            label: const Text('シフト時間設定'),
+                            style: OutlinedButton.styleFrom(
+                              padding: const EdgeInsets.symmetric(vertical: 8),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        SizedBox(
+                          width: double.infinity,
+                          child: OutlinedButton.icon(
                             onPressed: () => _navigateToMonthlyShiftSettings(),
                             icon: const Icon(Icons.settings, size: 16),
-                            label: const Text('シフト割当て設定を確認・変更'),
+                            label: const Text('シフト割り当て設定'),
                             style: OutlinedButton.styleFrom(
                               padding: const EdgeInsets.symmetric(vertical: 8),
                             ),
@@ -179,6 +198,36 @@ class _AutoAssignmentDialogState extends State<AutoAssignmentDialog> {
                       ),
                       child: Text(
                         'アクティブなシフトタイプがありません。\n「その他」タブのシフト時間設定でシフトタイプを有効にしてください。',
+                        style: TextStyle(color: Colors.orange.shade700),
+                        textAlign: TextAlign.center,
+                      ),
+                    ),
+                  ],
+                  if (hasNoStaff || hasNoActiveStaff) ...[
+                    const SizedBox(height: 12),
+                    Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: Colors.orange.shade50,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Text(
+                        '有効なスタッフがいません。\nスタッフ画面でスタッフを登録してください。',
+                        style: TextStyle(color: Colors.orange.shade700),
+                        textAlign: TextAlign.center,
+                      ),
+                    ),
+                  ],
+                  if (hasNoRequirements) ...[
+                    const SizedBox(height: 12),
+                    Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: Colors.orange.shade50,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Text(
+                        '必要人数が設定されていません。\nシフト割当て設定で必要人数を設定してください。',
                         style: TextStyle(color: Colors.orange.shade700),
                         textAlign: TextAlign.center,
                       ),
@@ -355,7 +404,7 @@ class _AutoAssignmentDialogState extends State<AutoAssignmentDialog> {
               onPressed: _isProcessing ? null : () => Navigator.of(context).pop(),
               child: const Text('キャンセル'),
             ),
-            if (activeSettings.isNotEmpty)
+            if (activeSettings.isNotEmpty && activeStaff.isNotEmpty && !hasNoRequirements)
               ElevatedButton(
                 onPressed: _isProcessing ? null : _generateAndApply,
                 child: _isProcessing
@@ -389,15 +438,6 @@ class _AutoAssignmentDialogState extends State<AutoAssignmentDialog> {
 
       // 基本設定から必要人数を取得
       final requirements = Map<String, int>.from(requirementsProvider.requirements);
-
-      // 少なくとも1つのシフトタイプに1以上の人数が必要
-      if (requirements.isEmpty || requirements.values.every((v) => v <= 0)) {
-        setState(() {
-          _isProcessing = false;
-        });
-        await _showRequirementsNotSetDialog();
-        return;
-      }
 
       // 制約条件のバリデーション
       final maxConsecutiveDaysText = _maxConsecutiveDaysController.text.trim();
@@ -597,6 +637,21 @@ class _AutoAssignmentDialogState extends State<AutoAssignmentDialog> {
     );
   }
 
+  /// シフト時間設定画面へ遷移
+  void _navigateToShiftTimeSettings() {
+    final shiftTimeProvider = Provider.of<ShiftTimeProvider>(context, listen: false);
+
+    Navigator.of(context).pop();
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) => ChangeNotifierProvider<ShiftTimeProvider>.value(
+          value: shiftTimeProvider,
+          child: const ShiftTimeSettingsScreen(),
+        ),
+      ),
+    );
+  }
+
   /// シフト割当て設定画面へ遷移
   void _navigateToMonthlyShiftSettings() {
     final shiftTimeProvider = Provider.of<ShiftTimeProvider>(context, listen: false);
@@ -614,49 +669,6 @@ class _AutoAssignmentDialogState extends State<AutoAssignmentDialog> {
         ),
       ),
     );
-  }
-
-  /// 必要人数が設定されていない場合のダイアログ
-  Future<void> _showRequirementsNotSetDialog() async {
-    final result = await showDialog<bool>(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: const Text('必要人数が未設定です'),
-        content: const Text(
-          '自動作成するには、シフト割当て設定で各シフトタイプの必要人数を1以上に設定してください。',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(false),
-            child: const Text('キャンセル'),
-          ),
-          ElevatedButton(
-            onPressed: () => Navigator.of(dialogContext).pop(true),
-            child: const Text('設定画面へ'),
-          ),
-        ],
-      ),
-    );
-
-    if (result == true && mounted) {
-      // 現在のProviderを取得
-      final shiftTimeProvider = Provider.of<ShiftTimeProvider>(context, listen: false);
-      final monthlyRequirementsProvider = Provider.of<MonthlyRequirementsProvider>(context, listen: false);
-
-      // 自動作成ダイアログを閉じてからシフト割当て設定画面へ遷移
-      Navigator.of(context).pop();
-      Navigator.of(context).push(
-        MaterialPageRoute(
-          builder: (context) => MultiProvider(
-            providers: [
-              ChangeNotifierProvider<ShiftTimeProvider>.value(value: shiftTimeProvider),
-              ChangeNotifierProvider<MonthlyRequirementsProvider>.value(value: monthlyRequirementsProvider),
-            ],
-            child: const MonthlyShiftSettingsScreen(),
-          ),
-        ),
-      );
-    }
   }
 
   /// シフト作成完了メッセージを表示
