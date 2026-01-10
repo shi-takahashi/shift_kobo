@@ -13,6 +13,8 @@ import '../models/shift_plan.dart';
 import '../models/shift_time_setting.dart';
 import '../models/shift_type.dart' as old_shift_type;
 import '../models/staff.dart';
+import '../models/team.dart';
+import '../services/auth_service.dart';
 import '../providers/constraint_request_provider.dart';
 import '../providers/monthly_requirements_provider.dart';
 import '../providers/shift_lock_provider.dart';
@@ -47,6 +49,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
   DateTime _focusedDay = DateTime.now();
   DateTime? _selectedDay;
   Map<String, bool> _userRoleCache = {}; // userId -> isAdmin のキャッシュ
+  Team? _team; // チーム情報（休み設定用）
 
   // 入れ替えモード関連
   bool _isSwapMode = false;
@@ -60,6 +63,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
     _selectedDay = DateTime.now();
     _selectedShifts = ValueNotifier(_getShiftsForDay(_selectedDay!));
     _loadTeamUserRoles();
+    _loadTeamInfo();
 
     // ShiftProviderの変更をリッスンして、選択日のシフトを自動更新
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -69,6 +73,46 @@ class _CalendarScreenState extends State<CalendarScreen> {
 
     // Analytics: 画面表示イベント
     AnalyticsService.logScreenView('calendar_screen');
+  }
+
+  /// チーム情報を取得
+  Future<void> _loadTeamInfo() async {
+    final teamId = widget.appUser.teamId;
+    if (teamId == null) return;
+
+    try {
+      final team = await AuthService().getTeam(teamId);
+      if (mounted) {
+        setState(() {
+          _team = team;
+        });
+      }
+    } catch (e) {
+      debugPrint('⚠️ チーム情報の取得に失敗: $e');
+    }
+  }
+
+  /// 指定日がチームの休みかどうかを判定
+  bool _isTeamHoliday(DateTime day, bool isHoliday) {
+    if (_team == null) return false;
+
+    // 1. 曜日休みをチェック（1=月曜〜7=日曜）
+    if (_team!.teamDaysOff.contains(day.weekday)) {
+      return true;
+    }
+
+    // 2. 特定日休みをチェック
+    final dayStr = DateTime(day.year, day.month, day.day).toIso8601String();
+    if (_team!.teamSpecificDaysOff.contains(dayStr)) {
+      return true;
+    }
+
+    // 3. 祝日休みをチェック
+    if (_team!.teamHolidaysOff && isHoliday) {
+      return true;
+    }
+
+    return false;
   }
 
   void _onShiftProviderChanged() {
@@ -961,15 +1005,25 @@ class _CalendarScreenState extends State<CalendarScreen> {
                       },
                       defaultBuilder: (context, day, focusedDay) {
                         final isHoliday = holiday_jp.isHoliday(day);
+                        final isTeamHoliday = _isTeamHoliday(day, isHoliday);
+
+                        // 色の優先順位: チームの休み > 日曜・祝日(赤) > 土曜(青) > 平日(黒)
+                        Color textColor;
+                        if (isTeamHoliday) {
+                          textColor = Colors.purple;
+                        } else if (isHoliday || day.weekday == DateTime.sunday) {
+                          textColor = Colors.red;
+                        } else if (day.weekday == DateTime.saturday) {
+                          textColor = Colors.blue;
+                        } else {
+                          textColor = Colors.black87;
+                        }
+
                         return Center(
                           child: Text(
                             '${day.day}',
                             style: TextStyle(
-                              color: isHoliday || day.weekday == DateTime.sunday
-                                  ? Colors.red
-                                  : day.weekday == DateTime.saturday
-                                      ? Colors.blue
-                                      : Colors.black87,
+                              color: textColor,
                               fontSize: 12,
                             ),
                           ),
