@@ -9,23 +9,29 @@ class ConstraintRequestProvider extends ChangeNotifier {
   final String? teamId;
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   List<ConstraintRequest> _requests = [];
+  List<ConstraintRequest> _processedRequests = []; // 承認済み + 却下済み
   StreamSubscription? _requestSubscription;
   bool _isLoading = true;
+  bool _isLoadingMore = false;
+  bool _hasMoreProcessed = true;
+  DocumentSnapshot? _lastProcessedDoc;
+  static const int _processedPageSize = 100;
 
   List<ConstraintRequest> get requests => _requests;
   bool get isLoading => _isLoading;
+  bool get isLoadingMore => _isLoadingMore;
+  bool get hasMoreApproved => _hasMoreProcessed;
 
   /// 承認待ちのリクエストのみ取得
   List<ConstraintRequest> get pendingRequests =>
       _requests.where((r) => r.status == ConstraintRequest.statusPending).toList();
 
-  /// 承認済みのリクエストのみ取得
-  List<ConstraintRequest> get approvedRequests =>
-      _requests.where((r) => r.status == ConstraintRequest.statusApproved).toList();
+  /// 処理済みのリクエストを取得（承認済み + 却下済み、ページネーション対応）
+  List<ConstraintRequest> get approvedRequests => _processedRequests;
 
   /// 却下されたリクエストのみ取得
   List<ConstraintRequest> get rejectedRequests =>
-      _requests.where((r) => r.status == ConstraintRequest.statusRejected).toList();
+      _processedRequests.where((r) => r.status == ConstraintRequest.statusRejected).toList();
 
   ConstraintRequestProvider({this.teamId}) {
     if (teamId != null) {
@@ -34,55 +40,26 @@ class ConstraintRequestProvider extends ChangeNotifier {
   }
 
   void _init() {
-    // リアルタイム更新を開始
+    // リアルタイム更新を開始（pendingのみ）
     _subscribeToRequests();
+    // 処理済み（承認済み + 却下済み）の初回読み込み
+    _loadProcessedRequests();
   }
 
-  /// Firestoreからリクエストをリアルタイムで購読（pending/rejected/approved）
+  /// Firestoreからリクエストをリアルタイムで購読（pendingのみ）
   void _subscribeToRequests() {
     if (teamId == null) return;
-
 
     _requestSubscription?.cancel();
     _requestSubscription = _firestore
         .collection('teams')
         .doc(teamId)
         .collection('constraint_requests')
-        .where('status', whereIn: [
-          ConstraintRequest.statusPending,
-          ConstraintRequest.statusRejected,
-          ConstraintRequest.statusApproved,
-        ])
+        .where('status', isEqualTo: ConstraintRequest.statusPending)
         .snapshots()
         .listen((snapshot) {
       _requests = snapshot.docs.map((doc) {
-        final data = doc.data();
-        return ConstraintRequest(
-          id: doc.id,
-          staffId: data['staffId'] as String,
-          userId: data['userId'] as String,
-          requestType: data['requestType'] as String,
-          specificDate: data['specificDate'] != null
-              ? (data['specificDate'] as Timestamp).toDate()
-              : null,
-          weekday: data['weekday'] as int?,
-          shiftType: data['shiftType'] as String?,
-          maxShiftsPerMonth: data['maxShiftsPerMonth'] as int?,
-          holidaysOff: data['holidaysOff'] as bool?,
-          status: data['status'] as String,
-          isDelete: data['isDelete'] as bool? ?? false,  // 追加：削除申請フラグ
-          approvedBy: data['approvedBy'] as String?,
-          approvedAt: data['approvedAt'] != null
-              ? (data['approvedAt'] as Timestamp).toDate()
-              : null,
-          rejectedReason: data['rejectedReason'] as String?,
-          createdAt: data['createdAt'] != null
-              ? (data['createdAt'] as Timestamp).toDate()
-              : DateTime.now(),
-          updatedAt: data['updatedAt'] != null
-              ? (data['updatedAt'] as Timestamp).toDate()
-              : DateTime.now(),
-        );
+        return _docToConstraintRequest(doc);
       }).toList();
 
       // 初回ロード完了
@@ -99,6 +76,101 @@ class ConstraintRequestProvider extends ChangeNotifier {
         notifyListeners();
       }
     });
+  }
+
+  /// 処理済みリクエストを読み込み（承認済み + 却下済み、ページネーション対応）
+  Future<void> _loadProcessedRequests({bool loadMore = false}) async {
+    if (teamId == null) return;
+    if (loadMore && !_hasMoreProcessed) return;
+    if (_isLoadingMore) return;
+
+    if (loadMore) {
+      _isLoadingMore = true;
+      notifyListeners();
+    }
+
+    try {
+      Query query = _firestore
+          .collection('teams')
+          .doc(teamId)
+          .collection('constraint_requests')
+          .where('status', whereIn: [
+            ConstraintRequest.statusApproved,
+            ConstraintRequest.statusRejected,
+          ])
+          .orderBy('updatedAt', descending: true)
+          .limit(_processedPageSize);
+
+      if (loadMore && _lastProcessedDoc != null) {
+        query = query.startAfterDocument(_lastProcessedDoc!);
+      }
+
+      final snapshot = await query.get();
+
+      final newRequests = snapshot.docs.map((doc) {
+        return _docToConstraintRequest(doc);
+      }).toList();
+
+      if (loadMore) {
+        _processedRequests.addAll(newRequests);
+      } else {
+        _processedRequests = newRequests;
+      }
+
+      if (snapshot.docs.isNotEmpty) {
+        _lastProcessedDoc = snapshot.docs.last;
+      }
+
+      _hasMoreProcessed = snapshot.docs.length >= _processedPageSize;
+    } catch (e) {
+      debugPrint('⚠️ [ConstraintRequestProvider] 処理済みデータ読み込みエラー: $e');
+    } finally {
+      _isLoadingMore = false;
+      notifyListeners();
+    }
+  }
+
+  /// 処理済みデータを追加読み込み
+  Future<void> loadMoreApproved() async {
+    await _loadProcessedRequests(loadMore: true);
+  }
+
+  /// 処理済みデータをリフレッシュ
+  Future<void> refreshApprovedRequests() async {
+    _lastProcessedDoc = null;
+    _hasMoreProcessed = true;
+    await _loadProcessedRequests();
+  }
+
+  /// DocumentSnapshotからConstraintRequestを生成
+  ConstraintRequest _docToConstraintRequest(DocumentSnapshot doc) {
+    final data = doc.data() as Map<String, dynamic>;
+    return ConstraintRequest(
+      id: doc.id,
+      staffId: data['staffId'] as String,
+      userId: data['userId'] as String,
+      requestType: data['requestType'] as String,
+      specificDate: data['specificDate'] != null
+          ? (data['specificDate'] as Timestamp).toDate()
+          : null,
+      weekday: data['weekday'] as int?,
+      shiftType: data['shiftType'] as String?,
+      maxShiftsPerMonth: data['maxShiftsPerMonth'] as int?,
+      holidaysOff: data['holidaysOff'] as bool?,
+      status: data['status'] as String,
+      isDelete: data['isDelete'] as bool? ?? false,
+      approvedBy: data['approvedBy'] as String?,
+      approvedAt: data['approvedAt'] != null
+          ? (data['approvedAt'] as Timestamp).toDate()
+          : null,
+      rejectedReason: data['rejectedReason'] as String?,
+      createdAt: data['createdAt'] != null
+          ? (data['createdAt'] as Timestamp).toDate()
+          : DateTime.now(),
+      updatedAt: data['updatedAt'] != null
+          ? (data['updatedAt'] as Timestamp).toDate()
+          : DateTime.now(),
+    );
   }
 
   /// 特定ユーザーのリクエストを取得
@@ -268,6 +340,8 @@ class ConstraintRequestProvider extends ChangeNotifier {
     // バッチコミット
     await batch.commit();
 
+    // 承認済みリストをリフレッシュ
+    await refreshApprovedRequests();
   }
 
   /// リクエストを却下（ステータス更新＋却下理由設定）
@@ -291,6 +365,32 @@ class ConstraintRequestProvider extends ChangeNotifier {
       'updatedAt': FieldValue.serverTimestamp(),
     });
 
+    // 処理済みリストをリフレッシュ
+    await refreshApprovedRequests();
+  }
+
+  /// 複数のリクエストを一括承認
+  /// 承認した件数を返す
+  Future<int> approveAllRequests(
+    List<ConstraintRequest> requests,
+    String approverUserId,
+    Map<String, Staff> staffMap,
+  ) async {
+    if (teamId == null) return 0;
+
+    int approvedCount = 0;
+    for (final request in requests) {
+      final staff = staffMap[request.staffId];
+      if (staff != null) {
+        try {
+          await approveRequest(request, approverUserId, staff);
+          approvedCount++;
+        } catch (e) {
+          debugPrint('一括承認エラー（${request.id}）: $e');
+        }
+      }
+    }
+    return approvedCount;
   }
 
   /// リクエストを削除

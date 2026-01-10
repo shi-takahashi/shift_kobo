@@ -18,6 +18,7 @@ import '../providers/constraint_request_provider.dart';
 import '../models/shift_type.dart' as old_shift_type;
 import '../services/analytics_service.dart';
 import '../utils/japanese_calendar_utils.dart';
+import 'approval/constraint_approval_screen.dart';
 
 /// マイページ画面（自分のシフト確認・休み希望入力）
 class MyPageScreen extends StatefulWidget {
@@ -343,74 +344,77 @@ class _MyPageScreenState extends State<MyPageScreen> {
         if (myStaff == null) {
           // 管理者の場合
           if (widget.appUser.isAdmin) {
-            return Center(
-              child: Padding(
-                padding: const EdgeInsets.all(24),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(
-                      Icons.admin_panel_settings,
-                      size: 64,
-                      color: Colors.grey[400],
+            final approvedRequests = requestProvider.approvedRequests;
+            return SingleChildScrollView(
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                children: [
+                  Icon(
+                    Icons.admin_panel_settings,
+                    size: 64,
+                    color: Colors.grey[400],
+                  ),
+                  const SizedBox(height: 24),
+                  Text(
+                    'マイページはスタッフのシフト確認用です',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.grey[700],
                     ),
-                    const SizedBox(height: 24),
-                    Text(
-                      'マイページはスタッフのシフト確認用です',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.grey[700],
-                      ),
-                      textAlign: TextAlign.center,
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    'あなたは管理者のため、現在シフトデータは表示されません。',
+                    style: TextStyle(color: Colors.grey[600]),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 24),
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: Colors.blue.shade50,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: Colors.blue.shade200),
                     ),
-                    const SizedBox(height: 16),
-                    Text(
-                      'あなたは管理者のため、現在シフトデータは表示されません。',
-                      style: TextStyle(color: Colors.grey[600]),
-                      textAlign: TextAlign.center,
-                    ),
-                    const SizedBox(height: 24),
-                    Container(
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        color: Colors.blue.shade50,
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: Colors.blue.shade200),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              Icon(Icons.info_outline, size: 20, color: Colors.blue[700]),
-                              const SizedBox(width: 8),
-                              Text(
-                                'ご自身もシフトに入る場合',
-                                style: TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  color: Colors.blue[900],
-                                ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Icon(Icons.info_outline, size: 20, color: Colors.blue[700]),
+                            const SizedBox(width: 8),
+                            Text(
+                              'ご自身もシフトに入る場合',
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                color: Colors.blue[900],
                               ),
-                            ],
-                          ),
-                          const SizedBox(height: 12),
-                          Text(
-                            '1. スタッフ管理画面を開く\n'
-                            '2. ご自身をスタッフとして登録\n'
-                            '3. メールアドレスに以下を設定:\n'
-                            '   ${widget.appUser.email ?? '（未設定）'}',
-                            style: TextStyle(
-                              fontSize: 13,
-                              color: Colors.blue[800],
-                              height: 1.5,
                             ),
+                          ],
+                        ),
+                        const SizedBox(height: 12),
+                        Text(
+                          '1. スタッフ管理画面を開く\n'
+                          '2. ご自身をスタッフとして登録\n'
+                          '3. メールアドレスに以下を設定:\n'
+                          '   ${widget.appUser.email ?? '（未設定）'}',
+                          style: TextStyle(
+                            fontSize: 13,
+                            color: Colors.blue[800],
+                            height: 1.5,
                           ),
-                        ],
-                      ),
+                        ),
+                      ],
                     ),
+                  ),
+                  // 承認履歴セクション（履歴がある場合のみ表示）
+                  if (approvedRequests.isNotEmpty) ...[
+                    const SizedBox(height: 32),
+                    _buildApprovalHistorySection(approvedRequests, staffProvider),
                   ],
-                ),
+                ],
               ),
             );
           }
@@ -1543,9 +1547,214 @@ class _MyPageScreenState extends State<MyPageScreen> {
                 ),
               ),
             ),
+
+            // 管理者の場合は承認履歴セクションを表示（履歴がある場合のみ）
+            if (widget.appUser.isAdmin && requestProvider.approvedRequests.isNotEmpty) ...[
+              const SizedBox(height: 24),
+              _buildApprovalHistorySection(requestProvider.approvedRequests, staffProvider),
+            ],
           ],
         );
       },
+    );
+  }
+
+  /// 処理履歴セクションを構築（管理者用、承認+却下）
+  Widget _buildApprovalHistorySection(
+    List<ConstraintRequest> processedRequests,
+    StaffProvider staffProvider,
+  ) {
+    // スタッフ情報をマップで保持
+    final staffMap = <String, Staff>{};
+    for (final staff in staffProvider.staff) {
+      staffMap[staff.id] = staff;
+    }
+
+    // 処理日時の新しい順にソート（すでにソート済みだがここでも保証）
+    final sortedRequests = List<ConstraintRequest>.from(processedRequests)
+      ..sort((a, b) {
+        final aDate = a.approvedAt ?? a.updatedAt;
+        final bDate = b.approvedAt ?? b.updatedAt;
+        return bDate.compareTo(aDate);
+      });
+
+    // 最新5件のみ表示
+    final displayRequests = sortedRequests.take(5).toList();
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(Icons.history, size: 24, color: Colors.green.shade700),
+                const SizedBox(width: 8),
+                Text(
+                  '承認履歴',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.green.shade700,
+                  ),
+                ),
+                const Spacer(),
+                GestureDetector(
+                  onTap: () => _navigateToApprovalHistory(),
+                  child: Text(
+                    'すべて見る',
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: Colors.blue.shade700,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const Divider(height: 24),
+            if (displayRequests.isEmpty)
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                child: Center(
+                  child: Text(
+                    '承認履歴はありません',
+                    style: TextStyle(color: Colors.grey[600]),
+                  ),
+                ),
+              )
+            else
+              ...displayRequests.map((request) {
+                final staff = staffMap[request.staffId];
+                final staffName = staff?.name ?? '不明';
+                final isRejected = request.status == ConstraintRequest.statusRejected;
+                final statusColor = isRejected ? Colors.red : Colors.green;
+                final statusIcon = isRejected ? Icons.close : Icons.check;
+                final statusText = isRejected ? '却下' : '承認';
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(6),
+                        decoration: BoxDecoration(
+                          color: statusColor.shade50,
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: Icon(
+                          statusIcon,
+                          size: 14,
+                          color: statusColor.shade700,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              staffName,
+                              style: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 14,
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              _getApprovalDescription(request),
+                              style: TextStyle(
+                                fontSize: 13,
+                                color: Colors.grey[700],
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              '申請: ${_formatDateTimeShort(request.createdAt)} → $statusText: ${_formatDateTimeShort(request.approvedAt ?? request.updatedAt)}',
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: Colors.grey[500],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              }),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// 承認内容の説明を取得
+  String _getApprovalDescription(ConstraintRequest request) {
+    final action = request.isDelete ? '削除' : '追加';
+
+    switch (request.requestType) {
+      case ConstraintRequest.typeWeekday:
+        final weekdayName = _getWeekdayNameForApproval(request.weekday);
+        return '曜日の休み希望: $weekdayName ($action)';
+      case ConstraintRequest.typeSpecificDay:
+        if (request.specificDate != null) {
+          final date = request.specificDate!;
+          return '特定日の休み希望: ${date.month}/${date.day} ($action)';
+        }
+        return '特定日の休み希望 ($action)';
+      case ConstraintRequest.typeShiftType:
+        return 'シフトタイプ: ${request.shiftType ?? ''} ($action)';
+      case ConstraintRequest.typeMaxShiftsPerMonth:
+        return '月間最大シフト数: ${request.maxShiftsPerMonth ?? 0}回';
+      case ConstraintRequest.typeHoliday:
+        return '祝日の休み: ${request.holidaysOff == true ? '希望する' : '希望しない'}';
+      case ConstraintRequest.typePreferredDate:
+        if (request.specificDate != null) {
+          final date = request.specificDate!;
+          return '勤務希望日: ${date.month}/${date.day} ($action)';
+        }
+        return '勤務希望日 ($action)';
+      default:
+        return '不明な申請タイプ';
+    }
+  }
+
+  /// 曜日番号から曜日名を取得
+  String _getWeekdayNameForApproval(int? weekday) {
+    const weekdays = ['', '月', '火', '水', '木', '金', '土', '日'];
+    if (weekday != null && weekday >= 1 && weekday <= 7) {
+      return '${weekdays[weekday]}曜日';
+    }
+    return '不明';
+  }
+
+  /// 日時を短い形式でフォーマット
+  String _formatDateTimeShort(DateTime dateTime) {
+    return '${dateTime.month}/${dateTime.day} ${dateTime.hour.toString().padLeft(2, '0')}:${dateTime.minute.toString().padLeft(2, '0')}';
+  }
+
+  /// 承認履歴画面に遷移
+  void _navigateToApprovalHistory() {
+    final constraintRequestProvider = context.read<ConstraintRequestProvider>();
+    final staffProvider = context.read<StaffProvider>();
+    final shiftProvider = context.read<ShiftProvider>();
+    final shiftTimeProvider = context.read<ShiftTimeProvider>();
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (newContext) => MultiProvider(
+          providers: [
+            ChangeNotifierProvider<ConstraintRequestProvider>.value(value: constraintRequestProvider),
+            ChangeNotifierProvider<StaffProvider>.value(value: staffProvider),
+            ChangeNotifierProvider<ShiftProvider>.value(value: shiftProvider),
+            ChangeNotifierProvider<ShiftTimeProvider>.value(value: shiftTimeProvider),
+          ],
+          child: ConstraintApprovalScreen(
+            appUser: widget.appUser,
+            initialTabIndex: 1, // 承認履歴タブを選択
+          ),
+        ),
+      ),
     );
   }
 
