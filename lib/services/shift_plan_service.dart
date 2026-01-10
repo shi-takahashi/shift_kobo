@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/foundation.dart';
 import 'package:uuid/uuid.dart';
 
 import '../models/shift.dart';
@@ -15,12 +16,17 @@ class ShiftPlanService {
   /// 既存ユーザー（shift_active_planがない）の場合はnullを返す
   Future<String?> getActivePlanId(String month) async {
     try {
-      final doc = await _firestore.collection('teams').doc(teamId).collection('shift_active_plan').doc(month).get();
+      final doc = await _firestore
+          .collection('teams')
+          .doc(teamId)
+          .collection('shift_active_plan')
+          .doc(month)
+          .get();
 
       if (!doc.exists) return null;
       return doc.data()?['plan_id'] as String?;
     } catch (e) {
-      print('getActivePlanId エラー: $e');
+      debugPrint('getActivePlanId エラー: $e');
       return null;
     }
   }
@@ -34,7 +40,7 @@ class ShiftPlanService {
       if (!doc.exists) return null;
       return doc.data()?['strategy'] as String?;
     } catch (e) {
-      print('getActiveStrategy エラー: $e');
+      debugPrint('getActiveStrategy エラー: $e');
       return null;
     }
   }
@@ -50,7 +56,12 @@ class ShiftPlanService {
 
   /// 指定月の全案を取得（新しい順）
   Future<List<ShiftPlan>> getPlansForMonth(String month) async {
-    final snapshot = await _firestore.collection('teams').doc(teamId).collection('shift_plans').where('metadata.month', isEqualTo: month).get();
+    final snapshot = await _firestore
+        .collection('teams')
+        .doc(teamId)
+        .collection('shift_plans')
+        .where('metadata.month', isEqualTo: month)
+        .get();
 
     // クライアント側でソート（新しい順）
     final plans = snapshot.docs.map((doc) => ShiftPlan.fromFirestore(doc)).toList();
@@ -70,7 +81,7 @@ class ShiftPlanService {
   }
 
   /// 案を保存
-  /// 同じplan_idの案が既に存在する場合は削除してから保存
+  /// 同じplan_idかつ同じ月の案が既に存在する場合は削除してから保存
   Future<String> saveShiftPlan({
     required String planId,
     required List<Shift> shifts,
@@ -78,8 +89,8 @@ class ShiftPlanService {
     String? note,
     required String strategy,
   }) async {
-    // 同じplan_idの案が既に存在する場合は削除
-    await deleteShiftPlanByPlanId(planId);
+    // 同じplan_idかつ同じ月の案が既に存在する場合は削除
+    await deleteShiftPlanByPlanIdAndMonth(planId, month);
 
     // 新しい案を保存
     final docRef = await _firestore.collection('teams').doc(teamId).collection('shift_plans').add({
@@ -97,9 +108,15 @@ class ShiftPlanService {
     return docRef.id;
   }
 
-  /// plan_idで案を削除
-  Future<void> deleteShiftPlanByPlanId(String planId) async {
-    final snapshot = await _firestore.collection('teams').doc(teamId).collection('shift_plans').where('metadata.plan_id', isEqualTo: planId).get();
+  /// plan_idと月で案を削除（月を指定して他の月のデータを誤って削除しない）
+  Future<void> deleteShiftPlanByPlanIdAndMonth(String planId, String month) async {
+    final snapshot = await _firestore
+        .collection('teams')
+        .doc(teamId)
+        .collection('shift_plans')
+        .where('metadata.plan_id', isEqualTo: planId)
+        .where('metadata.month', isEqualTo: month)
+        .get();
 
     for (var doc in snapshot.docs) {
       await doc.reference.delete();

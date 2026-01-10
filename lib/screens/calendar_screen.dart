@@ -534,76 +534,85 @@ class _CalendarScreenState extends State<CalendarScreen> {
                   backgroundColor: Colors.white,
                   scrolledUnderElevation: 0, // スクロール時の色変化を防ぐ
                   title: widget.appUser.isAdmin
-                      ? FutureBuilder<String?>(
+                      ? FutureBuilder<List<ShiftPlan>>(
+                          // keyを設定して月が変わるたびに再構築
+                          key: ValueKey('plans-${_focusedDay.year}-${_focusedDay.month}'),
                           future: shiftProvider.teamId != null
-                              ? ShiftPlanService(teamId: shiftProvider.teamId!).getActivePlanId('${_focusedDay.year}-${_focusedDay.month}')
+                              ? ShiftPlanService(teamId: shiftProvider.teamId!).getPlansForMonth('${_focusedDay.year}-${_focusedDay.month}')
                               : null,
-                          builder: (context, planSnapshot) {
-                            // プランIDが存在する場合は常に表示
-                            if (planSnapshot.hasData && planSnapshot.data != null) {
-                              return FutureBuilder<List<ShiftPlan>>(
-                                future: ShiftPlanService(teamId: shiftProvider.teamId!).getPlansForMonth('${_focusedDay.year}-${_focusedDay.month}'),
-                                builder: (context, snapshot) {
-                                  // 切替ボタンは複数プランがある場合のみ表示（shift_plansが1件以上、締め済みは非表示）
-                                  final lockProvider = context.watch<ShiftLockProvider>();
-                                  final isLocked = lockProvider.isLocked(_focusedDay.year, _focusedDay.month);
-                                  final showSwitchButton = !isLocked && snapshot.hasData && snapshot.data != null && snapshot.data!.isNotEmpty;
+                          builder: (context, plansSnapshot) {
+                            final month = '${_focusedDay.year}-${_focusedDay.month}';
+                            return FutureBuilder<String?>(
+                              key: ValueKey('activePlan-$month'),
+                              future: shiftProvider.teamId != null
+                                  ? ShiftPlanService(teamId: shiftProvider.teamId!).getActivePlanId(month)
+                                  : null,
+                              builder: (context, planSnapshot) {
+                                // 切替ボタンは複数プランがある場合のみ表示（shift_plansが1件以上、締め済みは非表示）
+                                final lockProvider = context.watch<ShiftLockProvider>();
+                                final isLocked = lockProvider.isLocked(_focusedDay.year, _focusedDay.month);
+                                final plans = plansSnapshot.data ?? [];
+                                final showSwitchButton = !isLocked && plans.isNotEmpty;
+                                final activePlanId = planSnapshot.data;
 
-                                  return Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      Text(
-                                        planSnapshot.data!,
-                                        style: const TextStyle(
-                                          fontSize: 16,
-                                          color: Colors.black87,
-                                          fontWeight: FontWeight.bold,
-                                        ),
+                                // activePlanIdがない場合は何も表示しない
+                                if (activePlanId == null) {
+                                  return const SizedBox();
+                                }
+
+                                return Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Text(
+                                      activePlanId,
+                                      style: const TextStyle(
+                                        fontSize: 16,
+                                        color: Colors.black87,
+                                        fontWeight: FontWeight.bold,
                                       ),
-                                      if (showSwitchButton) ...[
-                                        const SizedBox(width: 8),
-                                        Container(
-                                          decoration: BoxDecoration(
-                                            color: Colors.orange.shade600,
-                                            borderRadius: BorderRadius.circular(8.0),
-                                            boxShadow: [
-                                              BoxShadow(
-                                                color: Colors.orange.shade200,
-                                                blurRadius: 3,
-                                                offset: const Offset(0, 2),
-                                              ),
-                                            ],
-                                          ),
-                                          child: InkWell(
-                                            onTap: () => _showRestoreDialog(snapshot.data!),
-                                            borderRadius: BorderRadius.circular(8.0),
-                                            child: Padding(
-                                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                                              child: Row(
-                                                mainAxisSize: MainAxisSize.min,
-                                                children: [
-                                                  const Icon(Icons.swap_horiz, size: 14, color: Colors.white),
-                                                  const SizedBox(width: 4),
-                                                  const Text(
-                                                    '切替',
-                                                    style: TextStyle(
-                                                      color: Colors.white,
-                                                      fontSize: 12,
-                                                      fontWeight: FontWeight.w600,
-                                                    ),
+                                    ),
+                                    if (showSwitchButton) ...[
+                                      const SizedBox(width: 8),
+                                      Container(
+                                        decoration: BoxDecoration(
+                                          color: Colors.orange.shade600,
+                                          borderRadius: BorderRadius.circular(8.0),
+                                          boxShadow: [
+                                            BoxShadow(
+                                              color: Colors.orange.shade200,
+                                              blurRadius: 3,
+                                              offset: const Offset(0, 2),
+                                            ),
+                                          ],
+                                        ),
+                                        child: InkWell(
+                                          onTap: () => _showRestoreDialog(plans),
+                                          borderRadius: BorderRadius.circular(8.0),
+                                          child: Padding(
+                                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                            child: Row(
+                                              mainAxisSize: MainAxisSize.min,
+                                              children: [
+                                                const Icon(Icons.swap_horiz, size: 14, color: Colors.white),
+                                                const SizedBox(width: 4),
+                                                const Text(
+                                                  '切替',
+                                                  style: TextStyle(
+                                                    color: Colors.white,
+                                                    fontSize: 12,
+                                                    fontWeight: FontWeight.w600,
                                                   ),
-                                                ],
-                                              ),
+                                                ),
+                                              ],
                                             ),
                                           ),
                                         ),
-                                      ],
+                                      ),
                                     ],
-                                  );
-                                },
-                              );
-                            }
-                            return const SizedBox();
+                                  ],
+                                );
+                              },
+                            );
                           },
                         )
                       : null,
