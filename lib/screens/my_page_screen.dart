@@ -1767,29 +1767,12 @@ class _MyPageScreenState extends State<MyPageScreen> {
     // Staffデータ（承認済み）を初期値として取得
     final approvedDays = List<int>.from(myStaff.preferredDaysOff);
     final approvedShiftTypes = List<String>.from(myStaff.unavailableShiftTypes);
-    final approvedSpecificDays = myStaff.specificDaysOff
-        .map((dateStr) {
-          try {
-            final parsed = DateTime.parse(dateStr);
-            return DateTime(parsed.year, parsed.month, parsed.day);
-          } catch (e) {
-            // 古い形式（YYYY-MM-DD）の場合
-            final parts = dateStr.split('-');
-            return DateTime(
-              int.parse(parts[0]),
-              int.parse(parts[1]),
-              int.parse(parts[2]),
-            );
-          }
-        })
-        .toList();
     final approvedMaxShifts = myStaff.maxShiftsPerMonth > 0 ? myStaff.maxShiftsPerMonth : null; // 0は未設定とみなす
     final approvedHolidaysOff = myStaff.holidaysOff;
 
     // 承認待ち・却下の申請も含める
     final selectedDays = approvedDays.toSet();
     final selectedShiftTypes = approvedShiftTypes.toSet();
-    final selectedSpecificDays = approvedSpecificDays.toSet();
     int? selectedMaxShifts = approvedMaxShifts;
     bool selectedHolidaysOff = approvedHolidaysOff;
 
@@ -1819,24 +1802,6 @@ class _MyPageScreenState extends State<MyPageScreen> {
         } else {
           // 追加申請：リストに追加
           selectedShiftTypes.add(request.shiftType!);
-        }
-      }
-    }
-
-    // 承認待ちの特定日申請を反映（却下済みは除外）
-    for (final request in myRequests) {
-      if (request.requestType == ConstraintRequest.typeSpecificDay &&
-          request.specificDate != null &&
-          request.status == ConstraintRequest.statusPending) {
-        if (request.isDelete) {
-          // 削除申請：リストから削除
-          selectedSpecificDays.removeWhere((date) =>
-              date.year == request.specificDate!.year &&
-              date.month == request.specificDate!.month &&
-              date.day == request.specificDate!.day);
-        } else {
-          // 追加申請：リストに追加
-          selectedSpecificDays.add(request.specificDate!);
         }
       }
     }
@@ -1874,93 +1839,6 @@ class _MyPageScreenState extends State<MyPageScreen> {
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // 特定日の休み希望（最重要）
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        const Text(
-                          '特定日の休み希望',
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.red,
-                          ),
-                        ),
-                        TextButton.icon(
-                          onPressed: () async {
-                            final date = await showDatePicker(
-                              context: context,
-                              initialDate: DateTime.now(),
-                              firstDate: DateTime.now(),
-                              lastDate: DateTime.now().add(const Duration(days: 365)),
-                            );
-                            if (date != null) {
-                              final selectedDate = DateTime(date.year, date.month, date.day);
-                              setDialogState(() {
-                                if (!selectedSpecificDays.any((d) =>
-                                    d.year == selectedDate.year &&
-                                    d.month == selectedDate.month &&
-                                    d.day == selectedDate.day)) {
-                                  selectedSpecificDays.add(selectedDate);
-                                  // Set doesn't need sorting - will sort when converting to List
-                                }
-                              });
-                            }
-                          },
-                          icon: const Icon(Icons.add, size: 18),
-                          label: const Text('追加'),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    // 今月の初日を計算
-                    () {
-                      final now = DateTime.now();
-                      final firstDayOfCurrentMonth = DateTime(now.year, now.month, 1);
-
-                      // 今月以降の休み希望日のみ表示（日付順にソート）
-                      final visibleDays = selectedSpecificDays
-                          .where((date) => date.isAfter(firstDayOfCurrentMonth.subtract(const Duration(days: 1))))
-                          .toList()
-                          ..sort((a, b) => a.compareTo(b));
-
-                      if (visibleDays.isEmpty) {
-                        return const Padding(
-                          padding: EdgeInsets.all(8),
-                          child: Text(
-                            '特定日の休み希望はありません\n右上の「追加」ボタンから追加できます',
-                            style: TextStyle(color: Colors.grey, fontSize: 13),
-                          ),
-                        );
-                      }
-
-                      return Wrap(
-                        spacing: 8,
-                        runSpacing: 8,
-                        children: visibleDays.map((date) {
-                          final displayText = '${date.month}/${date.day}';
-                          return Chip(
-                            label: Text(displayText),
-                            deleteIcon: const Icon(Icons.close, size: 18),
-                            onDeleted: () {
-                              setDialogState(() {
-                                selectedSpecificDays.removeWhere((d) =>
-                                    d.year == date.year &&
-                                    d.month == date.month &&
-                                    d.day == date.day);
-                              });
-                            },
-                            backgroundColor: Colors.red.shade50,
-                            side: BorderSide(color: Colors.red.shade300),
-                          );
-                        }).toList(),
-                      );
-                    }(),
-
-                    const SizedBox(height: 24),
-                    const Divider(),
-                    const SizedBox(height: 16),
-
                     // 休み希望曜日
                     const Text(
                       '休み希望曜日',
@@ -2133,7 +2011,6 @@ class _MyPageScreenState extends State<MyPageScreen> {
                         dialogContext,
                         myStaff,
                         selectedDays.toList(),
-                        (selectedSpecificDays.toList()..sort((a, b) => a.compareTo(b))),
                         selectedShiftTypes.toList(),
                         selectedMaxShifts,
                         selectedHolidaysOff,
@@ -2145,7 +2022,6 @@ class _MyPageScreenState extends State<MyPageScreen> {
                         dialogContext,
                         myStaff,
                         selectedDays.toList(),
-                        (selectedSpecificDays.toList()..sort((a, b) => a.compareTo(b))),
                         selectedShiftTypes.toList(),
                         selectedMaxShifts,
                         selectedHolidaysOff,
@@ -2168,16 +2044,10 @@ class _MyPageScreenState extends State<MyPageScreen> {
     BuildContext dialogContext,
     Staff myStaff,
     List<int> selectedDays,
-    List<DateTime> selectedSpecificDays,
     List<String> selectedShiftTypes,
     int? selectedMaxShifts,
     bool selectedHolidaysOff,
   ) async {
-    // DateTimeのリストをISO8601文字列のリストに変換
-    final specificDaysOffStrings = selectedSpecificDays
-        .map((date) => DateTime(date.year, date.month, date.day).toIso8601String())
-        .toList();
-
     // Firestore更新（外側のcontextを使用）
     final staffProvider = outerContext.read<StaffProvider>();
     final updatedStaff = Staff(
@@ -2192,7 +2062,7 @@ class _MyPageScreenState extends State<MyPageScreen> {
       updatedAt: DateTime.now(),
       constraints: myStaff.constraints,
       unavailableShiftTypes: List.from(selectedShiftTypes),
-      specificDaysOff: specificDaysOffStrings,
+      specificDaysOff: myStaff.specificDaysOff, // 既存の値を維持（このダイアログでは変更しない）
       userId: myStaff.userId,
       holidaysOff: selectedHolidaysOff,
     );
@@ -2213,7 +2083,6 @@ class _MyPageScreenState extends State<MyPageScreen> {
     BuildContext dialogContext,
     Staff myStaff,
     List<int> selectedDays,
-    List<DateTime> selectedSpecificDays,
     List<String> selectedShiftTypes,
     int? selectedMaxShifts,
     bool selectedHolidaysOff,
@@ -2223,9 +2092,6 @@ class _MyPageScreenState extends State<MyPageScreen> {
 
     // 既存の制約を取得（承認済みのデータ）
     final approvedDays = myStaff.preferredDaysOff;
-    final approvedSpecificDays = myStaff.specificDaysOff
-        .map((dateStr) => DateTime.parse(dateStr))
-        .toList();
     final approvedShiftTypes = myStaff.unavailableShiftTypes;
     final approvedMaxShifts = myStaff.maxShiftsPerMonth > 0 ? myStaff.maxShiftsPerMonth : null; // 0は未設定とみなす
 
@@ -2281,58 +2147,7 @@ class _MyPageScreenState extends State<MyPageScreen> {
       }
     }
 
-    // 2. 特定日の休み希望
-    debugPrint('🔍 [申請作成] approvedSpecificDays: $approvedSpecificDays');
-    debugPrint('🔍 [申請作成] selectedSpecificDays: $selectedSpecificDays');
-
-    // 追加申請：selectedSpecificDaysにあるが、approvedSpecificDays（承認済み）にない
-    for (final date in selectedSpecificDays) {
-      final normalizedDate = DateTime(date.year, date.month, date.day);
-      final isApproved = approvedSpecificDays.any((approved) =>
-          approved.year == normalizedDate.year &&
-          approved.month == normalizedDate.month &&
-          approved.day == normalizedDate.day);
-
-      if (!isApproved) {
-        debugPrint('✅ [特定日追加申請] $normalizedDate を追加申請');
-        final request = ConstraintRequest(
-          id: uuid.v4(),
-          staffId: myStaff.id,
-          userId: widget.appUser.uid,
-          requestType: ConstraintRequest.typeSpecificDay,
-          specificDate: normalizedDate,
-          status: ConstraintRequest.statusPending,
-          isDelete: false,
-        );
-        await requestProvider.createRequest(request);
-        newRequestCount++;
-      }
-    }
-    // 削除申請：approvedSpecificDays（承認済み）にあるが、selectedSpecificDaysにない
-    for (final approvedDate in approvedSpecificDays) {
-      final normalizedApproved = DateTime(approvedDate.year, approvedDate.month, approvedDate.day);
-      final isSelected = selectedSpecificDays.any((selected) =>
-          selected.year == normalizedApproved.year &&
-          selected.month == normalizedApproved.month &&
-          selected.day == normalizedApproved.day);
-
-      if (!isSelected) {
-        debugPrint('✅ [特定日削除申請] $normalizedApproved の削除申請を作成');
-        final request = ConstraintRequest(
-          id: uuid.v4(),
-          staffId: myStaff.id,
-          userId: widget.appUser.uid,
-          requestType: ConstraintRequest.typeSpecificDay,
-          specificDate: normalizedApproved,
-          status: ConstraintRequest.statusPending,
-          isDelete: true,
-        );
-        await requestProvider.createRequest(request);
-        newRequestCount++;
-      }
-    }
-
-    // 3. シフトタイプの勤務不可
+    // 2. シフトタイプの勤務不可
     debugPrint('🔍 [申請作成] approvedShiftTypes: $approvedShiftTypes');
     debugPrint('🔍 [申請作成] selectedShiftTypes: $selectedShiftTypes');
 
