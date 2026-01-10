@@ -77,9 +77,10 @@ class InviteGuideDialog extends StatelessWidget {
                   const SizedBox(height: 8),
                   Text(
                     '1. スタッフタブからスタッフを登録\n'
-                    '2. シフト画面でシフトを自動作成\n'
-                    '3. 必要に応じてシフトを調整\n'
-                    '4. シフト表を出力して共有',
+                    '2. チームタブから時間と割当を設定\n'
+                    '3. シフト画面でシフトを自動作成\n'
+                    '4. 必要に応じてシフトを調整\n'
+                    '5. シフト表を出力して共有',
                     style: TextStyle(
                       fontSize: 13,
                       color: Colors.blue.shade800,
