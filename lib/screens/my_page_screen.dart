@@ -3126,28 +3126,35 @@ class _SpecificDaysOffCalendarDialogState extends State<_SpecificDaysOffCalendar
     final firstDayOfCurrentMonth = DateTime(now.year, now.month, 1);
     final displayDates = sortedDates.where((date) => date.isAfter(firstDayOfCurrentMonth.subtract(const Duration(days: 1)))).toList();
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          '選択中: ${displayDates.length}日',
-          style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Colors.orange.shade900),
+    return ConstrainedBox(
+      constraints: const BoxConstraints(maxHeight: 150),
+      child: SingleChildScrollView(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              '選択中: ${displayDates.length}日',
+              style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Colors.orange.shade900),
+            ),
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 4,
+              runSpacing: 4,
+              children: displayDates.map((date) {
+                return Chip(
+                  label: Text(DateFormat('M/d(E)', 'ja').format(date), style: const TextStyle(fontSize: 11)),
+                  deleteIcon: const Icon(Icons.close, size: 14),
+                  onDeleted: () => _toggleDate(date),
+                  padding: EdgeInsets.zero,
+                  labelPadding: const EdgeInsets.only(left: 4),
+                  visualDensity: VisualDensity.compact,
+                  materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                );
+              }).toList(),
+            ),
+          ],
         ),
-        const SizedBox(height: 8),
-        Wrap(
-          spacing: 6,
-          runSpacing: 6,
-          children: displayDates.map((date) {
-            return Chip(
-              label: Text(DateFormat('M/d(E)', 'ja').format(date), style: const TextStyle(fontSize: 11)),
-              deleteIcon: const Icon(Icons.close, size: 14),
-              onDeleted: () => _toggleDate(date),
-              padding: EdgeInsets.zero,
-              materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-            );
-          }).toList(),
-        ),
-      ],
+      ),
     );
   }
 }
@@ -3462,28 +3469,35 @@ class _PreferredDatesCalendarDialogState extends State<_PreferredDatesCalendarDi
     final firstDayOfCurrentMonth = DateTime(now.year, now.month, 1);
     final displayDates = sortedDates.where((date) => date.isAfter(firstDayOfCurrentMonth.subtract(const Duration(days: 1)))).toList();
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          '選択中: ${displayDates.length}日',
-          style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Colors.blue.shade900),
+    return ConstrainedBox(
+      constraints: const BoxConstraints(maxHeight: 150),
+      child: SingleChildScrollView(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              '選択中: ${displayDates.length}日',
+              style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Colors.blue.shade900),
+            ),
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 4,
+              runSpacing: 4,
+              children: displayDates.map((date) {
+                return Chip(
+                  label: Text(DateFormat('M/d(E)', 'ja').format(date), style: const TextStyle(fontSize: 11)),
+                  deleteIcon: const Icon(Icons.close, size: 14),
+                  onDeleted: () => _toggleDate(date),
+                  padding: EdgeInsets.zero,
+                  labelPadding: const EdgeInsets.only(left: 4),
+                  visualDensity: VisualDensity.compact,
+                  materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                );
+              }).toList(),
+            ),
+          ],
         ),
-        const SizedBox(height: 8),
-        Wrap(
-          spacing: 6,
-          runSpacing: 6,
-          children: displayDates.map((date) {
-            return Chip(
-              label: Text(DateFormat('M/d(E)', 'ja').format(date), style: const TextStyle(fontSize: 11)),
-              deleteIcon: const Icon(Icons.close, size: 14),
-              onDeleted: () => _toggleDate(date),
-              padding: EdgeInsets.zero,
-              materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-            );
-          }).toList(),
-        ),
-      ],
+      ),
     );
   }
 }

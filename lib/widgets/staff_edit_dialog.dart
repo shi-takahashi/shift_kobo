@@ -1742,35 +1742,40 @@ class _PreferredDatesDialogState extends State<_PreferredDatesDialog> {
     // 今月以降のみ表示
     final displayDates = sortedDates.where((date) => date.isAfter(firstDayOfCurrentMonth.subtract(const Duration(days: 1)))).toList();
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          '選択中: ${displayDates.length}日',
-          style: TextStyle(
-            fontSize: 13,
-            fontWeight: FontWeight.bold,
-            color: Colors.blue.shade900,
-          ),
-        ),
-        const SizedBox(height: 8),
-        Wrap(
-          spacing: 6,
-          runSpacing: 6,
-          children: displayDates.map((date) {
-            return Chip(
-              label: Text(
-                DateFormat('M/d(E)', 'ja').format(date),
-                style: const TextStyle(fontSize: 11),
+    return ConstrainedBox(
+      constraints: const BoxConstraints(maxHeight: 150),
+      child: SingleChildScrollView(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              '選択中: ${displayDates.length}日',
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.bold,
+                color: Colors.blue.shade900,
               ),
-              deleteIcon: const Icon(Icons.close, size: 14),
-              onDeleted: () => _toggleDate(date),
-              padding: EdgeInsets.zero,
-              materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-            );
-          }).toList(),
+            ),
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 6,
+              runSpacing: 6,
+              children: displayDates.map((date) {
+                return Chip(
+                  label: Text(
+                    DateFormat('M/d(E)', 'ja').format(date),
+                    style: const TextStyle(fontSize: 11),
+                  ),
+                  deleteIcon: const Icon(Icons.close, size: 14),
+                  onDeleted: () => _toggleDate(date),
+                  padding: EdgeInsets.zero,
+                  materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                );
+              }).toList(),
+            ),
+          ],
         ),
-      ],
+      ),
     );
   }
 }
@@ -2092,35 +2097,51 @@ class _SpecificDaysOffDialogState extends State<_SpecificDaysOffDialog> {
     // 今月以降のみ表示
     final displayDates = sortedDates.where((date) => date.isAfter(firstDayOfCurrentMonth.subtract(const Duration(days: 1)))).toList();
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          '選択中: ${displayDates.length}日',
-          style: TextStyle(
-            fontSize: 13,
-            fontWeight: FontWeight.bold,
-            color: Colors.orange.shade900,
+    return ConstrainedBox(
+      constraints: const BoxConstraints(maxHeight: 150),
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(8),
+        decoration: BoxDecoration(
+          color: Colors.orange.shade50,
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: Colors.orange.shade200),
+        ),
+        child: SingleChildScrollView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                '選択中: ${displayDates.length}日',
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.orange.shade900,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 4,
+                runSpacing: 4,
+                children: displayDates.map((date) {
+                  return Chip(
+                    label: Text(
+                      DateFormat('M/d(E)', 'ja').format(date),
+                      style: const TextStyle(fontSize: 11),
+                    ),
+                    deleteIcon: const Icon(Icons.close, size: 14),
+                    onDeleted: () => _toggleDate(date),
+                    padding: EdgeInsets.zero,
+                    labelPadding: const EdgeInsets.only(left: 4),
+                    visualDensity: VisualDensity.compact,
+                    materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  );
+                }).toList(),
+              ),
+            ],
           ),
         ),
-        const SizedBox(height: 8),
-        Wrap(
-          spacing: 6,
-          runSpacing: 6,
-          children: displayDates.map((date) {
-            return Chip(
-              label: Text(
-                DateFormat('M/d(E)', 'ja').format(date),
-                style: const TextStyle(fontSize: 11),
-              ),
-              deleteIcon: const Icon(Icons.close, size: 14),
-              onDeleted: () => _toggleDate(date),
-              padding: EdgeInsets.zero,
-              materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-            );
-          }).toList(),
-        ),
-      ],
+      ),
     );
   }
 }
