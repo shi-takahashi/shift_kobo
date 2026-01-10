@@ -369,7 +369,7 @@ class ConstraintRequestProvider extends ChangeNotifier {
     await refreshApprovedRequests();
   }
 
-  /// 複数のリクエストを一括承認
+  /// 複数のリクエストを一括承認（バッチ処理で高速化）
   /// 承認した件数を返す
   Future<int> approveAllRequests(
     List<ConstraintRequest> requests,
@@ -377,20 +377,128 @@ class ConstraintRequestProvider extends ChangeNotifier {
     Map<String, Staff> staffMap,
   ) async {
     if (teamId == null) return 0;
+    if (requests.isEmpty) return 0;
 
+    final batch = _firestore.batch();
     int approvedCount = 0;
+
+    // スタッフごとの更新データを蓄積するマップ
+    final staffUpdates = <String, Map<String, dynamic>>{};
+
+    // スタッフの現在データをコピー（変更を蓄積するため）
+    final staffDataCopy = <String, Staff>{};
+    for (final entry in staffMap.entries) {
+      staffDataCopy[entry.key] = Staff(
+        id: entry.value.id,
+        name: entry.value.name,
+        email: entry.value.email,
+        userId: entry.value.userId,
+        preferredDaysOff: List<int>.from(entry.value.preferredDaysOff),
+        specificDaysOff: List<String>.from(entry.value.specificDaysOff),
+        unavailableShiftTypes: List<String>.from(entry.value.unavailableShiftTypes),
+        maxShiftsPerMonth: entry.value.maxShiftsPerMonth,
+        holidaysOff: entry.value.holidaysOff,
+        preferredDates: List<String>.from(entry.value.preferredDates),
+      );
+    }
+
     for (final request in requests) {
-      final staff = staffMap[request.staffId];
-      if (staff != null) {
-        try {
-          await approveRequest(request, approverUserId, staff);
-          approvedCount++;
-        } catch (e) {
-          debugPrint('一括承認エラー（${request.id}）: $e');
+      final staff = staffDataCopy[request.staffId];
+      if (staff == null) continue;
+
+      // 1. リクエストのステータスを"approved"に更新
+      final requestRef = _firestore
+          .collection('teams')
+          .doc(teamId)
+          .collection('constraint_requests')
+          .doc(request.id);
+
+      batch.update(requestRef, {
+        'status': ConstraintRequest.statusApproved,
+        'approvedBy': approverUserId,
+        'approvedAt': FieldValue.serverTimestamp(),
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+
+      // 2. スタッフデータの更新を蓄積
+      _applyRequestToStaff(request, staff, staffUpdates);
+      approvedCount++;
+    }
+
+    // 3. スタッフデータの更新をバッチに追加
+    for (final entry in staffUpdates.entries) {
+      final staffRef = _firestore
+          .collection('teams')
+          .doc(teamId)
+          .collection('staff')
+          .doc(entry.key);
+
+      final updateData = Map<String, dynamic>.from(entry.value);
+      updateData['updatedAt'] = FieldValue.serverTimestamp();
+      batch.update(staffRef, updateData);
+    }
+
+    // 4. バッチコミット（1回で全て更新）
+    await batch.commit();
+
+    // 5. リフレッシュは最後に1回だけ
+    await refreshApprovedRequests();
+
+    return approvedCount;
+  }
+
+  /// リクエストをスタッフデータに適用し、更新データを蓄積
+  void _applyRequestToStaff(
+    ConstraintRequest request,
+    Staff staff,
+    Map<String, Map<String, dynamic>> staffUpdates,
+  ) {
+    staffUpdates[request.staffId] ??= {};
+    final updates = staffUpdates[request.staffId]!;
+
+    if (request.requestType == ConstraintRequest.typeWeekday) {
+      if (request.isDelete) {
+        staff.preferredDaysOff.remove(request.weekday);
+      } else if (request.weekday != null && !staff.preferredDaysOff.contains(request.weekday)) {
+        staff.preferredDaysOff.add(request.weekday!);
+      }
+      updates['preferredDaysOff'] = staff.preferredDaysOff;
+    } else if (request.requestType == ConstraintRequest.typeSpecificDay) {
+      if (request.specificDate != null) {
+        final dateStr = request.specificDate!.toIso8601String();
+        if (request.isDelete) {
+          staff.specificDaysOff.remove(dateStr);
+        } else if (!staff.specificDaysOff.contains(dateStr)) {
+          staff.specificDaysOff.add(dateStr);
         }
       }
+      updates['specificDaysOff'] = staff.specificDaysOff;
+    } else if (request.requestType == ConstraintRequest.typeShiftType) {
+      if (request.isDelete) {
+        staff.unavailableShiftTypes.remove(request.shiftType);
+      } else if (request.shiftType != null && !staff.unavailableShiftTypes.contains(request.shiftType)) {
+        staff.unavailableShiftTypes.add(request.shiftType!);
+      }
+      updates['unavailableShiftTypes'] = staff.unavailableShiftTypes;
+    } else if (request.requestType == ConstraintRequest.typeMaxShiftsPerMonth) {
+      if (request.maxShiftsPerMonth != null) {
+        updates['maxShiftsPerMonth'] = request.maxShiftsPerMonth;
+      }
+    } else if (request.requestType == ConstraintRequest.typeHoliday) {
+      if (request.holidaysOff != null) {
+        updates['holidaysOff'] = request.holidaysOff;
+      }
+    } else if (request.requestType == ConstraintRequest.typePreferredDate) {
+      if (request.specificDate != null) {
+        final dateStr = request.specificDate!.toIso8601String();
+        if (request.isDelete) {
+          staff.preferredDates.remove(dateStr);
+        } else if (!staff.preferredDates.contains(dateStr)) {
+          staff.preferredDates.add(dateStr);
+        }
+      }
+      updates['preferredDates'] = staff.preferredDates;
     }
-    return approvedCount;
   }
 
   /// リクエストを削除
