@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
@@ -83,12 +84,50 @@ void main() async {
     // Analytics: アプリ起動イベント
     await AnalyticsService.logAppOpen();
 
+    // 認証状態の追跡（根本原因調査用）
+    await _initAuthMonitoring();
+
     // FCMの初期化は行わない（ログイン後に初期化する）
   } catch (e) {
     debugPrint('❌ Firebase初期化エラー: $e');
   }
 
   runApp(const MyApp());
+}
+
+/// 認証状態の監視を初期化（根本原因調査用）
+Future<void> _initAuthMonitoring() async {
+  final auth = FirebaseAuth.instance;
+
+  // 1. 起動時の認証状態をログ
+  final currentUser = auth.currentUser;
+  await AnalyticsService.logAuthStateOnStartup(currentUser);
+
+  // 2. 認証状態の変化を監視
+  auth.authStateChanges().listen((user) {
+    AnalyticsService.logAuthStateChanged(
+      isSignedIn: user != null,
+      uid: user?.uid,
+      isAnonymous: user?.isAnonymous,
+    );
+  });
+
+  // 3. IDトークンの変化を監視（トークン更新を検知）
+  auth.idTokenChanges().listen((user) async {
+    if (user != null) {
+      try {
+        // トークンが実際に取得できるか確認
+        final token = await user.getIdToken();
+        if (token != null) {
+          await AnalyticsService.logIdTokenRefreshed(user.uid);
+        }
+      } catch (e) {
+        await AnalyticsService.logIdTokenError(e.toString());
+      }
+    }
+  });
+
+  debugPrint('✅ 認証状態監視を開始しました');
 }
 
 class MyApp extends StatelessWidget {

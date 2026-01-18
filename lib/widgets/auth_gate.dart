@@ -102,6 +102,7 @@ class AuthGate extends StatelessWidget {
           builder: (context, authSnapshot) {
             // 読み込み中
             if (authSnapshot.connectionState == ConnectionState.waiting) {
+              debugPrint('🔄 [AuthGate] authStateChanges: waiting...');
               return const Scaffold(
                 body: Center(
                   child: CircularProgressIndicator(),
@@ -109,15 +110,21 @@ class AuthGate extends StatelessWidget {
               );
             }
 
+            // 認証状態をログ
+            final user = authSnapshot.data;
+            debugPrint('📍 [AuthGate] authStateChanges: user=${user?.uid ?? "null"}, hasData=${authSnapshot.hasData}');
+
             // 既存データがあり、未ログインの場合 → オンボーディング画面
             if (hasExistingData &&
                 (!authSnapshot.hasData || authSnapshot.data == null)) {
+              debugPrint('📍 [AuthGate] → MigrationOnboardingScreen (hasExistingData=$hasExistingData, user=null)');
               return const MigrationOnboardingScreen();
             }
 
             // ログイン済み
             if (authSnapshot.hasData && authSnapshot.data != null) {
               final uid = authSnapshot.data!.uid;
+              debugPrint('📍 [AuthGate] ログイン済み: uid=$uid');
               // チーム所属チェック（リアルタイム監視）
               return StreamBuilder<AppUser?>(
                 stream: FirebaseFirestore.instance
@@ -125,13 +132,17 @@ class AuthGate extends StatelessWidget {
                     .doc(uid)
                     .snapshots()
                     .map((doc) {
-                  if (!doc.exists) return null;
+                  if (!doc.exists) {
+                    debugPrint('⚠️ [AuthGate] usersドキュメント存在せず: uid=$uid');
+                    return null;
+                  }
                   return AppUser.fromFirestore(doc);
                 }),
                 builder: (context, userSnapshot) {
                   // 初回読み込み中、またはデータ待ちの場合はローディング
                   if (userSnapshot.connectionState == ConnectionState.waiting ||
                       !userSnapshot.hasData) {
+                    debugPrint('🔄 [AuthGate] usersドキュメント読み込み中...');
                     return const Scaffold(
                       body: Center(
                         child: CircularProgressIndicator(),
@@ -145,19 +156,23 @@ class AuthGate extends StatelessWidget {
                   // ※ Authentication削除が進行中の可能性があるため、signOut()を呼ばずに直接遷移
                   // ※ authStateChangesが発火すれば自動的に未ログイン状態として再処理される
                   if (appUser == null) {
+                    debugPrint('📍 [AuthGate] → RoleSelectionScreen (appUser=null、削除直後?)');
                     return const RoleSelectionScreen();
                   }
 
                   if (appUser.teamId == null) {
+                    debugPrint('📍 [AuthGate] チーム未所属: uid=$uid');
                     // チーム未所属の場合
                     if (hasExistingData) {
                       // 既存データがある場合はチーム作成画面へ（データ移行フラグ付き）
+                      debugPrint('📍 [AuthGate] → TeamCreationScreen (shouldMigrateData=true)');
                       return TeamCreationScreen(
                         userId: authSnapshot.data!.uid,
                         shouldMigrateData: true,
                       );
                     } else {
                       // 既存データがない場合はチーム参加画面へ
+                      debugPrint('📍 [AuthGate] → JoinTeamScreen');
                       return JoinTeamScreen(
                         userId: authSnapshot.data!.uid,
                       );
@@ -165,12 +180,14 @@ class AuthGate extends StatelessWidget {
                   }
 
                   // チーム所属済みの場合はホーム画面へ（AppUser全体を渡す）
+                  debugPrint('📍 [AuthGate] → HomeScreen (teamId=${appUser.teamId})');
                   return HomeScreen(appUser: appUser);
                 },
               );
             }
 
             // 既存データなし、未ログインの場合 → 役割選択画面（新規ユーザー向け）
+            debugPrint('📍 [AuthGate] → RoleSelectionScreen (未ログイン、既存データなし)');
             return const RoleSelectionScreen();
           },
         );

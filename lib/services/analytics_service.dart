@@ -1,4 +1,6 @@
 import 'package:firebase_analytics/firebase_analytics.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/foundation.dart';
 
 class AnalyticsService {
   static final FirebaseAnalytics _analytics = FirebaseAnalytics.instance;
@@ -11,6 +13,88 @@ class AnalyticsService {
   /// アプリ起動イベント
   static Future<void> logAppOpen() async {
     await _analytics.logEvent(name: 'app_open');
+  }
+
+  // ============================================================
+  // 認証状態追跡（根本原因調査用）
+  // ============================================================
+
+  /// アプリ起動時の認証状態をログ
+  static Future<void> logAuthStateOnStartup(User? user) async {
+    if (user == null) {
+      debugPrint('🔴 [Auth] 起動時: currentUser == null');
+      await _analytics.logEvent(
+        name: 'auth_startup_null',
+        parameters: {
+          'timestamp': DateTime.now().toIso8601String(),
+        },
+      );
+    } else {
+      final lastSignIn = user.metadata.lastSignInTime;
+      final creationTime = user.metadata.creationTime;
+      debugPrint('🟢 [Auth] 起動時: uid=${user.uid}, isAnonymous=${user.isAnonymous}');
+      debugPrint('   lastSignIn: $lastSignIn');
+      debugPrint('   creationTime: $creationTime');
+      await _analytics.logEvent(
+        name: 'auth_startup_ok',
+        parameters: {
+          'uid': user.uid,
+          'is_anonymous': user.isAnonymous.toString(),
+          'last_sign_in': lastSignIn?.toIso8601String() ?? 'null',
+          'creation_time': creationTime?.toIso8601String() ?? 'null',
+        },
+      );
+    }
+  }
+
+  /// 認証状態が変化した時のログ
+  static Future<void> logAuthStateChanged({
+    required bool isSignedIn,
+    String? uid,
+    bool? isAnonymous,
+  }) async {
+    if (isSignedIn) {
+      debugPrint('🟢 [Auth] 状態変化: サインイン (uid=$uid, anonymous=$isAnonymous)');
+      await _analytics.logEvent(
+        name: 'auth_state_signed_in',
+        parameters: {
+          'uid': uid ?? 'unknown',
+          'is_anonymous': (isAnonymous ?? false).toString(),
+        },
+      );
+    } else {
+      debugPrint('🔴 [Auth] 状態変化: サインアウト');
+      await _analytics.logEvent(
+        name: 'auth_state_signed_out',
+        parameters: {
+          'timestamp': DateTime.now().toIso8601String(),
+        },
+      );
+    }
+  }
+
+  /// IDトークン更新時のログ
+  static Future<void> logIdTokenRefreshed(String uid) async {
+    debugPrint('🔄 [Auth] IDトークン更新: uid=$uid');
+    await _analytics.logEvent(
+      name: 'auth_token_refreshed',
+      parameters: {
+        'uid': uid,
+        'timestamp': DateTime.now().toIso8601String(),
+      },
+    );
+  }
+
+  /// IDトークン取得エラー時のログ
+  static Future<void> logIdTokenError(String error) async {
+    debugPrint('❌ [Auth] IDトークンエラー: $error');
+    await _analytics.logEvent(
+      name: 'auth_token_error',
+      parameters: {
+        'error': error.length > 100 ? error.substring(0, 100) : error,
+        'timestamp': DateTime.now().toIso8601String(),
+      },
+    );
   }
 
   /// 画面表示イベント
