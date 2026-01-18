@@ -1,17 +1,60 @@
 import 'package:firebase_analytics/firebase_analytics.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class AnalyticsService {
   static final FirebaseAnalytics _analytics = FirebaseAnalytics.instance;
+  static const String _firstOpenDateKey = 'first_open_date';
+  static int? _daysSinceInstallCache; // キャッシュ（毎回計算しない）
 
   /// ユーザーIDを設定（ログイン時に呼び出す）
   static Future<void> setUserId(String? userId) async {
     await _analytics.setUserId(id: userId);
   }
 
+  // ============================================================
+  // インストールからの経過日数追跡（継続利用調査用）
+  // ============================================================
+
+  /// 初回起動日を記録（アプリ起動時に呼び出す）
+  static Future<void> recordFirstOpenDate() async {
+    final prefs = await SharedPreferences.getInstance();
+    if (!prefs.containsKey(_firstOpenDateKey)) {
+      final now = DateTime.now().toIso8601String();
+      await prefs.setString(_firstOpenDateKey, now);
+      debugPrint('📅 [Analytics] 初回起動日を記録: $now');
+    }
+  }
+
+  /// インストールからの経過日数を取得
+  static Future<int> getDaysSinceInstall() async {
+    // キャッシュがあれば返す（同一セッション内で何度も計算しない）
+    if (_daysSinceInstallCache != null) {
+      return _daysSinceInstallCache!;
+    }
+
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final firstOpenStr = prefs.getString(_firstOpenDateKey);
+      if (firstOpenStr == null) {
+        // 初回起動日が記録されていない場合は0日目
+        return 0;
+      }
+      final firstOpen = DateTime.parse(firstOpenStr);
+      final now = DateTime.now();
+      _daysSinceInstallCache = now.difference(firstOpen).inDays;
+      return _daysSinceInstallCache!;
+    } catch (e) {
+      debugPrint('⚠️ [Analytics] 経過日数取得エラー: $e');
+      return 0;
+    }
+  }
+
   /// アプリ起動イベント
   static Future<void> logAppOpen() async {
+    // 初回起動日を記録
+    await recordFirstOpenDate();
     await _analytics.logEvent(name: 'app_open');
   }
 
@@ -108,18 +151,20 @@ class AnalyticsService {
     );
   }
 
-  /// シフト自動作成イベント
+  /// シフト自動作成イベント（継続利用の指標）
   static Future<void> logShiftGenerated({
     required int shiftCount,
     required String strategy,
     required String yearMonth, // "2025-12" 形式
   }) async {
+    final daysSinceInstall = await getDaysSinceInstall();
     await _analytics.logEvent(
       name: 'auto_shift_generated',
       parameters: {
         'shift_count': shiftCount,
         'strategy': strategy,
         'year_month': yearMonth,
+        'days_since_install': daysSinceInstall,
       },
     );
   }
@@ -129,38 +174,44 @@ class AnalyticsService {
     await _analytics.logEvent(name: 'shift_restored');
   }
 
-  /// シフト手動編集イベント
+  /// シフト手動編集イベント（継続利用の指標）
   static Future<void> logShiftEdited(String shiftId) async {
+    final daysSinceInstall = await getDaysSinceInstall();
     await _analytics.logEvent(
       name: 'shift_edited',
       parameters: {
         'shift_id': shiftId,
+        'days_since_install': daysSinceInstall,
       },
     );
   }
 
-  /// シフト表エクスポートイベント
+  /// シフト表エクスポートイベント（継続利用の指標）
   static Future<void> logShiftExported({
     required String action, // "save" or "share"
     required String format, // "pdf", "png", "excel"
     required String yearMonth, // "2025-01" 形式
   }) async {
+    final daysSinceInstall = await getDaysSinceInstall();
     await _analytics.logEvent(
       name: 'shift_exported',
       parameters: {
         'action': action,
         'format': format,
         'year_month': yearMonth,
+        'days_since_install': daysSinceInstall,
       },
     );
   }
 
-  /// シフト操作イベント（スタッフ変更・日付移動・スタッフ入替）
+  /// シフト操作イベント（スタッフ変更・日付移動・スタッフ入替）（継続利用の指標）
   static Future<void> logShiftQuickAction(String action) async {
+    final daysSinceInstall = await getDaysSinceInstall();
     await _analytics.logEvent(
       name: 'shift_quick_action',
       parameters: {
         'action': action, // "staff_change", "date_move", "staff_swap"
+        'days_since_install': daysSinceInstall,
       },
     );
   }
