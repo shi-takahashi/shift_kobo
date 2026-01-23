@@ -21,10 +21,7 @@ class DefaultFirebaseOptions {
     }
     switch (defaultTargetPlatform) {
       case TargetPlatform.android:
-        throw UnsupportedError(
-          'DefaultFirebaseOptions have not been configured for android - '
-          'you can reconfigure this by running the FlutterFire CLI again.',
-        );
+        return android;
       case TargetPlatform.iOS:
         throw UnsupportedError(
           'DefaultFirebaseOptions have not been configured for ios - '
@@ -59,5 +56,15 @@ class DefaultFirebaseOptions {
     projectId: 'shift-kobo-online-prod',
     authDomain: 'shift-kobo-online-prod.firebaseapp.com',
     storageBucket: 'shift-kobo-online-prod.firebasestorage.app',
+    measurementId: 'G-FW58FFQKSL',
   );
+
+  static const FirebaseOptions android = FirebaseOptions(
+    apiKey: 'AIzaSyB1yYZvGX31VnXwHnJPTkxwI6UWJTNnyh4',
+    appId: '1:823238942691:android:aee224a0b632df3b9d8ad6',
+    messagingSenderId: '823238942691',
+    projectId: 'shift-kobo-online-prod',
+    storageBucket: 'shift-kobo-online-prod.firebasestorage.app',
+  );
+
 }
