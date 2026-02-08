@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
+import '../services/analytics_service.dart';
 
 /// 月間シフト必要人数の管理Provider
 ///
@@ -158,6 +159,13 @@ class MonthlyRequirementsProvider extends ChangeNotifier {
       ...requirements,
       'updatedAt': FieldValue.serverTimestamp(),
     });
+
+    // ファネル分析用イベント送信
+    final totalRequired = requirements.values.fold(0, (acc, v) => acc + v);
+    await AnalyticsService.logRequirementSet(
+      totalShiftTypes: requirements.length,
+      totalRequired: totalRequired,
+    );
   }
 
   /// 曜日別設定を保存

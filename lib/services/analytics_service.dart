@@ -253,4 +253,38 @@ class AnalyticsService {
       },
     );
   }
+
+  // ============================================================
+  // ファネル分析用イベント（離脱ポイント調査）
+  // ============================================================
+
+  /// スタッフ追加イベント
+  static Future<void> logStaffAdded({
+    required int totalStaffCount,
+  }) async {
+    final daysSinceInstall = await getDaysSinceInstall();
+    await _analytics.logEvent(
+      name: 'staff_added',
+      parameters: {
+        'total_staff_count': totalStaffCount,
+        'days_since_install': daysSinceInstall,
+      },
+    );
+  }
+
+  /// シフト割り当て設定イベント（基本設定）
+  static Future<void> logRequirementSet({
+    required int totalShiftTypes,
+    required int totalRequired,
+  }) async {
+    final daysSinceInstall = await getDaysSinceInstall();
+    await _analytics.logEvent(
+      name: 'requirement_set',
+      parameters: {
+        'total_shift_types': totalShiftTypes,
+        'total_required': totalRequired,
+        'days_since_install': daysSinceInstall,
+      },
+    );
+  }
 }

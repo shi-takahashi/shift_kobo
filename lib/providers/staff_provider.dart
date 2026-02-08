@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import '../models/staff.dart';
+import '../services/analytics_service.dart';
 
 class StaffProvider extends ChangeNotifier {
   final String? teamId;
@@ -103,6 +104,11 @@ class StaffProvider extends ChangeNotifier {
     if (staff.email != null && staff.email!.isNotEmpty) {
       await _tryAutoLinkByEmail(staff.id, staff.email!);
     }
+
+    // ファネル分析用イベント送信
+    await AnalyticsService.logStaffAdded(
+      totalStaffCount: _staffList.length + 1, // 追加後のスタッフ数
+    );
   }
 
   Future<void> updateStaff(Staff staff) async {
