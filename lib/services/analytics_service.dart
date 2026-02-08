@@ -258,6 +258,16 @@ class AnalyticsService {
   // ファネル分析用イベント（離脱ポイント調査）
   // ============================================================
 
+  /// 役割選択画面表示イベント（最初の画面）
+  static Future<void> logRoleSelectionViewed() async {
+    await _analytics.logEvent(name: 'role_selection_viewed');
+  }
+
+  /// ウェルカム画面表示イベント（「シフト作成を始める」を押した）
+  static Future<void> logWelcomeScreenViewed() async {
+    await _analytics.logEvent(name: 'welcome_screen_viewed');
+  }
+
   /// スタッフ追加イベント
   static Future<void> logStaffAdded({
     required int totalStaffCount,

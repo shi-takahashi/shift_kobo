@@ -1,11 +1,24 @@
 import 'package:flutter/material.dart';
+import '../../services/analytics_service.dart';
 import 'welcome_screen.dart';
 import 'signup_screen.dart';
 import 'login_screen.dart';
 
 /// 役割選択画面（管理者 or スタッフ）
-class RoleSelectionScreen extends StatelessWidget {
+class RoleSelectionScreen extends StatefulWidget {
   const RoleSelectionScreen({super.key});
+
+  @override
+  State<RoleSelectionScreen> createState() => _RoleSelectionScreenState();
+}
+
+class _RoleSelectionScreenState extends State<RoleSelectionScreen> {
+  @override
+  void initState() {
+    super.initState();
+    // ファネル分析用イベント送信
+    AnalyticsService.logRoleSelectionViewed();
+  }
 
   @override
   Widget build(BuildContext context) {

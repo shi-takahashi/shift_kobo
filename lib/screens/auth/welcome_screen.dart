@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../services/analytics_service.dart';
 import '../../services/auth_service.dart';
 import '../home_screen.dart';
 import 'role_selection_screen.dart';
@@ -16,6 +17,13 @@ class WelcomeScreen extends StatefulWidget {
 
 class _WelcomeScreenState extends State<WelcomeScreen> {
   bool _isLoading = false;
+
+  @override
+  void initState() {
+    super.initState();
+    // ファネル分析用イベント送信（「シフト作成を始める」を押した）
+    AnalyticsService.logWelcomeScreenViewed();
+  }
 
   @override
   Widget build(BuildContext context) {
