@@ -105,10 +105,14 @@ class StaffProvider extends ChangeNotifier {
       await _tryAutoLinkByEmail(staff.id, staff.email!);
     }
 
-    // ファネル分析用イベント送信
-    await AnalyticsService.logStaffAdded(
-      totalStaffCount: _staffList.length + 1, // 追加後のスタッフ数
-    );
+    // ファネル分析用イベント送信（失敗してもスタッフ登録には影響しない）
+    try {
+      await AnalyticsService.logStaffAdded(
+        totalStaffCount: _staffList.length + 1,
+      );
+    } catch (e) {
+      debugPrint('⚠️ Analytics送信エラー（無視）: $e');
+    }
   }
 
   Future<void> updateStaff(Staff staff) async {

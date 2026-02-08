@@ -160,12 +160,16 @@ class MonthlyRequirementsProvider extends ChangeNotifier {
       'updatedAt': FieldValue.serverTimestamp(),
     });
 
-    // ファネル分析用イベント送信
-    final totalRequired = requirements.values.fold(0, (acc, v) => acc + v);
-    await AnalyticsService.logRequirementSet(
-      totalShiftTypes: requirements.length,
-      totalRequired: totalRequired,
-    );
+    // ファネル分析用イベント送信（失敗しても設定保存には影響しない）
+    try {
+      final totalRequired = requirements.values.fold(0, (acc, v) => acc + v);
+      await AnalyticsService.logRequirementSet(
+        totalShiftTypes: requirements.length,
+        totalRequired: totalRequired,
+      );
+    } catch (e) {
+      debugPrint('⚠️ Analytics送信エラー（無視）: $e');
+    }
   }
 
   /// 曜日別設定を保存
