@@ -100,7 +100,9 @@ Future<void> _initAuthMonitoring() async {
   final auth = FirebaseAuth.instance;
 
   // 1. 起動時の認証状態をログ
-  final currentUser = auth.currentUser;
+  // 注意: auth.currentUser は認証状態の復元完了前だとnullになる
+  // authStateChanges().first で復元完了を待ってから取得する
+  final currentUser = await auth.authStateChanges().first;
   await AnalyticsService.logAuthStateOnStartup(currentUser);
 
   // 2. 認証状態の変化を監視
