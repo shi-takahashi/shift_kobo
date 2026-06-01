@@ -38,27 +38,13 @@ class StaffProvider extends ChangeNotifier {
         .collection('staff')
         .snapshots()
         .listen((snapshot) {
-      _staffList = snapshot.docs.map((doc) {
-        final data = doc.data();
-        return Staff(
-          id: doc.id,
-          name: data['name'] ?? '',
-          phoneNumber: data['phoneNumber'],
-          email: data['email'],
-          maxShiftsPerMonth: data['maxShiftsPerMonth'] ?? 0,
-          preferredDaysOff: List<int>.from(data['preferredDaysOff'] ?? []),
-          isActive: data['isActive'] ?? true,
-          createdAt: (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
-          updatedAt: (data['updatedAt'] as Timestamp?)?.toDate(),
-          unavailableShiftTypes: List<String>.from(data['unavailableShiftTypes'] ?? []),
-          specificDaysOff: List<String>.from(data['specificDaysOff'] ?? []),
-          userId: data['userId'],
-          holidaysOff: data['holidaysOff'] ?? false,
-          preferredDates: List<String>.from(data['preferredDates'] ?? []),
-          maxConsecutiveDays: data['maxConsecutiveDays'],
-          minRestHours: data['minRestHours'],
-        );
-      }).toList();
+      // 壊れたドキュメントでアプリが固まらないよう、行ごとにパースしてスキップする
+      final staffList = <Staff>[];
+      for (final doc in snapshot.docs) {
+        final staff = _parseStaff(doc.id, doc.data());
+        if (staff != null) staffList.add(staff);
+      }
+      _staffList = staffList;
 
       // 初回ロード完了
       if (_isLoading) {
@@ -66,7 +52,41 @@ class StaffProvider extends ChangeNotifier {
       }
 
       notifyListeners();
+    }, onError: (error) {
+      debugPrint('⚠️ [StaffProvider] スタッフ読み込みエラー: $error');
+      // エラー時もローディングを必ず解除（永久スピナー防止）
+      if (_isLoading) {
+        _isLoading = false;
+        notifyListeners();
+      }
     });
+  }
+
+  /// スタッフドキュメントを安全にパース（パース失敗時はnullを返してスキップ）
+  Staff? _parseStaff(String id, Map<String, dynamic> data) {
+    try {
+      return Staff(
+        id: id,
+        name: data['name'] ?? '',
+        phoneNumber: data['phoneNumber'],
+        email: data['email'],
+        maxShiftsPerMonth: data['maxShiftsPerMonth'] ?? 0,
+        preferredDaysOff: List<int>.from(data['preferredDaysOff'] ?? []),
+        isActive: data['isActive'] ?? true,
+        createdAt: (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
+        updatedAt: (data['updatedAt'] as Timestamp?)?.toDate(),
+        unavailableShiftTypes: List<String>.from(data['unavailableShiftTypes'] ?? []),
+        specificDaysOff: List<String>.from(data['specificDaysOff'] ?? []),
+        userId: data['userId'],
+        holidaysOff: data['holidaysOff'] ?? false,
+        preferredDates: List<String>.from(data['preferredDates'] ?? []),
+        maxConsecutiveDays: data['maxConsecutiveDays'],
+        minRestHours: data['minRestHours'],
+      );
+    } catch (e) {
+      debugPrint('⚠️ [StaffProvider] スタッフのパース失敗（スキップ）: $id - $e');
+      return null;
+    }
   }
 
   Future<void> addStaff(Staff staff) async {

@@ -58,9 +58,13 @@ class MonthlyRequirementsProvider extends ChangeNotifier {
       if (snapshot.exists) {
         final data = snapshot.data();
         if (data != null) {
-          _requirements = Map<String, int>.from(
-            data..remove('updatedAt'), // タイムスタンプを除外
-          );
+          // 不正な値が混ざっていても例外で固まらないよう、int値のみ採用する
+          data.remove('updatedAt'); // タイムスタンプを除外
+          final parsed = <String, int>{};
+          data.forEach((key, value) {
+            if (value is int) parsed[key] = value;
+          });
+          _requirements = parsed;
         }
       } else {
         // ドキュメントが存在しない場合は空のマップ
@@ -73,6 +77,13 @@ class MonthlyRequirementsProvider extends ChangeNotifier {
       }
 
       notifyListeners();
+    }, onError: (error) {
+      debugPrint('⚠️ [MonthlyRequirementsProvider] 必要人数読み込みエラー: $error');
+      // エラー時もローディングを必ず解除（永久スピナー防止）
+      if (_isLoading) {
+        _isLoading = false;
+        notifyListeners();
+      }
     });
   }
 
@@ -111,6 +122,8 @@ class MonthlyRequirementsProvider extends ChangeNotifier {
       }
 
       notifyListeners();
+    }, onError: (error) {
+      debugPrint('⚠️ [MonthlyRequirementsProvider] 曜日別設定読み込みエラー: $error');
     });
   }
 
@@ -143,6 +156,8 @@ class MonthlyRequirementsProvider extends ChangeNotifier {
       }
 
       notifyListeners();
+    }, onError: (error) {
+      debugPrint('⚠️ [MonthlyRequirementsProvider] 日付別設定読み込みエラー: $error');
     });
   }
 

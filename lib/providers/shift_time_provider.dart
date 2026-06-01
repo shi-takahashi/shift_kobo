@@ -72,18 +72,30 @@ class ShiftTimeProvider extends ChangeNotifier {
           // デフォルト設定を作成
           await _createDefaultSettings();
         } else {
-          _settings = snapshot.docs.map((doc) {
-            final data = doc.data();
-            final shiftType = ShiftType.values[data['shiftType'] as int];
-            _docIds[shiftType] = doc.id;
-            return ShiftTimeSetting(
-              shiftType: shiftType,
-              customName: data['customName'] ?? '',
-              startTime: data['startTime'] ?? '',
-              endTime: data['endTime'] ?? '',
-              isActive: data['isActive'] ?? true,
-            );
-          }).toList();
+          // 壊れたドキュメントで固まらないよう、行ごとにパースしてスキップする
+          final settings = <ShiftTimeSetting>[];
+          for (final doc in snapshot.docs) {
+            try {
+              final data = doc.data();
+              final rawType = data['shiftType'];
+              if (rawType is! int || rawType < 0 || rawType >= ShiftType.values.length) {
+                debugPrint('⚠️ [ShiftTimeProvider] 不正なshiftTypeをスキップ: ${doc.id}');
+                continue;
+              }
+              final shiftType = ShiftType.values[rawType];
+              _docIds[shiftType] = doc.id;
+              settings.add(ShiftTimeSetting(
+                shiftType: shiftType,
+                customName: data['customName'] ?? '',
+                startTime: data['startTime'] ?? '',
+                endTime: data['endTime'] ?? '',
+                isActive: data['isActive'] ?? true,
+              ));
+            } catch (e) {
+              debugPrint('⚠️ [ShiftTimeProvider] 設定のパース失敗（スキップ）: ${doc.id} - $e');
+            }
+          }
+          _settings = settings;
 
           // 初回ロード完了
           if (_isLoading) {
@@ -94,7 +106,12 @@ class ShiftTimeProvider extends ChangeNotifier {
         }
       },
       onError: (error) {
-        // チーム削除後の権限エラーを無視
+        // エラー時もローディングを必ず解除（永久スピナー防止）
+        if (_isLoading) {
+          _isLoading = false;
+          notifyListeners();
+        }
+        // チーム削除後の権限エラーは想定内なので静かに扱う
         if (error.toString().contains('permission-denied')) {
           print('⚠️ ShiftTimeProvider: チーム削除後のアクセスエラーを無視');
           return;

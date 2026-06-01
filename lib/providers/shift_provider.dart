@@ -59,21 +59,15 @@ class ShiftProvider extends ChangeNotifier {
         .where('date', isLessThanOrEqualTo: Timestamp.fromDate(endDate))
         .snapshots()
         .listen((snapshot) {
-      _shifts = snapshot.docs.map((doc) {
-        final data = doc.data();
-        return Shift(
-          id: doc.id,
-          date: (data['date'] as Timestamp).toDate(),
-          staffId: data['staffId'] ?? '',
-          shiftType: data['shiftType'] ?? '',
-          startTime: (data['startTime'] as Timestamp).toDate(),
-          endTime: (data['endTime'] as Timestamp).toDate(),
-          note: data['note'],
-          createdAt: (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
-          updatedAt: (data['updatedAt'] as Timestamp?)?.toDate(),
-          assignmentStrategy: data['assignmentStrategy'] as String?,
-        );
-      }).toList();
+      // 壊れたドキュメントが1件でもあると全体の読み込みが止まり、
+      // アプリが永久に「読み込み中」で固まる事故を防ぐため、
+      // ドキュメントごとにパースし、失敗した行はスキップする。
+      final shifts = <Shift>[];
+      for (final doc in snapshot.docs) {
+        final shift = _parseShift(doc.id, doc.data());
+        if (shift != null) shifts.add(shift);
+      }
+      _shifts = shifts;
 
       // 初回ロード完了
       if (_isShiftsLoading) {
@@ -81,7 +75,43 @@ class ShiftProvider extends ChangeNotifier {
       }
 
       notifyListeners();
+    }, onError: (error) {
+      debugPrint('⚠️ [ShiftProvider] シフト読み込みエラー: $error');
+      // エラー時もローディングを必ず解除（永久スピナー防止）
+      if (_isShiftsLoading) {
+        _isShiftsLoading = false;
+        notifyListeners();
+      }
     });
+  }
+
+  /// シフトドキュメントを安全にパース
+  /// 必須フィールド（date/startTime/endTime）が欠損・不正な場合はnullを返してスキップする
+  Shift? _parseShift(String id, Map<String, dynamic> data) {
+    try {
+      final date = data['date'];
+      final startTime = data['startTime'];
+      final endTime = data['endTime'];
+      if (date is! Timestamp || startTime is! Timestamp || endTime is! Timestamp) {
+        debugPrint('⚠️ [ShiftProvider] 必須フィールド欠損のシフトをスキップ: $id');
+        return null;
+      }
+      return Shift(
+        id: id,
+        date: date.toDate(),
+        staffId: data['staffId'] ?? '',
+        shiftType: data['shiftType'] ?? '',
+        startTime: startTime.toDate(),
+        endTime: endTime.toDate(),
+        note: data['note'],
+        createdAt: (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
+        updatedAt: (data['updatedAt'] as Timestamp?)?.toDate(),
+        assignmentStrategy: data['assignmentStrategy'] as String?,
+      );
+    } catch (e) {
+      debugPrint('⚠️ [ShiftProvider] シフトのパース失敗（スキップ）: $id - $e');
+      return null;
+    }
   }
 
   /// Firestoreから制約をリアルタイムで購読
@@ -95,16 +125,13 @@ class ShiftProvider extends ChangeNotifier {
         .collection('constraints')
         .snapshots()
         .listen((snapshot) {
-      _constraints = snapshot.docs.map((doc) {
-        final data = doc.data();
-        return ShiftConstraint(
-          id: doc.id,
-          staffId: data['staffId'] ?? '',
-          date: (data['date'] as Timestamp).toDate(),
-          isAvailable: data['isAvailable'] ?? true,
-          reason: data['reason'],
-        );
-      }).toList();
+      // 壊れたドキュメントでアプリが固まらないよう、行ごとにパースしてスキップする
+      final constraints = <ShiftConstraint>[];
+      for (final doc in snapshot.docs) {
+        final constraint = _parseConstraint(doc.id, doc.data());
+        if (constraint != null) constraints.add(constraint);
+      }
+      _constraints = constraints;
 
       // 初回ロード完了
       if (_isConstraintsLoading) {
@@ -112,7 +139,34 @@ class ShiftProvider extends ChangeNotifier {
       }
 
       notifyListeners();
+    }, onError: (error) {
+      debugPrint('⚠️ [ShiftProvider] 制約読み込みエラー: $error');
+      if (_isConstraintsLoading) {
+        _isConstraintsLoading = false;
+        notifyListeners();
+      }
     });
+  }
+
+  /// 制約ドキュメントを安全にパース（必須のdate欠損時はnullを返してスキップ）
+  ShiftConstraint? _parseConstraint(String id, Map<String, dynamic> data) {
+    try {
+      final date = data['date'];
+      if (date is! Timestamp) {
+        debugPrint('⚠️ [ShiftProvider] 必須フィールド欠損の制約をスキップ: $id');
+        return null;
+      }
+      return ShiftConstraint(
+        id: id,
+        staffId: data['staffId'] ?? '',
+        date: date.toDate(),
+        isAvailable: data['isAvailable'] ?? true,
+        reason: data['reason'],
+      );
+    } catch (e) {
+      debugPrint('⚠️ [ShiftProvider] 制約のパース失敗（スキップ）: $id - $e');
+      return null;
+    }
   }
 
   Future<void> addShift(Shift shift) async {
