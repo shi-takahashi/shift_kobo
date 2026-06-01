@@ -429,6 +429,14 @@ class _HomeScreenState extends State<HomeScreen> {
           onStart: () {
             Navigator.pop(context);
             _markFirstTimeHelpSeen();
+            // 新規管理者を最初の行動（スタッフ登録）へ誘導する。
+            // 「ようこそ」の説明だけでは1/3以上がスタッフ登録に到達せず離脱するため、
+            // 次にやるべき画面へ直接連れて行く。
+            if (widget.appUser.isAdmin && _availableTabs.contains(HomeTab.staff)) {
+              setState(() {
+                _selectedTab = HomeTab.staff;
+              });
+            }
           },
         ),
       );

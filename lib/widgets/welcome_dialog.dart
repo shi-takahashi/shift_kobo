@@ -74,9 +74,18 @@ class WelcomeDialog extends StatelessWidget {
         ),
       ),
       actions: [
-        TextButton(
-          onPressed: onStart,
-          child: const Text('始める'),
+        // 「次に何をすればいいか」を一目で示すため、全幅の目立つボタンにする。
+        // 管理者は最初の行動（スタッフ登録）へ誘導する文言にする。
+        SizedBox(
+          width: double.infinity,
+          child: FilledButton.icon(
+            onPressed: onStart,
+            icon: Icon(appUser.isAdmin ? Icons.person_add : Icons.play_arrow),
+            label: Text(appUser.isAdmin ? 'スタッフ登録へ進む' : '始める'),
+            style: FilledButton.styleFrom(
+              padding: const EdgeInsets.symmetric(vertical: 14),
+            ),
+          ),
         ),
       ],
     );
