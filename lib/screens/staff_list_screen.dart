@@ -51,7 +51,8 @@ class _StaffListScreenState extends State<StaffListScreen> {
 
     // 休み希望（曜日 + 祝日）
     if (staff.preferredDaysOff.isNotEmpty || staff.holidaysOff) {
-      constraints.add('休み希望: ${_getDayOffText(staff.preferredDaysOff, staff.holidaysOff)}');
+      constraints.add(
+          '休み希望: ${_getDayOffText(staff.preferredDaysOff, staff.holidaysOff)}');
     }
 
     // 勤務不可シフトタイプ
@@ -67,6 +68,7 @@ class _StaffListScreenState extends State<StaffListScreen> {
       ),
     );
   }
+
   final TextEditingController _searchController = TextEditingController();
   String _searchQuery = '';
 
@@ -78,320 +80,393 @@ class _StaffListScreenState extends State<StaffListScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      children: [
-        Padding(
-          padding: const EdgeInsets.all(8.0),
-          child: TextField(
-            controller: _searchController,
-            decoration: InputDecoration(
-              hintText: 'スタッフを検索...',
-              prefixIcon: const Icon(Icons.search),
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(8),
-              ),
-              suffixIcon: _searchQuery.isNotEmpty
-                  ? IconButton(
-                      icon: const Icon(Icons.clear),
-                      onPressed: () {
-                        setState(() {
-                          _searchController.clear();
-                          _searchQuery = '';
-                        });
-                      },
-                    )
-                  : null,
-            ),
-            onChanged: (value) {
-              setState(() {
-                _searchQuery = value;
-              });
-            },
-          ),
-        ),
-        // 承認待ちバナー
-        Consumer<ConstraintRequestProvider>(
-          builder: (context, requestProvider, child) {
-            final pendingCount = requestProvider.pendingRequests.length;
-
-            if (pendingCount == 0) {
-              return const SizedBox.shrink();
-            }
-
-            return Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-              child: Material(
-                color: Colors.orange.shade50,
-                borderRadius: BorderRadius.circular(8),
-                child: InkWell(
-                  onTap: () {
-                    final constraintRequestProvider = context.read<ConstraintRequestProvider>();
-                    final staffProvider = context.read<StaffProvider>();
-                    final shiftProvider = context.read<ShiftProvider>();
-                    final shiftTimeProvider = context.read<ShiftTimeProvider>();
-                    Navigator.of(context).push(
-                      MaterialPageRoute(
-                        builder: (newContext) => MultiProvider(
-                          providers: [
-                            ChangeNotifierProvider<ConstraintRequestProvider>.value(value: constraintRequestProvider),
-                            ChangeNotifierProvider<StaffProvider>.value(value: staffProvider),
-                            ChangeNotifierProvider<ShiftProvider>.value(value: shiftProvider),
-                            ChangeNotifierProvider<ShiftTimeProvider>.value(value: shiftTimeProvider),
-                          ],
-                          child: ConstraintApprovalScreen(appUser: widget.appUser),
-                        ),
-                      ),
-                    );
-                  },
+    return Scaffold(
+      // スタッフが1人以上いる時だけ「追加」FABを表示（0人の時は中央CTAに一本化）
+      floatingActionButton: Consumer<StaffProvider>(
+        builder: (context, staffProvider, child) {
+          if (staffProvider.staffList.isEmpty) {
+            return const SizedBox.shrink();
+          }
+          return FloatingActionButton.extended(
+            onPressed: _openAddStaffDialog,
+            icon: const Icon(Icons.person_add),
+            label: const Text('スタッフを追加'),
+          );
+        },
+      ),
+      body: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.all(8.0),
+            child: TextField(
+              controller: _searchController,
+              decoration: InputDecoration(
+                hintText: 'スタッフを検索...',
+                prefixIcon: const Icon(Icons.search),
+                border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(8),
-                  child: Container(
-                    padding: const EdgeInsets.all(12),
-                    child: Row(
-                      children: [
-                        Icon(
-                          Icons.approval,
-                          color: Colors.orange.shade700,
-                          size: 24,
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                '承認待ち ($pendingCount件)',
-                                style: TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.bold,
-                                  color: Colors.orange.shade900,
-                                ),
-                              ),
-                              const SizedBox(height: 2),
-                              Text(
-                                'タップして確認',
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  color: Colors.orange.shade700,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        Icon(
-                          Icons.chevron_right,
-                          color: Colors.orange.shade700,
-                        ),
-                      ],
-                    ),
-                  ),
                 ),
+                suffixIcon: _searchQuery.isNotEmpty
+                    ? IconButton(
+                        icon: const Icon(Icons.clear),
+                        onPressed: () {
+                          setState(() {
+                            _searchController.clear();
+                            _searchQuery = '';
+                          });
+                        },
+                      )
+                    : null,
               ),
-            );
-          },
-        ),
-        Expanded(
-          child: Padding(
-            padding: const EdgeInsets.only(right: 16.0),
-            child: Consumer<StaffProvider>(
-              builder: (context, staffProvider, child) {
-                var staffList = _searchQuery.isEmpty
-                    ? staffProvider.staffList
-                    : staffProvider.searchStaff(_searchQuery);
-                
-                // 有効なスタッフを上に、無効なスタッフを下に並べる
-                staffList.sort((a, b) {
-                  if (a.isActive && !b.isActive) return -1;
-                  if (!a.isActive && b.isActive) return 1;
-                  return a.name.compareTo(b.name);
+              onChanged: (value) {
+                setState(() {
+                  _searchQuery = value;
                 });
+              },
+            ),
+          ),
+          // 承認待ちバナー
+          Consumer<ConstraintRequestProvider>(
+            builder: (context, requestProvider, child) {
+              final pendingCount = requestProvider.pendingRequests.length;
 
-                if (staffList.isEmpty) {
-                  return Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(
-                          Icons.people_outline,
-                          size: 64,
-                          color: Colors.grey[400],
-                        ),
-                        const SizedBox(height: 16),
-                        Text(
-                          _searchQuery.isEmpty
-                              ? 'スタッフが登録されていません'
-                              : '検索結果がありません',
-                          style: TextStyle(
-                            fontSize: 18,
-                            color: Colors.grey[600],
-                          ),
-                        ),
-                      ],
-                    ),
-                  );
-                }
+              if (pendingCount == 0) {
+                return const SizedBox.shrink();
+              }
 
-                return Scrollbar(
-                  thumbVisibility: true,
-                  thickness: 6.0,
-                  radius: const Radius.circular(3.0),
-                  child: ListView.builder(
-                    itemCount: staffList.length,
-                    itemBuilder: (context, index) {
-                      final staff = staffList[index];
-                      return Card(
-                        margin: const EdgeInsets.symmetric(
-                          horizontal: 8.0,
-                          vertical: 4.0,
-                        ),
-                        child: ListTile(
-                          onTap: () {
-                            // スタッフタップで編集画面起動
-                            final shiftTimeProvider = context.read<ShiftTimeProvider>();
-                            final staffProvider = context.read<StaffProvider>();
-                            showDialog(
-                              context: context,
-                              useRootNavigator: false,
-                              builder: (dialogContext) => MultiProvider(
-                                providers: [
-                                  ChangeNotifierProvider<ShiftTimeProvider>.value(value: shiftTimeProvider),
-                                  ChangeNotifierProvider<StaffProvider>.value(value: staffProvider),
-                                ],
-                                child: StaffEditDialog(existingStaff: staff),
-                              ),
-                            );
-                          },
-                          leading: CircleAvatar(
-                            backgroundColor: staff.isActive
-                                ? Theme.of(context).colorScheme.primary
-                                : Colors.grey,
-                            child: Text(
-                              staff.name.isNotEmpty ? staff.name.substring(0, 1) : '?',
-                              style: const TextStyle(color: Colors.white),
-                            ),
-                          ),
-                          title: Text(
-                            staff.name.isNotEmpty ? staff.name : '(名前未入力)',
-                            style: TextStyle(
-                              decoration: staff.isActive
-                                  ? null
-                                  : TextDecoration.lineThrough,
-                              fontStyle: staff.name.isEmpty ? FontStyle.italic : null,
-                              color: staff.name.isEmpty ? Colors.grey : null,
-                            ),
-                          ),
-                          subtitle: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              // 紐付け状態バッジ
-                              Row(
-                                children: [
-                                  Icon(
-                                    staff.userId != null
-                                        ? Icons.check_circle
-                                        : Icons.radio_button_unchecked,
-                                    size: 16,
-                                    color: staff.userId != null
-                                        ? Colors.green
-                                        : Colors.grey,
-                                  ),
-                                  const SizedBox(width: 4),
-                                  Text(
-                                    staff.userId != null ? 'アプリ利用中' : 'アプリ未登録',
-                                    style: TextStyle(
-                                      fontSize: 12,
-                                      color: staff.userId != null
-                                          ? Colors.green
-                                          : Colors.grey,
-                                      fontWeight: FontWeight.w500,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 4),
-                              if (staff.phoneNumber != null)
-                                Text('📞 ${staff.phoneNumber}'),
-                              const SizedBox(height: 4),
-                              _buildConstraintsText(staff),
+              return Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                child: Material(
+                  color: Colors.orange.shade50,
+                  borderRadius: BorderRadius.circular(8),
+                  child: InkWell(
+                    onTap: () {
+                      final constraintRequestProvider =
+                          context.read<ConstraintRequestProvider>();
+                      final staffProvider = context.read<StaffProvider>();
+                      final shiftProvider = context.read<ShiftProvider>();
+                      final shiftTimeProvider =
+                          context.read<ShiftTimeProvider>();
+                      Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (newContext) => MultiProvider(
+                            providers: [
+                              ChangeNotifierProvider<
+                                      ConstraintRequestProvider>.value(
+                                  value: constraintRequestProvider),
+                              ChangeNotifierProvider<StaffProvider>.value(
+                                  value: staffProvider),
+                              ChangeNotifierProvider<ShiftProvider>.value(
+                                  value: shiftProvider),
+                              ChangeNotifierProvider<ShiftTimeProvider>.value(
+                                  value: shiftTimeProvider),
                             ],
-                          ),
-                          trailing: PopupMenuButton<String>(
-                            onSelected: (value) {
-                              _handleMenuAction(value, staff);
-                            },
-                            itemBuilder: (context) => [
-                              const PopupMenuItem(
-                                value: 'edit',
-                                child: Row(
-                                  children: [
-                                    Icon(Icons.edit),
-                                    SizedBox(width: 8),
-                                    Text('編集'),
-                                  ],
-                                ),
-                              ),
-                              PopupMenuItem(
-                                value: 'toggle',
-                                child: Row(
-                                  children: [
-                                    Icon(staff.isActive
-                                        ? Icons.person_off
-                                        : Icons.person),
-                                    const SizedBox(width: 8),
-                                    Text(staff.isActive ? '無効化' : '有効化'),
-                                  ],
-                                ),
-                              ),
-                              const PopupMenuItem(
-                                value: 'delete',
-                                child: Row(
-                                  children: [
-                                    Icon(Icons.delete, color: Colors.red),
-                                    SizedBox(width: 8),
-                                    Text('削除', style: TextStyle(color: Colors.red)),
-                                  ],
-                                ),
-                              ),
-                            ],
+                            child: ConstraintApprovalScreen(
+                                appUser: widget.appUser),
                           ),
                         ),
                       );
                     },
+                    borderRadius: BorderRadius.circular(8),
+                    child: Container(
+                      padding: const EdgeInsets.all(12),
+                      child: Row(
+                        children: [
+                          Icon(
+                            Icons.approval,
+                            color: Colors.orange.shade700,
+                            size: 24,
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  '承認待ち ($pendingCount件)',
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.orange.shade900,
+                                  ),
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  'タップして確認',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: Colors.orange.shade700,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          Icon(
+                            Icons.chevron_right,
+                            color: Colors.orange.shade700,
+                          ),
+                        ],
+                      ),
+                    ),
                   ),
-                );
-              },
-            ),
+                ),
+              );
+            },
           ),
-        ),
-        // スタッフ追加ボタン
-        Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: SizedBox(
-            width: double.infinity,
-            child: ElevatedButton.icon(
-              onPressed: () {
-                final shiftTimeProvider = context.read<ShiftTimeProvider>();
-                final staffProvider = context.read<StaffProvider>();
-                showDialog(
-                  context: context,
-                  useRootNavigator: false,
-                  builder: (dialogContext) => MultiProvider(
-                    providers: [
-                      ChangeNotifierProvider<ShiftTimeProvider>.value(value: shiftTimeProvider),
-                      ChangeNotifierProvider<StaffProvider>.value(value: staffProvider),
-                    ],
-                    child: const StaffEditDialog(),
-                  ),
-                );
-              },
-              icon: const Icon(Icons.person_add),
-              label: const Text('スタッフを追加'),
-              style: ElevatedButton.styleFrom(
-                padding: const EdgeInsets.symmetric(vertical: 12),
+          Expanded(
+            child: Padding(
+              padding: const EdgeInsets.only(right: 16.0),
+              child: Consumer<StaffProvider>(
+                builder: (context, staffProvider, child) {
+                  var staffList = _searchQuery.isEmpty
+                      ? staffProvider.staffList
+                      : staffProvider.searchStaff(_searchQuery);
+
+                  // 有効なスタッフを上に、無効なスタッフを下に並べる
+                  staffList.sort((a, b) {
+                    if (a.isActive && !b.isActive) return -1;
+                    if (!a.isActive && b.isActive) return 1;
+                    return a.name.compareTo(b.name);
+                  });
+
+                  if (staffList.isEmpty) {
+                    // 検索結果が空の場合はメッセージのみ
+                    if (_searchQuery.isNotEmpty) {
+                      return Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(
+                              Icons.search_off,
+                              size: 64,
+                              color: Colors.grey[400],
+                            ),
+                            const SizedBox(height: 16),
+                            Text(
+                              '検索結果がありません',
+                              style: TextStyle(
+                                fontSize: 18,
+                                color: Colors.grey[600],
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    }
+
+                    // スタッフ未登録（新規ユーザー）の場合は、次の行動を促す大きなCTAを中央に置く。
+                    // 「説明」ではなく「次にやるべき1アクション」を明示して離脱を防ぐ。
+                    return Center(
+                      child: SingleChildScrollView(
+                        padding: const EdgeInsets.all(24),
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(
+                              Icons.people_outline,
+                              size: 72,
+                              color: Colors.grey[400],
+                            ),
+                            const SizedBox(height: 16),
+                            Text(
+                              'まずはスタッフを登録しましょう',
+                              style: TextStyle(
+                                fontSize: 20,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.grey[800],
+                              ),
+                              textAlign: TextAlign.center,
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              'スタッフを登録すると、シフトを自動作成できるようになります。',
+                              style: TextStyle(
+                                fontSize: 14,
+                                color: Colors.grey[600],
+                                height: 1.4,
+                              ),
+                              textAlign: TextAlign.center,
+                            ),
+                            const SizedBox(height: 24),
+                            FilledButton.icon(
+                              onPressed: _openAddStaffDialog,
+                              icon: const Icon(Icons.person_add),
+                              label: const Text('スタッフを登録する'),
+                              style: FilledButton.styleFrom(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 24, vertical: 14),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
+                  }
+
+                  return Scrollbar(
+                    thumbVisibility: true,
+                    thickness: 6.0,
+                    radius: const Radius.circular(3.0),
+                    child: ListView.builder(
+                      itemCount: staffList.length,
+                      itemBuilder: (context, index) {
+                        final staff = staffList[index];
+                        return Card(
+                          margin: const EdgeInsets.symmetric(
+                            horizontal: 8.0,
+                            vertical: 4.0,
+                          ),
+                          child: ListTile(
+                            onTap: () {
+                              // スタッフタップで編集画面起動
+                              final shiftTimeProvider =
+                                  context.read<ShiftTimeProvider>();
+                              final staffProvider =
+                                  context.read<StaffProvider>();
+                              showDialog(
+                                context: context,
+                                useRootNavigator: false,
+                                builder: (dialogContext) => MultiProvider(
+                                  providers: [
+                                    ChangeNotifierProvider<
+                                            ShiftTimeProvider>.value(
+                                        value: shiftTimeProvider),
+                                    ChangeNotifierProvider<StaffProvider>.value(
+                                        value: staffProvider),
+                                  ],
+                                  child: StaffEditDialog(existingStaff: staff),
+                                ),
+                              );
+                            },
+                            leading: CircleAvatar(
+                              backgroundColor: staff.isActive
+                                  ? Theme.of(context).colorScheme.primary
+                                  : Colors.grey,
+                              child: Text(
+                                staff.name.isNotEmpty
+                                    ? staff.name.substring(0, 1)
+                                    : '?',
+                                style: const TextStyle(color: Colors.white),
+                              ),
+                            ),
+                            title: Text(
+                              staff.name.isNotEmpty ? staff.name : '(名前未入力)',
+                              style: TextStyle(
+                                decoration: staff.isActive
+                                    ? null
+                                    : TextDecoration.lineThrough,
+                                fontStyle: staff.name.isEmpty
+                                    ? FontStyle.italic
+                                    : null,
+                                color: staff.name.isEmpty ? Colors.grey : null,
+                              ),
+                            ),
+                            subtitle: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                // 紐付け状態バッジ
+                                Row(
+                                  children: [
+                                    Icon(
+                                      staff.userId != null
+                                          ? Icons.check_circle
+                                          : Icons.radio_button_unchecked,
+                                      size: 16,
+                                      color: staff.userId != null
+                                          ? Colors.green
+                                          : Colors.grey,
+                                    ),
+                                    const SizedBox(width: 4),
+                                    Text(
+                                      staff.userId != null
+                                          ? 'アプリ利用中'
+                                          : 'アプリ未登録',
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        color: staff.userId != null
+                                            ? Colors.green
+                                            : Colors.grey,
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 4),
+                                if (staff.phoneNumber != null)
+                                  Text('📞 ${staff.phoneNumber}'),
+                                const SizedBox(height: 4),
+                                _buildConstraintsText(staff),
+                              ],
+                            ),
+                            trailing: PopupMenuButton<String>(
+                              onSelected: (value) {
+                                _handleMenuAction(value, staff);
+                              },
+                              itemBuilder: (context) => [
+                                const PopupMenuItem(
+                                  value: 'edit',
+                                  child: Row(
+                                    children: [
+                                      Icon(Icons.edit),
+                                      SizedBox(width: 8),
+                                      Text('編集'),
+                                    ],
+                                  ),
+                                ),
+                                PopupMenuItem(
+                                  value: 'toggle',
+                                  child: Row(
+                                    children: [
+                                      Icon(staff.isActive
+                                          ? Icons.person_off
+                                          : Icons.person),
+                                      const SizedBox(width: 8),
+                                      Text(staff.isActive ? '無効化' : '有効化'),
+                                    ],
+                                  ),
+                                ),
+                                const PopupMenuItem(
+                                  value: 'delete',
+                                  child: Row(
+                                    children: [
+                                      Icon(Icons.delete, color: Colors.red),
+                                      SizedBox(width: 8),
+                                      Text('削除',
+                                          style: TextStyle(color: Colors.red)),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                  );
+                },
               ),
             ),
           ),
-        ),
-      ],
+        ],
+      ),
+    );
+  }
+
+  /// スタッフ追加ダイアログを開く（空状態CTA・追加ボタンの両方から使用）
+  void _openAddStaffDialog() {
+    final shiftTimeProvider = context.read<ShiftTimeProvider>();
+    final staffProvider = context.read<StaffProvider>();
+    showDialog(
+      context: context,
+      useRootNavigator: false,
+      builder: (dialogContext) => MultiProvider(
+        providers: [
+          ChangeNotifierProvider<ShiftTimeProvider>.value(
+              value: shiftTimeProvider),
+          ChangeNotifierProvider<StaffProvider>.value(value: staffProvider),
+        ],
+        child: const StaffEditDialog(),
+      ),
     );
   }
 
@@ -407,8 +482,10 @@ class _StaffListScreenState extends State<StaffListScreen> {
           useRootNavigator: false,
           builder: (dialogContext) => MultiProvider(
             providers: [
-              ChangeNotifierProvider<ShiftTimeProvider>.value(value: shiftTimeProvider),
-              ChangeNotifierProvider<StaffProvider>.value(value: localStaffProvider),
+              ChangeNotifierProvider<ShiftTimeProvider>.value(
+                  value: shiftTimeProvider),
+              ChangeNotifierProvider<StaffProvider>.value(
+                  value: localStaffProvider),
             ],
             child: StaffEditDialog(existingStaff: staff),
           ),
@@ -436,14 +513,16 @@ class _StaffListScreenState extends State<StaffListScreen> {
   void _showDeleteStaffDialog(Staff staff) {
     // Provider を引き継ぐために、現在のスコープから Provider を取得
     final staffProvider = Provider.of<StaffProvider>(context, listen: false);
-    final constraintRequestProvider = Provider.of<ConstraintRequestProvider>(context, listen: false);
+    final constraintRequestProvider =
+        Provider.of<ConstraintRequestProvider>(context, listen: false);
 
     showDialog(
       context: context,
       builder: (context) => MultiProvider(
         providers: [
           ChangeNotifierProvider<StaffProvider>.value(value: staffProvider),
-          ChangeNotifierProvider<ConstraintRequestProvider>.value(value: constraintRequestProvider),
+          ChangeNotifierProvider<ConstraintRequestProvider>.value(
+              value: constraintRequestProvider),
         ],
         child: _DeleteStaffDialog(staff: staff),
       ),
@@ -563,12 +642,14 @@ class _DeleteStaffDialogState extends State<_DeleteStaffDialog> {
 
       if (widget.staff.userId != null) {
         // 紐付け済みスタッフの場合：アカウントごと削除
-        final constraintRequestProvider = Provider.of<ConstraintRequestProvider>(context, listen: false);
+        final constraintRequestProvider =
+            Provider.of<ConstraintRequestProvider>(context, listen: false);
         final authService = AuthService();
 
         await staffProvider.deleteStaffWithAccount(
           widget.staff.id,
-          deleteRequestsByStaffId: constraintRequestProvider.deleteRequestsByStaffId,
+          deleteRequestsByStaffId:
+              constraintRequestProvider.deleteRequestsByStaffId,
           deleteStaffAccount: authService.deleteStaffAccount,
         );
       } else {
