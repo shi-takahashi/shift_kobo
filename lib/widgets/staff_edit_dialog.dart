@@ -15,9 +15,14 @@ import 'auth_gate.dart';
 class StaffEditDialog extends StatefulWidget {
   final Staff? existingStaff;
 
+  /// 紐付け状態カード（「アプリ未登録」等）を表示するか。
+  /// 初回セットアップ中など、必ず未登録で混乱を招く場面では false にする。
+  final bool showLinkStatus;
+
   const StaffEditDialog({
     super.key,
     this.existingStaff,
+    this.showLinkStatus = true,
   });
 
   @override
@@ -165,7 +170,8 @@ class _StaffEditDialogState extends State<StaffEditDialog> {
                         ),
                         const SizedBox(height: 16),
                         // 編集モードの場合のみ紐付け状態を表示
-                        if (widget.existingStaff != null) ...[
+                        // （初回セットアップ等、showLinkStatus=false の時は隠す）
+                        if (widget.existingStaff != null && widget.showLinkStatus) ...[
                           _buildLinkStatusCard(),
                           const SizedBox(height: 16),
                         ],

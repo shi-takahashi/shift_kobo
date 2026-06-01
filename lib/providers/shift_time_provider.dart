@@ -210,6 +210,35 @@ class ShiftTimeProvider extends ChangeNotifier {
     }
   }
 
+  /// テンプレート適用用：有効にするシフトタイプを一括設定する。
+  /// 指定したものを有効化し、それ以外は無効化する（差分のみ更新）。
+  Future<void> setActiveShiftTypes(Set<ShiftType> activeTypes) async {
+    if (teamId == null) return;
+
+    final batch = _firestore.batch();
+    var hasChange = false;
+    for (final setting in _settings) {
+      final docId = _docIds[setting.shiftType];
+      if (docId == null) continue;
+      final shouldBeActive = activeTypes.contains(setting.shiftType);
+      if (setting.isActive != shouldBeActive) {
+        final ref = _firestore
+            .collection('teams')
+            .doc(teamId)
+            .collection('shift_time_settings')
+            .doc(docId);
+        batch.update(ref, {
+          'isActive': shouldBeActive,
+          'updatedAt': FieldValue.serverTimestamp(),
+        });
+        hasChange = true;
+      }
+    }
+    if (hasChange) {
+      await batch.commit();
+    }
+  }
+
   ShiftTimeSetting? getSettingByType(ShiftType shiftType) {
     try {
       return _settings.firstWhere((s) => s.shiftType == shiftType);

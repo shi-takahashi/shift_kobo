@@ -4,6 +4,7 @@ import '../models/shift_time_setting.dart';
 import '../providers/shift_time_provider.dart';
 import '../services/analytics_service.dart';
 import '../widgets/banner_ad_widget.dart';
+import '../widgets/shift_time_edit_dialog.dart';
 
 class ShiftTimeSettingsScreen extends StatefulWidget {
   const ShiftTimeSettingsScreen({super.key});
@@ -102,146 +103,13 @@ class _ShiftTimeSettingsScreenState extends State<ShiftTimeSettingsScreen> {
     ShiftTimeProvider provider,
     ShiftTimeSetting setting,
   ) {
-    String newName = setting.displayName;
-    String startTime = setting.startTime;
-    String endTime = setting.endTime;
-    final nameController = TextEditingController(text: newName);
-    String? errorMessage;
-
     showDialog(
       context: context,
-      builder: (context) => StatefulBuilder(
-        builder: (context, setState) => AlertDialog(
-          title: Text('${setting.shiftType.defaultName}の設定'),
-          content: SizedBox(
-            width: double.maxFinite,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                TextField(
-                  controller: nameController,
-                  decoration: InputDecoration(
-                    labelText: 'シフト名',
-                    hintText: '例: 朝シフト、開店準備、A勤務',
-                    border: const OutlineInputBorder(),
-                    errorText: errorMessage,
-                  ),
-                  onChanged: (value) {
-                    setState(() {
-                      newName = value;
-                      // 重複チェック
-                      if (value.trim().isNotEmpty &&
-                          provider.isNameDuplicate(value.trim(), setting.shiftType)) {
-                        errorMessage = 'この名前は既に使用されています';
-                      } else {
-                        errorMessage = null;
-                      }
-                    });
-                  },
-                ),
-                const SizedBox(height: 20),
-                const Text(
-                  '勤務時間',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-                const SizedBox(height: 12),
-                Row(
-                  children: [
-                    const SizedBox(width: 60, child: Text('開始:')),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: OutlinedButton(
-                        onPressed: () async {
-                          final time = await _selectTime(context, startTime);
-                          if (time != null) {
-                            setState(() {
-                              startTime = time;
-                            });
-                          }
-                        },
-                        child: Text(startTime),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                Row(
-                  children: [
-                    const SizedBox(width: 60, child: Text('終了:')),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: OutlinedButton(
-                        onPressed: () async {
-                          final time = await _selectTime(context, endTime);
-                          if (time != null) {
-                            setState(() {
-                              endTime = time;
-                            });
-                          }
-                        },
-                        child: Text(endTime),
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: const Text('キャンセル'),
-            ),
-            ElevatedButton(
-              onPressed: errorMessage == null && newName.trim().isNotEmpty
-                  ? () {
-                      provider.updateShiftName(setting.shiftType, newName.trim());
-                      provider.updateShiftTime(setting.shiftType, startTime, endTime);
-                      Navigator.of(context).pop();
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text('${newName.trim()}の設定を更新しました'),
-                          duration: const Duration(seconds: 1),
-                        ),
-                      );
-                    }
-                  : null, // エラーがある場合はボタンを無効化
-              child: const Text('保存'),
-            ),
-          ],
-        ),
+      builder: (_) => ChangeNotifierProvider<ShiftTimeProvider>.value(
+        value: provider,
+        child: ShiftTimeEditDialog(setting: setting),
       ),
     );
-  }
-
-  Future<String?> _selectTime(BuildContext context, String initialTime) async {
-    final parts = initialTime.split(':');
-    final initialTimeOfDay = TimeOfDay(
-      hour: int.parse(parts[0]),
-      minute: int.parse(parts[1]),
-    );
-
-    final selectedTime = await showTimePicker(
-      context: context,
-      initialTime: initialTimeOfDay,
-      builder: (context, child) {
-        return MediaQuery(
-          data: MediaQuery.of(context).copyWith(alwaysUse24HourFormat: true),
-          child: child!,
-        );
-      },
-    );
-
-    if (selectedTime != null) {
-      final hour = selectedTime.hour.toString().padLeft(2, '0');
-      final minute = selectedTime.minute.toString().padLeft(2, '0');
-      return '$hour:$minute';
-    }
-
-    return null;
   }
 
   void _showDuplicateWarningDialog(BuildContext context, String name) {

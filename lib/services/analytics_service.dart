@@ -268,6 +268,16 @@ class AnalyticsService {
     await _analytics.logEvent(name: 'welcome_screen_viewed');
   }
 
+  /// 初回セットアップウィザードの進捗イベント（ウィザード内の離脱計測用）
+  /// step: 'start' | 'staff_done' | 'shifts_done' | 'requirements_done'
+  ///       | 'generated' | 'skipped'
+  static Future<void> logWizardStep(String step) async {
+    await _analytics.logEvent(
+      name: 'setup_wizard',
+      parameters: {'step': step},
+    );
+  }
+
   /// スタッフ追加イベント
   static Future<void> logStaffAdded({
     required int totalStaffCount,

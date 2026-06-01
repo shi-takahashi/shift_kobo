@@ -21,6 +21,7 @@ import 'my_page_screen.dart';
 import 'settings_screen.dart';
 import 'staff_list_screen.dart';
 import 'team_settings_screen.dart';
+import 'onboarding/setup_wizard_screen.dart';
 
 /// ホーム画面のタブ
 enum HomeTab {
@@ -54,6 +55,11 @@ class _HomeScreenState extends State<HomeScreen> {
   HomeTab _selectedTab = HomeTab.shift; // デフォルトはシフトタブ
   bool _hasShownFirstTimeHelp = false;
   bool _hasCheckedInitialTab = false; // 初期タブ選択チェック済みフラグ
+  // 初回セットアップウィザード関連
+  bool _onboardingCompleted = false;
+  bool _onboardingFlagLoaded = false;
+  bool _wizardHandled = false;
+  int _onboardingStep = 0; // 前回の続きから再開するための保存ステップ
   final AnnouncementService _announcementService = AnnouncementService();
 
   /// 表示可能なタブのリストを取得
@@ -183,9 +189,18 @@ class _HomeScreenState extends State<HomeScreen> {
     // ウェルカムダイアログを表示するか判定
     final prefs = await SharedPreferences.getInstance();
     final hasSeenHelp = prefs.getBool('has_seen_first_time_help') ?? false;
-    final shouldShowWelcome = widget.showWelcomeDialog || !hasSeenHelp;
+    _onboardingCompleted = prefs.getBool('onboarding_completed') ?? false;
+    _onboardingStep = prefs.getInt('onboarding_step') ?? 0;
+    _onboardingFlagLoaded = true;
+
+    // 管理者は初回セットアップウィザードで案内するため、ようこそダイアログは出さない
+    // （ウィザード完了後も含めて一切出さない）。ようこそは招待参加のメンバー向け。
+    final shouldShowWelcome =
+        !widget.appUser.isAdmin && (widget.showWelcomeDialog || !hasSeenHelp);
 
     if (!mounted) return;
+    // フラグ読み込み完了をビルダーに反映（ウィザード起動判定に使う）
+    setState(() {});
 
     // 画面描画完了後に処理を実行
     WidgetsBinding.instance.addPostFrameCallback((_) async {
@@ -206,6 +221,49 @@ class _HomeScreenState extends State<HomeScreen> {
   Future<void> _markFirstTimeHelpSeen() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool('has_seen_first_time_help', true);
+  }
+
+  /// 初回セットアップウィザードを起動（Providerスコープ内のbuilderから呼ぶ）。
+  /// 完了/スキップ時に初回フラグを立て、結果のカレンダーを表示する。
+  void _launchOnboardingWizard(
+    StaffProvider staffProvider,
+    ShiftProvider shiftProvider,
+    ShiftTimeProvider shiftTimeProvider,
+    MonthlyRequirementsProvider requirementsProvider,
+  ) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      Navigator.of(context).push(
+        MaterialPageRoute(
+          fullscreenDialog: true,
+          builder: (_) => MultiProvider(
+            providers: [
+              ChangeNotifierProvider<StaffProvider>.value(value: staffProvider),
+              ChangeNotifierProvider<ShiftProvider>.value(value: shiftProvider),
+              ChangeNotifierProvider<ShiftTimeProvider>.value(
+                  value: shiftTimeProvider),
+              ChangeNotifierProvider<MonthlyRequirementsProvider>.value(
+                  value: requirementsProvider),
+            ],
+            child: SetupWizardScreen(
+              initialStep: _onboardingStep,
+              onFinished: () async {
+                final prefs = await SharedPreferences.getInstance();
+                await prefs.setBool('onboarding_completed', true);
+                await prefs.setBool('has_seen_first_time_help', true);
+                await prefs.remove('onboarding_step');
+                if (!mounted) return;
+                Navigator.of(context).pop(); // ウィザードを閉じる
+                setState(() {
+                  _onboardingCompleted = true;
+                  _selectedTab = HomeTab.shift; // 作成結果（カレンダー）を見せる
+                });
+              },
+            ),
+          ),
+        ),
+      );
+    });
   }
 
   /// お知らせをチェックして表示
@@ -264,6 +322,20 @@ class _HomeScreenState extends State<HomeScreen> {
 
           if (isLoading) {
             return _buildLoadingScreen(context);
+          }
+
+          // 初回の管理者は、データロード後に一度だけセットアップウィザードで案内する
+          if (widget.appUser.isAdmin &&
+              _onboardingFlagLoaded &&
+              !_onboardingCompleted &&
+              !_wizardHandled) {
+            _wizardHandled = true;
+            _launchOnboardingWizard(
+              staffProvider,
+              shiftProvider,
+              shiftTimeProvider,
+              monthlyProvider,
+            );
           }
 
           // データロード完了後の初期化処理（初回のみ）
