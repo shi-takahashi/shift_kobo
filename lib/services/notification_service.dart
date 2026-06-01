@@ -3,6 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 /// Push通知サービス
 /// Web版では無効化される
@@ -43,6 +44,25 @@ class NotificationService {
       }
     } catch (e) {
       debugPrint('❌ FCM通知許可リクエストエラー: $e');
+    }
+  }
+
+  /// 通知が役立つ文脈（チーム招待・チーム参加など）になったタイミングで呼ぶ。
+  /// まだ一度も許可を聞いていなければ聞き、既に聞いていればトークン同期のみ行う。
+  /// 初回起動では呼ばないこと（オンボーディングを邪魔しないため）。
+  static Future<void> requestPermissionIfNeeded() async {
+    if (kIsWeb) return;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final hasRequested = prefs.getBool('has_requested_fcm_permission') ?? false;
+      if (!hasRequested) {
+        await requestPermission(); // 内部で許可されればsyncTokenも実行
+        await prefs.setBool('has_requested_fcm_permission', true);
+      } else {
+        await syncToken();
+      }
+    } catch (e) {
+      debugPrint('⚠️ FCM許可リクエスト（文脈）エラー: $e');
     }
   }
 

@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 
 import '../../services/auth_service.dart';
+import '../../services/notification_service.dart';
 import '../../widgets/auth_gate.dart';
 import 'team_creation_screen.dart';
 
@@ -88,6 +89,12 @@ class _JoinTeamScreenState extends State<JoinTeamScreen> {
           ],
         ),
       );
+
+      if (!mounted) return;
+
+      // チームに参加した参加者は通知（承認/却下など）が役立つので、ここで許可を聞く。
+      // 参加者は最初からチーム目的で入ってくるため、このタイミングで聞いて良い。
+      await NotificationService.requestPermissionIfNeeded();
 
       if (!mounted) return;
 

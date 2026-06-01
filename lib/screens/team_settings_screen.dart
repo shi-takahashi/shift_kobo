@@ -7,6 +7,7 @@ import '../providers/shift_provider.dart';
 import '../providers/shift_time_provider.dart';
 import '../services/analytics_service.dart';
 import '../services/auth_service.dart';
+import '../services/notification_service.dart';
 import 'constraint_settings_screen.dart';
 import 'monthly_shift_settings_screen.dart';
 import 'shift_time_settings_screen.dart';
@@ -58,7 +59,11 @@ class _TeamSettingsScreenState extends State<TeamSettingsScreen> {
             title: const Text('チーム招待'),
             subtitle: const Text('スタッフを招待する'),
             trailing: const Icon(Icons.chevron_right),
-            onTap: () {
+            onTap: () async {
+              // 通知が役立つ文脈（スタッフ招待）になったので、ここで通知許可を聞く。
+              // 初回起動では聞かず、この瞬間まで遅らせている。
+              await NotificationService.requestPermissionIfNeeded();
+              if (!context.mounted) return;
               Navigator.of(context).push(
                 MaterialPageRoute(
                   builder: (context) => const TeamInviteScreen(),
