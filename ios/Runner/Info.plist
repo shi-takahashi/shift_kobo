@@ -28,6 +28,8 @@
 	<string>ca-app-pub-4630894580841955~1133236386</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>シフト表を画像やファイルとして保存・選択する際に写真ライブラリへアクセスする場合があります。</string>
 	<key>NSUserTrackingUsageDescription</key>
 	<string>あなたに関連性の高い広告を表示するために使用します。許可しなくてもアプリはご利用いただけます。</string>
 	<key>SKAdNetworkItems</key>
