@@ -39,7 +39,7 @@ class InviteGuideDialog extends StatelessWidget {
             ),
             const SizedBox(height: 24),
 
-            // 1人でも使える説明
+            // 初回セットアップへの橋渡し
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
@@ -56,7 +56,7 @@ class InviteGuideDialog extends StatelessWidget {
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(
-                          '基本的な使い方',
+                          '続けて初回セットアップ',
                           style: TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.bold,
@@ -68,7 +68,7 @@ class InviteGuideDialog extends StatelessWidget {
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    'まずは以下の手順で始めましょう',
+                    'このあと、画面の案内に沿って進めるだけで最初のシフトが自動で完成します',
                     style: TextStyle(
                       fontSize: 13,
                       color: Colors.blue.shade900,
@@ -76,11 +76,10 @@ class InviteGuideDialog extends StatelessWidget {
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    '1. スタッフタブからスタッフを登録\n'
-                    '2. チームタブから時間と割当を設定\n'
-                    '3. シフト画面でシフトを自動作成\n'
-                    '4. 必要に応じてシフトを調整\n'
-                    '5. シフト表を出力して共有',
+                    '1. スタッフを登録\n'
+                    '2. シフトの種類を選ぶ\n'
+                    '3. 必要な人数を設定\n'
+                    '4. シフトを自動作成',
                     style: TextStyle(
                       fontSize: 13,
                       color: Colors.blue.shade800,
@@ -154,7 +153,7 @@ class InviteGuideDialog extends StatelessWidget {
       actions: [
         FilledButton(
           onPressed: () => Navigator.of(context).pop(),
-          child: const Text('始める'),
+          child: const Text('セットアップを始める'),
         ),
       ],
     );
