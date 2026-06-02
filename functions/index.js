@@ -5,7 +5,11 @@ const admin = require("firebase-admin");
 admin.initializeApp();
 
 /**
- * アプリリダイレクト：User-Agentで判定してAndroidはGoogle Play、それ以外はWebアプリへ
+ * アプリリダイレクト：User-Agentで判定
+ *  - Android → Google Play
+ *  - iPhone/iPad → App Store
+ *  - その他（PC等） → Webアプリ
+ * ※302（一時）リダイレクト：将来の振り先変更がキャッシュで固定されないように
  */
 exports.appRedirect = onRequest(
     {
@@ -17,11 +21,19 @@ exports.appRedirect = onRequest(
       if (userAgent.includes("android")) {
         // Android → Google Play
         console.log("🤖 Android User-Agent検出 → Google Play");
-        res.redirect(301, "https://play.google.com/store/apps/details?id=io.github.shitakahashi.shiftkobo");
+        res.redirect(302, "https://play.google.com/store/apps/details?id=io.github.shitakahashi.shiftkobo");
+      } else if (
+        userAgent.includes("iphone") ||
+        userAgent.includes("ipad") ||
+        userAgent.includes("ipod")
+      ) {
+        // iPhone/iPad → App Store
+        console.log("🍎 iOS User-Agent検出 → App Store");
+        res.redirect(302, "https://apps.apple.com/app/id6775868548");
       } else {
-        // iOS/その他 → Webアプリ
-        console.log("🍎 iOS/その他 User-Agent検出 → Webアプリ");
-        res.redirect(301, "https://shift-kobo-online-prod.web.app/web/");
+        // その他（PC等） → Webアプリ
+        console.log("🖥️ その他 User-Agent検出 → Webアプリ");
+        res.redirect(302, "https://shift-kobo-online-prod.web.app/web/");
       }
     },
 );

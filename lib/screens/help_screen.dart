@@ -445,7 +445,7 @@ class _HelpScreenState extends State<HelpScreen> {
                       ),
                       const SizedBox(height: 8),
                       Text(
-                        'iPhone版アプリは準備中です。下記のWebアプリをご利用ください',
+                        'App Store から「シフト工房」を入手できます',
                         style: TextStyle(
                           fontSize: 13,
                           color: Colors.grey.shade800,
@@ -453,28 +453,12 @@ class _HelpScreenState extends State<HelpScreen> {
                       ),
                       const SizedBox(height: 8),
                       SelectableText(
-                        'https://shift-kobo-online-prod.web.app/app',
+                        'https://apps.apple.com/app/id6775868548',
                         style: TextStyle(
                           fontSize: 13,
                           color: Colors.blue.shade700,
                           fontWeight: FontWeight.w500,
                         ),
-                      ),
-                      const SizedBox(height: 8),
-                      Row(
-                        children: [
-                          Icon(Icons.bookmark_outline, size: 16, color: Colors.grey.shade700),
-                          const SizedBox(width: 6),
-                          Expanded(
-                            child: Text(
-                              'ブックマークに保存すると便利です',
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: Colors.grey.shade700,
-                              ),
-                            ),
-                          ),
-                        ],
                       ),
                       const SizedBox(height: 8),
                       Row(
