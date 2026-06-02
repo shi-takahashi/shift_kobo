@@ -1,3 +1,4 @@
+import 'package:app_tracking_transparency/app_tracking_transparency.dart';
 import 'package:flutter/foundation.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
 
@@ -32,11 +33,11 @@ class AdService {
   static const String _testInterstitialAdUnitIdAndroid = 'ca-app-pub-3940256099942544/1033173712';
   static const String _testInterstitialAdUnitIdIOS = 'ca-app-pub-3940256099942544/4411468910';
 
-  // 本番用広告ID（リリースビルド時）- 現在はテスト用IDを使用
+  // 本番用広告ID（リリースビルド時）
   static const String _productionBannerAdUnitIdAndroid = 'ca-app-pub-4630894580841955/1697885857';
-  static const String _productionBannerAdUnitIdIOS = 'ca-app-pub-3940256099942544/2934735716';
+  static const String _productionBannerAdUnitIdIOS = 'ca-app-pub-4630894580841955/9592660421';
   static const String _productionInterstitialAdUnitIdAndroid = 'ca-app-pub-4630894580841955/1657345646';
-  static const String _productionInterstitialAdUnitIdIOS = 'ca-app-pub-3940256099942544/4411468910';
+  static const String _productionInterstitialAdUnitIdIOS = 'ca-app-pub-4630894580841955/8245439648';
 
   /// 現在の環境に応じたバナー広告IDを取得
   static String get bannerAdUnitId {
@@ -63,6 +64,24 @@ class AdService {
         return _isDebug ? _testInterstitialAdUnitIdIOS : _productionInterstitialAdUnitIdIOS;
       default:
         return _isDebug ? _testInterstitialAdUnitIdAndroid : _productionInterstitialAdUnitIdAndroid;
+    }
+  }
+
+  /// iOSのATT（App Tracking Transparency）許可をリクエストする。
+  ///
+  /// iOS 14以降、IDFAを使った広告トラッキングには許可ダイアログが必須。
+  /// ダイアログはアプリがアクティブな状態でないと表示されないため、
+  /// 最初のフレーム描画後（runApp後のpostFrameCallback）に呼ぶこと。
+  /// Google推奨どおり、広告SDK（MobileAds.initialize）より前に行う。
+  static Future<void> requestTrackingAuthorization() async {
+    if (kIsWeb || defaultTargetPlatform != TargetPlatform.iOS) return;
+    try {
+      final status = await AppTrackingTransparency.trackingAuthorizationStatus;
+      if (status == TrackingStatus.notDetermined) {
+        await AppTrackingTransparency.requestTrackingAuthorization();
+      }
+    } catch (e) {
+      print('ATTリクエストエラー: $e');
     }
   }
 

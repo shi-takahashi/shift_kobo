@@ -50,10 +50,9 @@ void main() async {
   await Hive.openBox<ShiftConstraint>('constraints');
   await Hive.openBox<ShiftTimeSetting>('shift_time_settings');
 
-  // AdMobの初期化（Web版では無効）
-  if (!kIsWeb) {
-    await AdService.initialize();
-  }
+  // AdMobの初期化はrunApp後に行う（下記）。
+  // iOSのATT許可ダイアログはアプリがアクティブでないと出ないため、
+  // 最初のフレーム後にATT→広告初期化の順で実行する。
 
   // Firebaseの初期化
   try {
@@ -86,6 +85,15 @@ void main() async {
   }
 
   runApp(const MyApp());
+
+  // 最初のフレーム描画後にATT許可→AdMob初期化（Web版では無効）。
+  // この順序によりiOSで許可ダイアログが正しく表示され、許可確定後に広告SDKを初期化できる。
+  if (!kIsWeb) {
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      await AdService.requestTrackingAuthorization();
+      await AdService.initialize();
+    });
+  }
 }
 
 /// 認証状態の監視を初期化（根本原因調査用）
