@@ -7,7 +7,6 @@ import 'package:flutter/services.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:provider/provider.dart';
-import 'package:shift_kobo/utils/test_data_helper.dart';
 
 import 'firebase_options.dart' as dev_options;
 import 'firebase_options_prod.dart' as prod_options;
@@ -50,12 +49,6 @@ void main() async {
   await Hive.openBox<Shift>('shifts');
   await Hive.openBox<ShiftConstraint>('constraints');
   await Hive.openBox<ShiftTimeSetting>('shift_time_settings');
-
-  // テスト用データの初期化（初回のみ）
-  // TODO: Providerの改修（Firestore対応）が完了したら削除
-  if (!kIsWeb) {
-    await TestDataHelper.initializeTestData(); // データ移行テスト用に有効化
-  }
 
   // AdMobの初期化（Web版では無効）
   if (!kIsWeb) {

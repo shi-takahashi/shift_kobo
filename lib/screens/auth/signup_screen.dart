@@ -3,16 +3,12 @@ import 'package:flutter/material.dart';
 import '../../models/app_user.dart';
 import '../../services/auth_service.dart';
 import '../team/join_team_screen.dart';
-import '../team/team_creation_screen.dart';
 import 'login_screen.dart';
 
 /// サインアップ（新規登録）画面
 class SignupScreen extends StatefulWidget {
-  final bool isFromMigration; // データ移行が必要かどうか
-
   const SignupScreen({
     super.key,
-    this.isFromMigration = false,
   });
 
   @override
@@ -84,26 +80,12 @@ class _SignupScreenState extends State<SignupScreen> {
 
       if (!mounted) return;
 
-      // データ移行が必要な場合（既存ユーザー）はチーム作成画面へ
-      // 新規ユーザーの場合は、チーム作成 or 参加の選択画面へ
-      if (widget.isFromMigration) {
-        // 既存ユーザー → 直接チーム作成（データ移行あり）
-        Navigator.of(context).pushReplacement(
-          MaterialPageRoute(
-            builder: (_) => TeamCreationScreen(
-              userId: user.uid,
-              shouldMigrateData: true,
-            ),
-          ),
-        );
-      } else {
-        // 新規ユーザー → チーム作成 or 参加を選択
-        Navigator.of(context).pushReplacement(
-          MaterialPageRoute(
-            builder: (_) => JoinTeamScreen(userId: user.uid),
-          ),
-        );
-      }
+      // 新規ユーザー → チーム作成 or 参加を選択
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(
+          builder: (_) => JoinTeamScreen(userId: user.uid),
+        ),
+      );
     } catch (e) {
       if (!mounted) return;
 

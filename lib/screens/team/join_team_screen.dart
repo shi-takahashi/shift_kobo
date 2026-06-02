@@ -143,7 +143,6 @@ class _JoinTeamScreenState extends State<JoinTeamScreen> {
       MaterialPageRoute(
         builder: (_) => TeamCreationScreen(
           userId: widget.userId,
-          shouldMigrateData: false,
         ),
       ),
     );

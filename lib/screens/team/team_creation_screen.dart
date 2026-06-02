@@ -4,17 +4,14 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../services/auth_service.dart';
 import '../../widgets/invite_guide_dialog.dart';
 import '../home_screen.dart';
-import '../migration/migration_progress_dialog.dart';
 
 /// チーム作成画面
 class TeamCreationScreen extends StatefulWidget {
   final String userId;
-  final bool shouldMigrateData; // データ移行フラグ
 
   const TeamCreationScreen({
     super.key,
     required this.userId,
-    this.shouldMigrateData = false,
   });
 
   @override
@@ -126,35 +123,12 @@ class _TeamCreationScreenState extends State<TeamCreationScreen> {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setBool('has_seen_first_time_help', true);
 
-      // データ移行が必要な場合
-      print('🔍 shouldMigrateData: ${widget.shouldMigrateData}');
-      if (widget.shouldMigrateData) {
-        print('🔵 データ移行ダイアログを表示 - teamId: ${team.id}');
-        // データ移行ダイアログを表示
-        final migrationSuccess = await showDialog<bool>(
-          context: context,
-          barrierDismissible: false, // 移行中は閉じられない
-          builder: (context) => MigrationProgressDialog(teamId: team.id),
-        );
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('✅ チームを作成しました')),
+      );
 
-        if (!mounted) return;
-
-        if (migrationSuccess == true) {
-          // 移行成功 - 招待案内ダイアログを表示してからホーム画面へ
-          await _showInviteGuideDialog(team.id, team.name, team.inviteCode);
-        } else {
-          // 移行失敗 - エラーメッセージは既にダイアログで表示されている
-          // ユーザーは「閉じる」ボタンで戻る
-        }
-      } else {
-        // データ移行不要の場合は通常フロー
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('✅ チームを作成しました')),
-        );
-
-        // 招待案内ダイアログを表示してからホーム画面へ
-        await _showInviteGuideDialog(team.id, team.name, team.inviteCode);
-      }
+      // 招待案内ダイアログを表示してからホーム画面へ
+      await _showInviteGuideDialog(team.id, team.name, team.inviteCode);
     } catch (e) {
       if (!mounted) return;
 
