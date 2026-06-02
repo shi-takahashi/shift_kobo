@@ -85,19 +85,26 @@ class _ExportScreenState extends State<ExportScreen> {
     
     return Scaffold(
       appBar: AppBar(
-        title: Row(
-          children: [
-            const Text('シフト表'),
-            const SizedBox(width: 8),
-            TextButton.icon(
-              icon: const Icon(Icons.calendar_today, size: 16),
-              label: Text(
-                DateFormat('yyyy年MM月').format(_selectedMonth),
-                style: const TextStyle(fontSize: 14),
+        // title領域が狭い瞬間（回転アニメ中など）でもRowがあふれないよう、
+        // 収まらない時だけ自動縮小する。
+        title: FittedBox(
+          fit: BoxFit.scaleDown,
+          alignment: Alignment.centerLeft,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text('シフト表'),
+              const SizedBox(width: 8),
+              TextButton.icon(
+                icon: const Icon(Icons.calendar_today, size: 16),
+                label: Text(
+                  DateFormat('yyyy年MM月').format(_selectedMonth),
+                  style: const TextStyle(fontSize: 14),
+                ),
+                onPressed: _selectMonth,
               ),
-              onPressed: _selectMonth,
-            ),
-          ],
+            ],
+          ),
         ),
         backgroundColor: Theme.of(context).colorScheme.inversePrimary,
         actions: [

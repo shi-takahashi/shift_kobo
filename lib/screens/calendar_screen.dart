@@ -545,6 +545,10 @@ class _CalendarScreenState extends State<CalendarScreen> {
         );
 
         return Scaffold(
+          // この画面のbodyにはテキスト入力が無く（編集はダイアログ側）、
+          // キーボード表示時にbodyを縮める必要がない。縮むと固定高のカレンダーが
+          // 一瞬あふれてRenderFlexオーバーフローのアサートが出るため無効化する。
+          resizeToAvoidBottomInset: false,
           appBar: _isSwapMode
               ? AppBar(
                   toolbarHeight: 50,
