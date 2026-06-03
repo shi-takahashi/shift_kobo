@@ -36,6 +36,14 @@ void main() async {
         statusBarColor: Colors.transparent,
       ),
     );
+    // アプリ全体を縦向きに固定する。
+    // 横向きはシフト表（ExportScreen）でのみ一時的に許可し、離脱時に縦へ戻す。
+    // これにより縦向き専用設計の各画面が横向きで描画されてRenderFlexオーバーフロー
+    // （黄黒のシマ）が出るのを防ぐ。
+    SystemChrome.setPreferredOrientations([
+      DeviceOrientation.portraitUp,
+      DeviceOrientation.portraitDown,
+    ]);
   }
 
   await Hive.initFlutter();

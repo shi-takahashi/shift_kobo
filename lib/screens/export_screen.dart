@@ -57,21 +57,12 @@ class _ExportScreenState extends State<ExportScreen> {
   
   @override
   void dispose() {
-    // 画面向きを確実に縦向きに戻す
+    // シフト表を離れたら縦向き固定に戻す（アプリ全体の既定が縦固定のため、
+    // ここで全方向を再許可しない＝他画面が横向きになりoverflowするのを防ぐ）。
     SystemChrome.setPreferredOrientations([
       DeviceOrientation.portraitUp,
       DeviceOrientation.portraitDown,
-    ]).then((_) {
-      // レイアウト安定化のため少し長めに待つ
-      Future.delayed(const Duration(milliseconds: 500), () {
-        SystemChrome.setPreferredOrientations([
-          DeviceOrientation.portraitUp,
-          DeviceOrientation.portraitDown,
-          DeviceOrientation.landscapeLeft,
-          DeviceOrientation.landscapeRight,
-        ]);
-      });
-    });
+    ]);
     super.dispose();
   }
   

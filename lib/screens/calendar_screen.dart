@@ -703,13 +703,12 @@ class _CalendarScreenState extends State<CalendarScreen> {
                               ),
                             ),
                           );
-                          // Export画面から戻った時に画面向きを確実に復元
+                          // Export画面から戻った時は縦向き固定を確実にする
+                          // （全方向を再許可するとカレンダーが横向きになりoverflowするため）
                           if (mounted) {
                             SystemChrome.setPreferredOrientations([
                               DeviceOrientation.portraitUp,
                               DeviceOrientation.portraitDown,
-                              DeviceOrientation.landscapeLeft,
-                              DeviceOrientation.landscapeRight,
                             ]);
                           }
                         },
