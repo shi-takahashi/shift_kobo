@@ -10,8 +10,6 @@ import '../providers/monthly_requirements_provider.dart';
 import '../providers/shift_provider.dart';
 import '../providers/shift_time_provider.dart';
 import '../providers/staff_provider.dart';
-import '../screens/monthly_shift_settings_screen.dart';
-import '../screens/shift_time_settings_screen.dart';
 import '../services/ad_service.dart';
 import '../services/analytics_service.dart';
 import '../services/shift_assignment_service.dart';
@@ -160,30 +158,6 @@ class _AutoAssignmentDialogState extends State<AutoAssignmentDialog> {
                           style: TextStyle(
                             fontSize: 13,
                             color: Colors.grey.shade800,
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        SizedBox(
-                          width: double.infinity,
-                          child: OutlinedButton.icon(
-                            onPressed: () => _navigateToShiftTimeSettings(),
-                            icon: const Icon(Icons.schedule, size: 16),
-                            label: const Text('シフト時間設定'),
-                            style: OutlinedButton.styleFrom(
-                              padding: const EdgeInsets.symmetric(vertical: 8),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        SizedBox(
-                          width: double.infinity,
-                          child: OutlinedButton.icon(
-                            onPressed: () => _navigateToMonthlyShiftSettings(),
-                            icon: const Icon(Icons.settings, size: 16),
-                            label: const Text('シフト割り当て設定'),
-                            style: OutlinedButton.styleFrom(
-                              padding: const EdgeInsets.symmetric(vertical: 8),
-                            ),
                           ),
                         ),
                       ],
@@ -616,40 +590,6 @@ class _AutoAssignmentDialogState extends State<AutoAssignmentDialog> {
             child: const Text('OK'),
           ),
         ],
-      ),
-    );
-  }
-
-  /// シフト時間設定画面へ遷移
-  void _navigateToShiftTimeSettings() {
-    final shiftTimeProvider = Provider.of<ShiftTimeProvider>(context, listen: false);
-
-    Navigator.of(context).pop();
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (context) => ChangeNotifierProvider<ShiftTimeProvider>.value(
-          value: shiftTimeProvider,
-          child: const ShiftTimeSettingsScreen(),
-        ),
-      ),
-    );
-  }
-
-  /// シフト割当て設定画面へ遷移
-  void _navigateToMonthlyShiftSettings() {
-    final shiftTimeProvider = Provider.of<ShiftTimeProvider>(context, listen: false);
-    final monthlyRequirementsProvider = Provider.of<MonthlyRequirementsProvider>(context, listen: false);
-
-    Navigator.of(context).pop();
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (context) => MultiProvider(
-          providers: [
-            ChangeNotifierProvider<ShiftTimeProvider>.value(value: shiftTimeProvider),
-            ChangeNotifierProvider<MonthlyRequirementsProvider>.value(value: monthlyRequirementsProvider),
-          ],
-          child: const MonthlyShiftSettingsScreen(),
-        ),
       ),
     );
   }
