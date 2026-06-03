@@ -222,11 +222,15 @@ class _StaffListScreenState extends State<StaffListScreen> {
                       ? staffProvider.staffList
                       : staffProvider.searchStaff(_searchQuery);
 
-                  // 有効なスタッフを上に、無効なスタッフを下に並べる
+                  // 有効なスタッフを上に、無効なスタッフを下に。
+                  // 同区分内は登録順（createdAt昇順）＝古いスタッフが上。
                   staffList.sort((a, b) {
                     if (a.isActive && !b.isActive) return -1;
                     if (!a.isActive && b.isActive) return 1;
-                    return a.name.compareTo(b.name);
+                    final cmp = a.createdAt.compareTo(b.createdAt);
+                    if (cmp != 0) return cmp;
+                    final nameCmp = a.name.compareTo(b.name);
+                    return nameCmp != 0 ? nameCmp : a.id.compareTo(b.id);
                   });
 
                   if (staffList.isEmpty) {

@@ -1462,7 +1462,9 @@ class _ExportScreenState extends State<ExportScreen> {
     );
   }
 
-  // その月にシフトがあるスタッフIDを抽出
+  // その月にシフトがあるスタッフIDを抽出し、登録順（createdAt昇順）で並べる。
+  // 「登場順」だと月やシフト編集のたびに並びが変わって不安定なため、
+  // 人間が見やすいよう古いスタッフが上に来る固定順にする。
   List<String> _getStaffIdsWithShifts(Map<DateTime, List<Shift>> shifts) {
     final staffIds = <String>{};
 
@@ -1473,7 +1475,22 @@ class _ExportScreenState extends State<ExportScreen> {
       }
     }
 
-    return staffIds.toList();
+    // 登録順（createdAt昇順）で並べ替え。削除済み等で見つからないスタッフは末尾へ。
+    final staffProvider = Provider.of<StaffProvider>(context, listen: false);
+    final idList = staffIds.toList();
+    idList.sort((a, b) {
+      final staffA = staffProvider.getStaffById(a);
+      final staffB = staffProvider.getStaffById(b);
+      if (staffA == null && staffB == null) return 0;
+      if (staffA == null) return 1;
+      if (staffB == null) return -1;
+      final cmp = staffA.createdAt.compareTo(staffB.createdAt);
+      if (cmp != 0) return cmp;
+      // createdAtが同一の場合の保険：名前→IDで安定化
+      final nameCmp = staffA.name.compareTo(staffB.name);
+      return nameCmp != 0 ? nameCmp : a.compareTo(b);
+    });
+    return idList;
   }
 
   /// スタッフ名を取得（削除済みスタッフの場合は「不明」表示）
