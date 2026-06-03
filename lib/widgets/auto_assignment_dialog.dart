@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -42,12 +43,16 @@ class _AutoAssignmentDialogState extends State<AutoAssignmentDialog> {
   final TextEditingController _minRestHoursController = TextEditingController(text: '12');
   Team? _currentTeam;
 
+  // 初回の自動作成時だけ「広告が流れる」案内を出すためのフラグ
+  bool _showFirstTimeNotice = false;
+
   @override
   void initState() {
     super.initState();
     _startDate = DateTime(widget.selectedMonth.year, widget.selectedMonth.month, 1);
     _endDate = DateTime(widget.selectedMonth.year, widget.selectedMonth.month + 1, 0);
     _loadTeamSettings();
+    _loadFirstTimeFlag();
 
     // ShiftProviderに正しい月を設定（購読範囲を確実に更新）
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -75,6 +80,16 @@ class _AutoAssignmentDialogState extends State<AutoAssignmentDialog> {
     } catch (e) {
       print('チーム設定の読み込みエラー: $e');
     }
+  }
+
+  /// 初回の自動作成かどうかを判定して、広告案内の表示有無を決める。
+  /// （完了メッセージの「作り直せる」ヒントと同じフラグを共有。初回作成完了時に立つ）
+  Future<void> _loadFirstTimeFlag() async {
+    if (kIsWeb) return; // Web版は広告なしなので案内不要
+    final prefs = await SharedPreferences.getInstance();
+    final done = prefs.getBool('auto_create_regenerate_hint_shown_v2') ?? false;
+    if (!mounted) return;
+    setState(() => _showFirstTimeNotice = !done);
   }
 
   @override
@@ -317,6 +332,34 @@ class _AutoAssignmentDialogState extends State<AutoAssignmentDialog> {
                       ],
                     ),
                   ),
+                  // 初回だけ：広告が流れることを事前に案内する
+                  if (_showFirstTimeNotice) ...[
+                    const SizedBox(height: 8),
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Colors.grey.shade100,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Icon(Icons.smart_display_outlined, size: 20, color: Colors.grey.shade700),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              '「作成」を押すと広告が表示されます。広告を閉じると、作成されたシフトを確認できます。',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: Colors.grey.shade800,
+                                height: 1.4,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
                   if (_errorMessage != null) ...[
                     const SizedBox(height: 16),
                     Container(

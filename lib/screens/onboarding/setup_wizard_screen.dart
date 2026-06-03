@@ -2,17 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import '../../models/assignment_strategy.dart';
 import '../../models/shift_time_setting.dart';
 import '../../models/staff.dart';
 import '../../providers/monthly_requirements_provider.dart';
-import '../../providers/shift_provider.dart';
 import '../../providers/shift_time_provider.dart';
 import '../../providers/staff_provider.dart';
-import '../../services/ad_service.dart';
 import '../../services/analytics_service.dart';
-import '../../services/shift_assignment_service.dart';
-import '../../services/shift_plan_service.dart';
 import '../../widgets/shift_time_edit_dialog.dart';
 import '../../widgets/staff_edit_dialog.dart';
 
@@ -67,11 +62,6 @@ class _SetupWizardScreenState extends State<SetupWizardScreen> {
   String? _selectedTemplate;
   final Map<String, int> _headcounts = {}; // displayName -> 人数
 
-  bool _generating = false;
-  bool _done = false;
-  int _generatedCount = 0;
-  String? _error;
-
   @override
   void initState() {
     super.initState();
@@ -89,8 +79,8 @@ class _SetupWizardScreenState extends State<SetupWizardScreen> {
   }
 
   /// 進捗（ステップ）を保存して次回再開できるようにする。
-  /// 生成ステップ(3/4)も保存してよい：人数は「次へ」で保存済みなので再開後も正しく生成でき、
-  /// 生成成功時に onboarding_completed を立てるため二重生成も起きない。
+  /// 最終ステップは案内のみ（自動作成はしない）。完了フラグ onboarding_completed は
+  /// 「カレンダーへ」/「スキップ」押下時に呼び出し側(onFinished)で立てる。
   Future<void> _persistStep() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setInt('onboarding_step', _step);
@@ -149,92 +139,6 @@ class _SetupWizardScreenState extends State<SetupWizardScreen> {
     );
   }
 
-  // ---- ステップ3→4：必要人数を保存して自動作成 ----
-  Future<void> _generate() async {
-    setState(() {
-      _generating = true;
-      _error = null;
-    });
-    try {
-      final staffProvider = context.read<StaffProvider>();
-      final shiftProvider = context.read<ShiftProvider>();
-      final shiftTimeProvider = context.read<ShiftTimeProvider>();
-      final reqProvider = context.read<MonthlyRequirementsProvider>();
-
-      // 直近の人数編集を反映。再開で _headcounts が空の場合は、
-      // 保存済みの値（reqProvider）をそのまま使う（空で上書きしない）。
-      if (_headcounts.isNotEmpty) {
-        await reqProvider.setRequirements(Map<String, int>.from(_headcounts));
-      }
-      for (var i = 0; i < 10 && reqProvider.requirements.isEmpty; i++) {
-        await Future.delayed(const Duration(milliseconds: 200));
-      }
-
-      final now = DateTime.now();
-      final startDate = DateTime(now.year, now.month, 1);
-      final endDate = DateTime(now.year, now.month + 1, 0);
-      shiftProvider.setCurrentMonth(startDate);
-      await Future.delayed(const Duration(milliseconds: 100));
-
-      final service = ShiftAssignmentService(
-        staffProvider: staffProvider,
-        shiftProvider: shiftProvider,
-        shiftTimeProvider: shiftTimeProvider,
-      );
-      final shifts = await service.autoAssignShifts(
-        startDate,
-        endDate,
-        Map<String, int>.from(reqProvider.requirements),
-        strategy: AssignmentStrategy.fairness,
-        requirementsProvider: reqProvider,
-      );
-      await shiftProvider.batchAddShifts(shifts);
-
-      // アクティブプランを記録（カレンダー・再生成機能と整合させる）
-      final planService = ShiftPlanService(teamId: shiftProvider.teamId!);
-      final monthStr = '${now.year}-${now.month}';
-      final newPlanId = await planService.generateUniquePlanId(monthStr);
-      await planService.setActivePlanId(monthStr, newPlanId,
-          strategy: AssignmentStrategy.fairness.name);
-
-      // 計測：自動作成到達（既存ファネルの最終イベント）＋ウィザード完走
-      await AnalyticsService.logShiftGenerated(
-        shiftCount: shifts.length,
-        strategy: AssignmentStrategy.fairness.name,
-        yearMonth: monthStr,
-      );
-      await AnalyticsService.logWizardStep('generated');
-
-      if (!mounted) return;
-      final count = shifts.length;
-      // 作成後にインタースティシャル広告を表示し、閉じたら結果（完了画面）を見せる。
-      // 「自動作成の前後に広告が出る」ことを初回で学習してもらう狙いもある。
-      AdService.showInterstitialAd(
-        onAdShown: () {},
-        onAdClosed: () => _showGenerateResult(count),
-        onAdFailedToShow: () => _showGenerateResult(count),
-      );
-    } catch (e) {
-      if (!mounted) return;
-      setState(() {
-        _generating = false;
-        _error = e.toString();
-      });
-    }
-  }
-
-  void _showGenerateResult(int count) {
-    if (!mounted) return;
-    // 生成成功＝オンボーディング実質完了。アプリkill時の二重生成を防ぐため即フラグを立てる。
-    SharedPreferences.getInstance()
-        .then((p) => p.setBool('onboarding_completed', true));
-    setState(() {
-      _generating = false;
-      _done = true;
-      _generatedCount = count;
-    });
-  }
-
   void _next() {
     if (_step < _totalSteps - 1) {
       // いま完了したステップを計測（離脱箇所の特定用）
@@ -248,8 +152,7 @@ class _SetupWizardScreenState extends State<SetupWizardScreen> {
   }
 
   void _back() {
-    // 生成中・完了後は戻さない（それ以外は前のステップへ）
-    if (_step > 0 && !_done && !_generating) {
+    if (_step > 0) {
       setState(() => _step--);
       _persistStep();
     }
@@ -267,14 +170,15 @@ class _SetupWizardScreenState extends State<SetupWizardScreen> {
         appBar: AppBar(
           title: Text('はじめの設定（${_step + 1}/$_totalSteps）'),
           automaticallyImplyLeading: false,
-          leading: (_step > 0 && !_done)
+          leading: (_step > 0)
               ? IconButton(
                   icon: const Icon(Icons.arrow_back),
                   onPressed: _back,
                 )
               : null,
           actions: [
-            if (!_done)
+            // 最終ステップ（準備完了の案内）ではスキップは出さない
+            if (_step < _totalSteps - 1)
               TextButton(
                 onPressed: () {
                   AnalyticsService.logWizardStep('skipped');
@@ -557,148 +461,146 @@ class _SetupWizardScreenState extends State<SetupWizardScreen> {
     );
   }
 
-  Widget _completionHint(IconData icon, String text) {
+  /// 補足説明用の控えめなヒント行（主役の「次にすること」より目立たせない）
+  Widget _miniHint(String text) {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Icon(icon, size: 18, color: Colors.blue.shade700),
-        const SizedBox(width: 10),
+        Padding(
+          padding: const EdgeInsets.only(top: 2),
+          child: Icon(Icons.check, size: 14, color: Colors.grey[500]),
+        ),
+        const SizedBox(width: 6),
         Expanded(
           child: Text(
             text,
-            style: TextStyle(
-                fontSize: 12.5, color: Colors.blue.shade900, height: 1.4),
+            style: TextStyle(fontSize: 12, color: Colors.grey[700], height: 1.4),
           ),
         ),
       ],
     );
   }
 
-  // ===== ステップ4：自動作成 =====
+  // ===== ステップ4：準備完了の案内 =====
+  // ここでは自動作成しない（広告も出さない）。最初の自動作成はカレンダー画面の
+  // 「自動作成」ボタンで本人にやってもらう（ボタンの場所を学習＋初回ヒントもそこで出る）。
   Widget _buildGenerateStep() {
-    if (_done) {
-      return SingleChildScrollView(
-        child: Column(
-          children: [
-            const SizedBox(height: 24),
-            Icon(Icons.check_circle, color: Colors.green[600], size: 72),
-            const SizedBox(height: 16),
-            const Text('完了！',
-                style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 8),
-            Text('$_generatedCount件のシフトを自動作成しました。',
-                textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 15, color: Colors.grey[850])),
-            const SizedBox(height: 8),
-            Text(
-              '内容を確認してみてください。気になる部分は手で調整したり、設定を変えてもう一度作り直すこともできます。',
-              textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 13, color: Colors.grey[600], height: 1.5),
-            ),
-            const SizedBox(height: 20),
-            Container(
-              padding: const EdgeInsets.all(14),
-              decoration: BoxDecoration(
-                color: Colors.blue.shade50,
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'このあと開く画面でできること',
-                    style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.blue.shade900),
-                  ),
-                  const SizedBox(height: 10),
-                  _completionHint(Icons.ios_share,
-                      'シフト表は「シフト」画面から出力できます（PDF・画像・Excel）'),
-                  const SizedBox(height: 10),
-                  _completionHint(Icons.help_outline,
-                      '使い方は画面右上の「？」から確認できます'),
-                ],
-              ),
-            ),
-            const SizedBox(height: 24),
-            SizedBox(
-              width: double.infinity,
-              child: FilledButton(
-                onPressed: widget.onFinished,
-                style: FilledButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 14)),
-                child: const Text('作成したシフトを見る'),
-              ),
-            ),
-            const SizedBox(height: 24),
-          ],
-        ),
-      );
-    }
-
-    return Center(
+    return SingleChildScrollView(
       child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(Icons.auto_awesome, color: Colors.blue[600], size: 72),
+          const SizedBox(height: 24),
+          Icon(Icons.check_circle, color: Colors.green[600], size: 72),
           const SizedBox(height: 16),
           const Text('準備ができました！',
               style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
           const SizedBox(height: 8),
-          Text('今月のシフトを自動で作成します。',
-              textAlign: TextAlign.center,
-              style: TextStyle(color: Colors.grey[700])),
-          const SizedBox(height: 16),
+          Text(
+            'スタッフ・シフト・必要人数の設定が完了しました。',
+            textAlign: TextAlign.center,
+            style: TextStyle(fontSize: 15, color: Colors.grey[850]),
+          ),
+          const SizedBox(height: 24),
+
+          // ===== 主役：次にすること（自動作成ボタンを押す）を強調 =====
           Container(
-            padding: const EdgeInsets.all(12),
+            width: double.infinity,
+            padding: const EdgeInsets.all(18),
             decoration: BoxDecoration(
-              color: Colors.grey.shade100,
-              borderRadius: BorderRadius.circular(8),
+              color: Colors.blue.shade50,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: Colors.blue.shade300, width: 1.5),
             ),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
+            child: Column(
               children: [
-                Icon(Icons.smart_display_outlined,
-                    size: 18, color: Colors.grey[700]),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    '作成前に広告が表示されます。広告を閉じると、作成されたシフトを確認できます。',
-                    style: TextStyle(fontSize: 12, color: Colors.grey[800], height: 1.4),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.touch_app, size: 20, color: Colors.blue.shade700),
+                    const SizedBox(width: 6),
+                    Text('次にすること',
+                        style: TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.blue.shade900)),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  'このあと開くカレンダー画面の右上にある',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                      fontSize: 14, color: Colors.grey[850], height: 1.4),
+                ),
+                const SizedBox(height: 12),
+                // 実際の「自動作成」ボタンに似せた見本（認識しやすくするため）
+                Container(
+                  decoration: BoxDecoration(
+                    color: Colors.blue.shade600,
+                    borderRadius: BorderRadius.circular(8),
                   ),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+                  child: const Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.auto_fix_high, size: 16, color: Colors.white),
+                      SizedBox(width: 4),
+                      Text('自動作成',
+                          style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600)),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  'を押すだけ！\nさぁ、自動作成ボタンを押すところから始めましょう。',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                      fontSize: 14,
+                      color: Colors.grey[850],
+                      height: 1.5,
+                      fontWeight: FontWeight.w500),
                 ),
               ],
             ),
           ),
-          if (_error != null) ...[
-            const SizedBox(height: 16),
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: Colors.red.shade50,
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Text(_error!,
-                  style: TextStyle(color: Colors.red.shade700, fontSize: 12)),
-            ),
-          ],
+          const SizedBox(height: 20),
+
+          // ===== 補足（控えめ） =====
+          Align(
+            alignment: Alignment.centerLeft,
+            child: Text('そのほかにできること',
+                style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.grey[600])),
+          ),
+          const SizedBox(height: 8),
+          _miniHint('気に入らなければ、もう一度「自動作成」を押すと別の案が作れます（毎回ちがう案）'),
+          const SizedBox(height: 6),
+          _miniHint('作成されたシフトは、日付をタップして手で調整できます（追加・削除・入れ替え・日付移動）'),
+          const SizedBox(height: 6),
+          _miniHint('シフト表は「シフト」画面から出力できます（PDF・画像・Excel）'),
+          const SizedBox(height: 6),
+          _miniHint('使い方は画面右上の「？」から確認できます'),
+
           const SizedBox(height: 24),
           SizedBox(
             width: double.infinity,
             child: FilledButton.icon(
-              onPressed: _generating ? null : _generate,
-              icon: _generating
-                  ? const SizedBox(
-                      width: 16,
-                      height: 16,
-                      child: CircularProgressIndicator(strokeWidth: 2))
-                  : const Icon(Icons.auto_awesome),
-              label: Text(_generating ? '作成中...' : 'シフトを自動作成する'),
+              onPressed: () {
+                AnalyticsService.logWizardStep('finished');
+                widget.onFinished();
+              },
+              icon: const Icon(Icons.calendar_month),
               style: FilledButton.styleFrom(
                   padding: const EdgeInsets.symmetric(vertical: 14)),
+              label: const Text('カレンダーを開く'),
             ),
           ),
+          const SizedBox(height: 24),
         ],
       ),
     );
