@@ -223,6 +223,17 @@ class _HomeScreenState extends State<HomeScreen> {
     await prefs.setBool('has_seen_first_time_help', true);
   }
 
+  /// 既存ユーザー（スタッフ登録済み）向け：ウィザードを出さずに完了フラグを立てる。
+  /// 画面はそのままカレンダー等を表示する（ウィザードは起動しない）。
+  Future<void> _markOnboardingCompletedSilently() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('onboarding_completed', true);
+    await prefs.setBool('has_seen_first_time_help', true);
+    await prefs.remove('onboarding_step');
+    if (!mounted) return;
+    setState(() => _onboardingCompleted = true);
+  }
+
   /// 初回セットアップウィザードを起動（Providerスコープ内のbuilderから呼ぶ）。
   /// 完了/スキップ時に初回フラグを立て、結果のカレンダーを表示する。
   void _launchOnboardingWizard(
@@ -330,12 +341,20 @@ class _HomeScreenState extends State<HomeScreen> {
               !_onboardingCompleted &&
               !_wizardHandled) {
             _wizardHandled = true;
-            _launchOnboardingWizard(
-              staffProvider,
-              shiftProvider,
-              shiftTimeProvider,
-              monthlyProvider,
-            );
+            // 既にスタッフが登録されている＝既存ユーザー。
+            // フラグ未設定（公開前からの利用者・再インストール等）でも、新規ではない
+            // ためウィザードは出さず、静かに完了フラグだけ立てる。
+            // ただしウィザード途中（onboarding_step>0）は通常どおり再開させる。
+            if (staffProvider.staff.isNotEmpty && _onboardingStep == 0) {
+              _markOnboardingCompletedSilently();
+            } else {
+              _launchOnboardingWizard(
+                staffProvider,
+                shiftProvider,
+                shiftTimeProvider,
+                monthlyProvider,
+              );
+            }
           }
 
           // データロード完了後の初期化処理（初回のみ）
