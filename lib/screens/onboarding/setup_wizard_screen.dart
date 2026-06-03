@@ -46,10 +46,8 @@ class _ShiftTemplate {
 const _templates = [
   _ShiftTemplate('日勤のみ', '日中の1シフトだけ', {ShiftType.shift2}),
   _ShiftTemplate('2交代', '日勤・夜勤', {ShiftType.shift2, ShiftType.shift4}),
-  _ShiftTemplate('3交代', '早番・遅番・夜勤',
-      {ShiftType.shift1, ShiftType.shift3, ShiftType.shift4}),
-  _ShiftTemplate('4交代', '早番・日勤・遅番・夜勤',
-      {ShiftType.shift1, ShiftType.shift2, ShiftType.shift3, ShiftType.shift4}),
+  _ShiftTemplate('3交代', '早番・遅番・夜勤', {ShiftType.shift1, ShiftType.shift3, ShiftType.shift4}),
+  _ShiftTemplate('4交代', '早番・日勤・遅番・夜勤', {ShiftType.shift1, ShiftType.shift2, ShiftType.shift3, ShiftType.shift4}),
 ];
 
 class _SetupWizardScreenState extends State<SetupWizardScreen> {
@@ -111,8 +109,7 @@ class _SetupWizardScreenState extends State<SetupWizardScreen> {
       useRootNavigator: false,
       builder: (_) => MultiProvider(
         providers: [
-          ChangeNotifierProvider<ShiftTimeProvider>.value(
-              value: shiftTimeProvider),
+          ChangeNotifierProvider<ShiftTimeProvider>.value(value: shiftTimeProvider),
           ChangeNotifierProvider<StaffProvider>.value(value: staffProvider),
         ],
         child: StaffEditDialog(existingStaff: staff, showLinkStatus: false),
@@ -219,8 +216,7 @@ class _SetupWizardScreenState extends State<SetupWizardScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(title,
-            style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+        Text(title, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
         const SizedBox(height: 4),
         Text(subtitle, style: TextStyle(fontSize: 14, color: Colors.grey[700])),
         const SizedBox(height: 16),
@@ -228,14 +224,12 @@ class _SetupWizardScreenState extends State<SetupWizardScreen> {
     );
   }
 
-  Widget _nextButton(
-      {required bool enabled, String label = '次へ', VoidCallback? onPressed}) {
+  Widget _nextButton({required bool enabled, String label = '次へ', VoidCallback? onPressed}) {
     return SizedBox(
       width: double.infinity,
       child: FilledButton(
         onPressed: enabled ? (onPressed ?? _next) : null,
-        style: FilledButton.styleFrom(
-            padding: const EdgeInsets.symmetric(vertical: 14)),
+        style: FilledButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 14)),
         child: Text(label),
       ),
     );
@@ -249,8 +243,7 @@ class _SetupWizardScreenState extends State<SetupWizardScreen> {
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _stepHeader('スタッフを登録しましょう',
-                'まず、名前を入力して必要なスタッフを追加してください。\nその後、必要に応じて各スタッフをタップして設定を変えられます。'),
+            _stepHeader('スタッフを登録しましょう', 'まず、名前を入力して必要なスタッフを追加してください。\nその後、必要に応じて各スタッフをタップして設定を変えられます。'),
             Row(
               children: [
                 Expanded(
@@ -275,9 +268,7 @@ class _SetupWizardScreenState extends State<SetupWizardScreen> {
             const SizedBox(height: 12),
             Expanded(
               child: staff.isEmpty
-                  ? Center(
-                      child: Text('登録したスタッフがここに表示されます',
-                          style: TextStyle(color: Colors.grey[500])))
+                  ? Center(child: Text('登録したスタッフがここに表示されます', style: TextStyle(color: Colors.grey[500])))
                   : ListView.builder(
                       itemCount: staff.length,
                       itemBuilder: (context, index) {
@@ -285,19 +276,16 @@ class _SetupWizardScreenState extends State<SetupWizardScreen> {
                         return Card(
                           child: ListTile(
                             dense: true,
-                            leading:
-                                CircleAvatar(child: Text('${index + 1}')),
+                            leading: CircleAvatar(child: Text('${index + 1}')),
                             title: Text(s.name),
                             onTap: () => _editStaff(s),
                             trailing: Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
-                                const Icon(Icons.edit,
-                                    size: 16, color: Colors.grey),
+                                const Icon(Icons.edit, size: 16, color: Colors.grey),
                                 IconButton(
                                   icon: const Icon(Icons.delete_outline),
-                                  onPressed: () =>
-                                      staffProvider.deleteStaff(s.id),
+                                  onPressed: () => staffProvider.deleteStaff(s.id),
                                 ),
                               ],
                             ),
@@ -322,8 +310,7 @@ class _SetupWizardScreenState extends State<SetupWizardScreen> {
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _stepHeader('シフトの種類を選びましょう',
-                '一番近いものを選んでください。各シフトはタップで名前・時間を調整できます。'),
+            _stepHeader('シフトの種類を選びましょう', '一番近いものを選んでください。各シフトはタップで名前・時間を調整できます。'),
             Wrap(
               spacing: 8,
               runSpacing: 8,
@@ -348,25 +335,20 @@ class _SetupWizardScreenState extends State<SetupWizardScreen> {
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Icon(Icons.lightbulb_outline,
-                      size: 18, color: Colors.blue.shade700),
+                  Icon(Icons.lightbulb_outline, size: 18, color: Colors.blue.shade700),
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
                       'ぴったり合うものが無くても大丈夫。今は一番近いものでOKです。'
                       'あなたのチームに合わせた細かい設定は、この後いつでも変更できます。',
-                      style: TextStyle(
-                          fontSize: 12,
-                          color: Colors.blue.shade900,
-                          height: 1.4),
+                      style: TextStyle(fontSize: 12, color: Colors.blue.shade900, height: 1.4),
                     ),
                   ),
                 ],
               ),
             ),
             const SizedBox(height: 16),
-            Text('シフト（タップで名前・時間を変更）',
-                style: TextStyle(fontSize: 13, color: Colors.grey[700])),
+            Text('シフト（タップで名前・時間を変更）', style: TextStyle(fontSize: 13, color: Colors.grey[700])),
             const SizedBox(height: 4),
             Expanded(
               child: ListView(
@@ -374,10 +356,7 @@ class _SetupWizardScreenState extends State<SetupWizardScreen> {
                     .map((s) => Card(
                           child: ListTile(
                             dense: true,
-                            leading: CircleAvatar(
-                                backgroundColor: s.shiftType.color,
-                                child: const Icon(Icons.schedule,
-                                    color: Colors.white, size: 18)),
+                            leading: CircleAvatar(backgroundColor: s.shiftType.color, child: const Icon(Icons.schedule, color: Colors.white, size: 18)),
                             title: Text(s.displayName),
                             subtitle: Text(s.timeRange),
                             trailing: const Icon(Icons.edit, size: 18),
@@ -403,8 +382,7 @@ class _SetupWizardScreenState extends State<SetupWizardScreen> {
         final active = provider.settings.where((s) => s.isActive).toList();
         // 未設定の有効シフトは、保存済みの値（再開時）かデフォルト1人
         for (final s in active) {
-          _headcounts.putIfAbsent(
-              s.displayName, () => reqProvider.requirements[s.displayName] ?? 1);
+          _headcounts.putIfAbsent(s.displayName, () => reqProvider.requirements[s.displayName] ?? 1);
         }
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -423,18 +401,12 @@ class _SetupWizardScreenState extends State<SetupWizardScreen> {
                         children: [
                           IconButton(
                             icon: const Icon(Icons.remove_circle_outline),
-                            onPressed: count > 0
-                                ? () => setState(() =>
-                                    _headcounts[s.displayName] = count - 1)
-                                : null,
+                            onPressed: count > 0 ? () => setState(() => _headcounts[s.displayName] = count - 1) : null,
                           ),
-                          Text('$count人',
-                              style: const TextStyle(
-                                  fontSize: 16, fontWeight: FontWeight.bold)),
+                          Text('$count人', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
                           IconButton(
                             icon: const Icon(Icons.add_circle_outline),
-                            onPressed: () => setState(
-                                () => _headcounts[s.displayName] = count + 1),
+                            onPressed: () => setState(() => _headcounts[s.displayName] = count + 1),
                           ),
                         ],
                       ),
@@ -450,8 +422,7 @@ class _SetupWizardScreenState extends State<SetupWizardScreen> {
               onPressed: () async {
                 // 「次へ」の時点で必要人数を保存しておく。
                 // こうすると、生成ステップでアプリを閉じて再開しても設定が残る。
-                await reqProvider
-                    .setRequirements(Map<String, int>.from(_headcounts));
+                await reqProvider.setRequirements(Map<String, int>.from(_headcounts));
                 if (mounted) _next();
               },
             ),
@@ -491,8 +462,7 @@ class _SetupWizardScreenState extends State<SetupWizardScreen> {
           const SizedBox(height: 24),
           Icon(Icons.check_circle, color: Colors.green[600], size: 72),
           const SizedBox(height: 16),
-          const Text('準備ができました！',
-              style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
+          const Text('準備ができました！', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
           const SizedBox(height: 8),
           Text(
             'スタッフ・シフト・必要人数の設定が完了しました。',
@@ -517,19 +487,14 @@ class _SetupWizardScreenState extends State<SetupWizardScreen> {
                   children: [
                     Icon(Icons.touch_app, size: 20, color: Colors.blue.shade700),
                     const SizedBox(width: 6),
-                    Text('次にすること',
-                        style: TextStyle(
-                            fontSize: 15,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.blue.shade900)),
+                    Text('次にすること', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Colors.blue.shade900)),
                   ],
                 ),
                 const SizedBox(height: 12),
                 Text(
                   'このあと開くカレンダー画面の右上にある',
                   textAlign: TextAlign.center,
-                  style: TextStyle(
-                      fontSize: 14, color: Colors.grey[850], height: 1.4),
+                  style: TextStyle(fontSize: 14, color: Colors.grey[850], height: 1.4),
                 ),
                 const SizedBox(height: 12),
                 // 実際の「自動作成」ボタンに似せた見本（認識しやすくするため）
@@ -538,30 +503,21 @@ class _SetupWizardScreenState extends State<SetupWizardScreen> {
                     color: Colors.blue.shade600,
                     borderRadius: BorderRadius.circular(8),
                   ),
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
                   child: const Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Icon(Icons.auto_fix_high, size: 16, color: Colors.white),
                       SizedBox(width: 4),
-                      Text('自動作成',
-                          style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 14,
-                              fontWeight: FontWeight.w600)),
+                      Text('自動作成', style: TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w600)),
                     ],
                   ),
                 ),
                 const SizedBox(height: 12),
                 Text(
-                  'を押すだけ！\nさぁ、自動作成ボタンを押すところから始めましょう。',
+                  'を押してシフトを作成するだけ！\nさぁ、シフト管理を始めましょう。',
                   textAlign: TextAlign.center,
-                  style: TextStyle(
-                      fontSize: 14,
-                      color: Colors.grey[850],
-                      height: 1.5,
-                      fontWeight: FontWeight.w500),
+                  style: TextStyle(fontSize: 14, color: Colors.grey[850], height: 1.5, fontWeight: FontWeight.w500),
                 ),
               ],
             ),
@@ -571,20 +527,16 @@ class _SetupWizardScreenState extends State<SetupWizardScreen> {
           // ===== 補足（控えめ） =====
           Align(
             alignment: Alignment.centerLeft,
-            child: Text('そのほかにできること',
-                style: TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.grey[600])),
+            child: Text('ヒント', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.grey[600])),
           ),
           const SizedBox(height: 8),
-          _miniHint('気に入らなければ、もう一度「自動作成」を押すと別の案が作れます（毎回ちがう案）'),
+          _miniHint('作成されたシフトが気に入らなければ、もう一度「自動作成」すると、別案が作れます（毎回ちがう案）'),
           const SizedBox(height: 6),
-          _miniHint('作成されたシフトは、日付をタップして手で調整できます（追加・削除・入れ替え・日付移動）'),
+          _miniHint('作成されたシフトは、日付をタップして手動で調整できます（追加・削除・入れ替え・日付移動）'),
           const SizedBox(height: 6),
-          _miniHint('シフト表は「シフト」画面から出力できます（PDF・画像・Excel）'),
+          _miniHint('シフト表は「シフト表」画面から出力できます（PDF・画像・Excel）'),
           const SizedBox(height: 6),
-          _miniHint('使い方は画面右上の「？」から確認できます'),
+          _miniHint('使い方は画面右上の「？」からいつでも確認できます'),
 
           const SizedBox(height: 24),
           SizedBox(
@@ -595,8 +547,7 @@ class _SetupWizardScreenState extends State<SetupWizardScreen> {
                 widget.onFinished();
               },
               icon: const Icon(Icons.calendar_month),
-              style: FilledButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: 14)),
+              style: FilledButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 14)),
               label: const Text('カレンダーを開く'),
             ),
           ),
