@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 
-import '../models/assignment_strategy.dart';
 import '../models/shift_plan.dart';
 import '../services/shift_plan_service.dart';
 
@@ -100,7 +99,6 @@ class _RestoreDialogState extends State<RestoreDialog> {
                 itemHeight: 60,
                 items: _restorablePlans.asMap().entries.map((entry) {
                   final plan = entry.value;
-                  final strategyName = AssignmentStrategy.getDisplayNameFromString(plan.strategy);
                   final dateStr = '${plan.createdAt.year}/${plan.createdAt.month.toString().padLeft(2, '0')}/'
                       '${plan.createdAt.day.toString().padLeft(2, '0')} '
                       '${plan.createdAt.hour.toString().padLeft(2, '0')}:'
@@ -136,7 +134,7 @@ class _RestoreDialogState extends State<RestoreDialog> {
                         ),
                         const SizedBox(height: 2),
                         Text(
-                          '$strategyName　${plan.totalShifts}件',
+                          '${plan.totalShifts}件',
                           style: TextStyle(
                             fontSize: 11,
                             color: Colors.grey.shade700,

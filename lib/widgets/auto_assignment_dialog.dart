@@ -33,7 +33,9 @@ class _AutoAssignmentDialogState extends State<AutoAssignmentDialog> {
   late DateTime _endDate;
   bool _isProcessing = false;
   String? _errorMessage;
-  AssignmentStrategy _selectedStrategy = AssignmentStrategy.fairness;
+  // 割り当て戦略は公平重視(fairness)に一本化。種別の公平・ペア分散・best-of-Nは
+  // すべてこの中で処理される（ユーザーに戦略を選ばせるUIは廃止）。
+  final AssignmentStrategy _selectedStrategy = AssignmentStrategy.fairness;
 
   // 制約条件
   final TextEditingController _maxConsecutiveDaysController = TextEditingController(text: '5');
@@ -45,7 +47,6 @@ class _AutoAssignmentDialogState extends State<AutoAssignmentDialog> {
     super.initState();
     _startDate = DateTime(widget.selectedMonth.year, widget.selectedMonth.month, 1);
     _endDate = DateTime(widget.selectedMonth.year, widget.selectedMonth.month + 1, 0);
-    _loadStrategyPreference();
     _loadTeamSettings();
 
     // ShiftProviderに正しい月を設定（購読範囲を確実に更新）
@@ -81,26 +82,6 @@ class _AutoAssignmentDialogState extends State<AutoAssignmentDialog> {
     _maxConsecutiveDaysController.dispose();
     _minRestHoursController.dispose();
     super.dispose();
-  }
-
-  /// SharedPreferencesから前回選択した戦略を読み込み
-  Future<void> _loadStrategyPreference() async {
-    final prefs = await SharedPreferences.getInstance();
-    final strategyName = prefs.getString('last_assignment_strategy');
-    if (strategyName != null) {
-      setState(() {
-        _selectedStrategy = AssignmentStrategy.values.firstWhere(
-          (s) => s.name == strategyName,
-          orElse: () => AssignmentStrategy.fairness,
-        );
-      });
-    }
-  }
-
-  /// SharedPreferencesに選択した戦略を保存
-  Future<void> _saveStrategyPreference() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString('last_assignment_strategy', _selectedStrategy.name);
   }
 
   /// 戦略文字列から分かりやすいnoteを作成
@@ -312,57 +293,6 @@ class _AutoAssignmentDialogState extends State<AutoAssignmentDialog> {
                     ],
                   ),
                   const SizedBox(height: 16),
-                  const Text(
-                    '割り当て戦略：',
-                    style: TextStyle(fontWeight: FontWeight.bold),
-                  ),
-                  const SizedBox(height: 8),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                    decoration: BoxDecoration(
-                      border: Border.all(color: Colors.grey.shade300),
-                      borderRadius: BorderRadius.circular(4),
-                    ),
-                    child: DropdownButton<AssignmentStrategy>(
-                      value: _selectedStrategy,
-                      isExpanded: true,
-                      underline: const SizedBox(),
-                      items: AssignmentStrategy.values.map((strategy) {
-                        return DropdownMenuItem(
-                          value: strategy,
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Text(
-                                strategy.displayName,
-                                style: const TextStyle(
-                                  fontWeight: FontWeight.w500,
-                                  fontSize: 14,
-                                ),
-                              ),
-                              const SizedBox(height: 2),
-                              Text(
-                                strategy.description,
-                                style: TextStyle(
-                                  fontSize: 10,
-                                  color: Colors.grey.shade600,
-                                ),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ],
-                          ),
-                        );
-                      }).toList(),
-                      onChanged: (value) {
-                        setState(() {
-                          _selectedStrategy = value!;
-                        });
-                      },
-                    ),
-                  ),
-                  const SizedBox(height: 8),
                   Container(
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
@@ -371,12 +301,13 @@ class _AutoAssignmentDialogState extends State<AutoAssignmentDialog> {
                       border: Border.all(color: Colors.blue.shade200),
                     ),
                     child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Icon(Icons.info_outline, size: 20, color: Colors.blue.shade700),
+                        Icon(Icons.auto_awesome, size: 20, color: Colors.blue.shade700),
                         const SizedBox(width: 8),
                         Expanded(
                           child: Text(
-                            '戦略を変えると異なるシフトが作成されます。現在のシフトはバックアップされ復元できます。',
+                            '作成結果が気に入らなければ、もう一度「作成」を押すと別の案が作られます（毎回違う結果になります）。前の案は自動でバックアップされ、いつでも切り替えできます。',
                             style: TextStyle(
                               fontSize: 12,
                               color: Colors.blue.shade900,
@@ -567,9 +498,6 @@ class _AutoAssignmentDialogState extends State<AutoAssignmentDialog> {
       // 7. shift_active_planを新しいplan_idで更新
       await planService.setActivePlanId(month, newPlanId, strategy: _selectedStrategy.name);
 
-      // 8. 次回デフォルト表示されるように選択した戦略を端末に保存
-      await _saveStrategyPreference();
-
       // 11. Analytics
       await AnalyticsService.logShiftGenerated(
         shiftCount: shifts.length,
@@ -583,17 +511,24 @@ class _AutoAssignmentDialogState extends State<AutoAssignmentDialog> {
         final scaffoldMessengerContext = ScaffoldMessenger.of(context);
         final shiftsCount = shifts.length;
 
+        // 初回の自動作成時だけ、完了メッセージに「作り直せる」ヒントを含める。
+        // 2回目以降は鬱陶しいので出さない（SharedPreferencesで記録）。
+        const hintKey = 'auto_create_regenerate_hint_shown_v2';
+        final prefs = await SharedPreferences.getInstance();
+        final showRegenerateHint = !(prefs.getBool(hintKey) ?? false);
+        if (showRegenerateHint) await prefs.setBool(hintKey, true);
+
         // 12. ダイアログを閉じる
         navigatorContext.pop(true);
 
-        // 13. 広告表示
+        // 13. 広告表示（閉じた後に完了メッセージを表示）
         AdService.showInterstitialAd(
           onAdShown: () {},
           onAdClosed: () {
-            _showCompletionMessage(scaffoldMessengerContext, shiftsCount);
+            _showCompletionMessage(scaffoldMessengerContext, shiftsCount, showRegenerateHint: showRegenerateHint);
           },
           onAdFailedToShow: () {
-            _showCompletionMessage(scaffoldMessengerContext, shiftsCount);
+            _showCompletionMessage(scaffoldMessengerContext, shiftsCount, showRegenerateHint: showRegenerateHint);
           },
         );
       }
@@ -677,7 +612,13 @@ class _AutoAssignmentDialogState extends State<AutoAssignmentDialog> {
   }
 
   /// シフト作成完了メッセージを表示
-  void _showCompletionMessage(ScaffoldMessengerState scaffoldMessenger, int shiftsCount) {
+  /// [showRegenerateHint] が true の時（＝初回作成時）は、
+  /// 「気に入らなければ作り直せる」ヒントを1行追加する。
+  void _showCompletionMessage(
+    ScaffoldMessengerState scaffoldMessenger,
+    int shiftsCount, {
+    bool showRegenerateHint = false,
+  }) {
     scaffoldMessenger.showSnackBar(
       SnackBar(
         content: Row(
@@ -704,13 +645,20 @@ class _AutoAssignmentDialogState extends State<AutoAssignmentDialog> {
                     '${widget.selectedMonth.month}月分のシフト ${shiftsCount}件を作成しました',
                     style: const TextStyle(fontSize: 14),
                   ),
+                  if (showRegenerateHint) ...[
+                    const SizedBox(height: 6),
+                    const Text(
+                      '💡 気に入らなければ、もう一度「自動作成」を押すと別の案が作れます',
+                      style: TextStyle(fontSize: 13),
+                    ),
+                  ],
                 ],
               ),
             ),
           ],
         ),
         backgroundColor: Colors.green,
-        duration: const Duration(seconds: 4),
+        duration: Duration(seconds: showRegenerateHint ? 7 : 4),
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(8),

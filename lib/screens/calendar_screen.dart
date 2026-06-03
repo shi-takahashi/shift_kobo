@@ -1168,9 +1168,13 @@ class _CalendarScreenState extends State<CalendarScreen> {
         ),
       ),
     ).then((result) {
-      if (result == true && _selectedDay != null) {
+      if (result == true) {
         setState(() {});
-        _selectedShifts.value = _getShiftsForDay(_selectedDay!);
+        if (_selectedDay != null) {
+          _selectedShifts.value = _getShiftsForDay(_selectedDay!);
+        }
+        // 「気に入らなければ作り直せる」案内は、自動作成ダイアログ側の
+        // 完了メッセージ（初回のみヒント付き）に統合している。
       }
     });
   }
