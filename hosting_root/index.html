@@ -169,7 +169,6 @@
 
     <div class="buttons">
       <a href="/app" class="btn btn-primary" id="downloadBtn">アプリをダウンロード</a>
-      <a href="/web/" class="btn btn-secondary">Webアプリを使う</a>
     </div>
 
     <div class="links">
@@ -186,8 +185,12 @@
     if (userAgent.includes('android')) {
       downloadBtn.textContent = 'Google Playからダウンロード';
     } else if (userAgent.includes('iphone') || userAgent.includes('ipad')) {
-      downloadBtn.textContent = 'Webアプリを使う（iOS）';
-      downloadBtn.href = '/web/';
+      downloadBtn.textContent = 'App Storeからダウンロード';
+    } else {
+      // PC等：iOS/Android専用のため案内表示（クリックでループしないようリンク解除）
+      downloadBtn.textContent = 'スマホ（iOS / Android）でご利用ください';
+      downloadBtn.removeAttribute('href');
+      downloadBtn.style.cursor = 'default';
     }
   </script>
 </body>

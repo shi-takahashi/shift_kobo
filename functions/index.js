@@ -8,7 +8,7 @@ admin.initializeApp();
  * アプリリダイレクト：User-Agentで判定
  *  - Android → Google Play
  *  - iPhone/iPad → App Store
- *  - その他（PC等） → Webアプリ
+ *  - その他（PC等） → 紹介ページ（トップ）
  * ※302（一時）リダイレクト：将来の振り先変更がキャッシュで固定されないように
  */
 exports.appRedirect = onRequest(
@@ -31,9 +31,9 @@ exports.appRedirect = onRequest(
         console.log("🍎 iOS User-Agent検出 → App Store");
         res.redirect(302, "https://apps.apple.com/app/id6775868548");
       } else {
-        // その他（PC等） → Webアプリ
-        console.log("🖥️ その他 User-Agent検出 → Webアプリ");
-        res.redirect(302, "https://shift-kobo-online-prod.web.app/web/");
+        // その他（PC等） → 紹介ページ（トップ）
+        console.log("🖥️ その他 User-Agent検出 → 紹介ページ");
+        res.redirect(302, "https://shift-kobo-online-prod.web.app/");
       }
     },
 );
