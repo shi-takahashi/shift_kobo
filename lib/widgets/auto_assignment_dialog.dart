@@ -80,12 +80,13 @@ class _AutoAssignmentDialogState extends State<AutoAssignmentDialog> {
     }
   }
 
-  /// 初回の自動作成かどうかを判定して、広告案内の表示有無を決める。
-  /// （完了メッセージの「作り直せる」ヒントと同じフラグを共有。初回作成完了時に立つ）
+  /// 広告の注意書き（初回のみ）を出すべきか判定する。
+  /// 専用フラグで管理し、「実際に広告が表示された初回」にだけ消費する（作成完了処理で消費）。
+  /// 完了メッセージの「作り直せる」ヒントとは別フラグ。
   Future<void> _loadFirstTimeFlag() async {
     if (kIsWeb) return; // Web版は広告なしなので案内不要
     final prefs = await SharedPreferences.getInstance();
-    final done = prefs.getBool('auto_create_regenerate_hint_shown_v2') ?? false;
+    final done = prefs.getBool('auto_create_ad_notice_shown_v1') ?? false;
     if (!mounted) return;
     setState(() => _showFirstTimeNotice = !done);
   }
@@ -306,8 +307,9 @@ class _AutoAssignmentDialogState extends State<AutoAssignmentDialog> {
                       ],
                     ),
                   ),
-                  // 初回だけ：広告が流れることを事前に案内する
-                  if (_showFirstTimeNotice) ...[
+                  // 初回だけ、かつ広告の準備ができているときだけ事前案内する。
+                  // （在庫が無く広告が出ないときは案内も出さない＝表示と実態を一致させる）
+                  if (_showFirstTimeNotice && AdService.isInterstitialReady) ...[
                     const SizedBox(height: 8),
                     Container(
                       padding: const EdgeInsets.all(12),
@@ -534,6 +536,13 @@ class _AutoAssignmentDialogState extends State<AutoAssignmentDialog> {
         final prefs = await SharedPreferences.getInstance();
         final showRegenerateHint = !(prefs.getBool(hintKey) ?? false);
         if (showRegenerateHint) await prefs.setBool(hintKey, true);
+
+        // 広告の注意書きは「実際に広告が表示される初回」にだけ消費する。
+        // （在庫が無く広告が出ない期間に初回作成しても消費しない＝広告配信開始後の
+        //   初回にちゃんと案内が出るようにする）
+        if (_showFirstTimeNotice && AdService.isInterstitialReady) {
+          await prefs.setBool('auto_create_ad_notice_shown_v1', true);
+        }
 
         // 12. ダイアログを閉じる
         navigatorContext.pop(true);

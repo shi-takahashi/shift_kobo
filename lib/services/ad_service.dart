@@ -67,6 +67,10 @@ class AdService {
     }
   }
 
+  /// インタースティシャル広告が表示可能な状態か（事前読み込み済みか）。
+  /// 「作成」前の注意書きを出すかどうかの判定に使う。
+  static bool get isInterstitialReady => _interstitialAd != null;
+
   /// iOSのATT（App Tracking Transparency）許可をリクエストする。
   ///
   /// iOS 14以降、IDFAを使った広告トラッキングには許可ダイアログが必須。
