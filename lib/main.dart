@@ -1,12 +1,15 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
-import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:flutter/foundation.dart'
+    show defaultTargetPlatform, kIsWeb, TargetPlatform;
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'firebase_options.dart' as dev_options;
 import 'firebase_options_prod.dart' as prod_options;
@@ -81,6 +84,10 @@ void main() async {
 
     debugPrint('✅ Firebase初期化成功');
 
+    // 再インストール時のみ「まっさら」な状態から始める（iOS限定）。
+    // ※ runApp前・認証監視前に実行し、復元された残存セッションを先に解消しておく。
+    await _resetAuthOnFreshInstall();
+
     // Analytics: アプリ起動イベント
     await AnalyticsService.logAppOpen();
 
@@ -101,6 +108,75 @@ void main() async {
       await AdService.requestTrackingAuthorization();
       await AdService.initialize();
     });
+  }
+}
+
+/// iOSで「再インストール時のみ」セッションを破棄し、まっさらな状態から始められるようにする。
+///
+/// ■ 根本原因
+/// iOSのKeychainはアプリ削除後もFirebase Authのセッションを保持し、再インストール時に
+/// 自動復元してしまう（Androidは削除でセッションごと消えるので元から問題なし）。
+///
+/// ■ 2つの目印を使い分ける
+/// - フラグ F（SharedPreferences = NSUserDefaults）: アンインストールで「消える」。
+///   → 「このインストールで初回起動か」を表す。
+/// - マーカー K（flutter_secure_storage = Keychain）: アンインストールでも「残る」。
+///   → 「この端末で“新アプリ”が一度でも動いたことがあるか」を表す。
+///
+/// ■ 判定（iOSのみ。signOutするのは下表の1ケースだけ）
+///   | F     | K     | 状況                                   | 動作            |
+///   |-------|-------|----------------------------------------|-----------------|
+///   | あり  | -     | 通常起動 / アップデート                | 何もしない      |
+///   | なし  | なし  | 既存ユーザーの乗り換え or 完全新規     | 据え置き（救済） |
+///   | なし  | あり  | 新アプリ使用後にアンインストール→再導入 | signOut（リセット）|
+///
+/// これにより:
+/// - 既存ユーザーがアップデート/乗り換えしてもサインアウトされない（F無し・K無し＝据え置き）。
+/// - 新アプリを一度使えばKが残るので、以後の再インストールは確実にまっさらになる。
+/// - 例外時は据え置き（誤signOutしないことを最優先）。
+Future<void> _resetAuthOnFreshInstall() async {
+  // iOS限定。Androidは元から再インストールでセッションが消える。Webは再インストール概念なし。
+  if (kIsWeb || defaultTargetPlatform != TargetPlatform.iOS) return;
+
+  const installedKey = 'has_installed_before_v1'; // フラグ F（SharedPreferences）
+  const reinstallMarkerKey = 'reinstall_marker_v1'; // マーカー K（Keychain）
+  const secureStorage = FlutterSecureStorage();
+
+  try {
+    final prefs = await SharedPreferences.getInstance();
+
+    // F あり = アップデート or 2回目以降の起動 → 絶対に何もしない（signOutしない）。
+    if (prefs.getBool(installedKey) == true) {
+      return;
+    }
+
+    // ここに来る = このインストールでの初回起動。
+    // K（Keychain）が残っているかで「過去に新アプリが動いた端末か」を判定する。
+    final hadMarker = await secureStorage.read(key: reinstallMarkerKey) != null;
+
+    if (hadMarker) {
+      // K あり・F なし = 新アプリ使用後にアンインストール→再インストール＝本当の再インストール。
+      // 復元された残存セッションをsignOutしてまっさらにする。
+      // currentUserは復元完了前だとnullになるため、authStateChanges().firstで復元を待つ。
+      final user = await FirebaseAuth.instance.authStateChanges().first;
+      if (user != null) {
+        debugPrint(
+            '🧹 再インストール検知: 残存セッションをsignOut (uid=${user.uid}, anonymous=${user.isAnonymous})');
+        await FirebaseAuth.instance.signOut();
+      }
+    } else {
+      // K なし・F なし = 既存ユーザーの初回 or 完全新規。
+      // ここでは絶対にsignOutしない（既存ユーザーの乗り換えを壊さない＝救済）。
+      debugPrint('🛟 初回起動（既存ユーザー乗り換え or 新規）: 据え置き＋マーカー設定');
+    }
+
+    // 以後の再インストールを検知できるよう、Kを必ず立てる（Keychainなので削除後も残る）。
+    await secureStorage.write(key: reinstallMarkerKey, value: '1');
+    // Fを立てる。次回以降の起動は冒頭のreturnで早期終了する。
+    await prefs.setBool(installedKey, true);
+  } catch (e) {
+    // F/Kとも立てない（次回起動で再試行）。誤ってsignOutしないことを最優先。
+    debugPrint('⚠️ 再インストール判定処理でエラー（据え置きで継続）: $e');
   }
 }
 
