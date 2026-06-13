@@ -559,7 +559,7 @@ class _SetupWizardScreenState extends State<SetupWizardScreen> {
             },
             icon: const Icon(Icons.calendar_month),
             style: FilledButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 14)),
-            label: const Text('カレンダーを開く'),
+            label: const Text('シフト管理を始める'),
           ),
         ),
       ],
