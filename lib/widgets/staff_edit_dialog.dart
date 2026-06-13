@@ -1199,10 +1199,11 @@ class _StaffEditDialogState extends State<StaffEditDialog> {
         ),
         const SizedBox(width: 16),
         Expanded(
-          child: FilledButton.icon(
+          // シフト追加/編集ダイアログとボタン文言・スタイルを統一する。
+          // 新規は「追加」、既存編集は「更新」（タイトルの 追加/編集 と対応）。
+          child: FilledButton(
             onPressed: _handleSave,
-            icon: const Icon(Icons.save),
-            label: const Text('保存'),
+            child: Text(widget.existingStaff != null ? '更新' : '追加'),
           ),
         ),
       ],
