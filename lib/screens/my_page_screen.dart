@@ -420,7 +420,9 @@ class _MyPageScreenState extends State<MyPageScreen> {
           }
 
           // スタッフの場合
-          return Center(
+          // 小型端末(iPhone SE等)で内容があふれてもスクロールできるようにする
+          // （Center+スクロールなしだと縦にあふれてレイアウトが崩れるため）。
+          return SingleChildScrollView(
             child: Padding(
               padding: const EdgeInsets.all(24),
               child: Column(
