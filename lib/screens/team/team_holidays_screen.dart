@@ -387,66 +387,86 @@ class _TeamHolidaysCalendarDialogState extends State<_TeamHolidaysCalendarDialog
 
   @override
   Widget build(BuildContext context) {
+    final size = MediaQuery.of(context).size;
     return Dialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      child: Container(
-        width: MediaQuery.of(context).size.width * 0.9,
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Row(
-              children: [
-                Icon(Icons.event_busy, color: Colors.orange.shade700),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    'チーム休み日の追加',
-                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                          color: Colors.orange.shade900,
-                        ),
+      // 小型端末(iPhone SE等)で日付選択後に縦へ伸びても画面外へはみ出さないよう、
+      // 高さを画面の85%までに制限。中身はスクロールさせ、ボタンは下部に固定して常に押せるようにする。
+      child: ConstrainedBox(
+        constraints: BoxConstraints(
+          maxWidth: size.width * 0.9,
+          maxHeight: size.height * 0.85,
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // タイトル（固定）
+              Row(
+                children: [
+                  Icon(Icons.event_busy, color: Colors.orange.shade700),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'チーム休日の追加',
+                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                            color: Colors.orange.shade900,
+                          ),
+                    ),
                   ),
-                ),
-                IconButton(
-                  onPressed: () => Navigator.pop(context),
-                  icon: const Icon(Icons.close),
-                ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            Text(
-              '休みにしたい日をタップして選択',
-              style: TextStyle(fontSize: 13, color: Colors.grey.shade600),
-            ),
-            const SizedBox(height: 16),
-            _buildCalendar(),
-            const SizedBox(height: 16),
-            _buildLegend(),
-            if (_selectedDates.isNotEmpty) ...[
-              const SizedBox(height: 16),
-              _buildSelectedDates(),
-            ],
-            const SizedBox(height: 16),
-            Row(
-              children: [
-                Expanded(
-                  child: OutlinedButton(
+                  IconButton(
                     onPressed: () => Navigator.pop(context),
-                    child: const Text('キャンセル'),
+                    icon: const Icon(Icons.close),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              // 中身（カレンダー・凡例・選択中リスト）はスクロール領域に入れる
+              Flexible(
+                child: SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        '休みにしたい日をタップして選択',
+                        style: TextStyle(fontSize: 13, color: Colors.grey.shade600),
+                      ),
+                      const SizedBox(height: 16),
+                      _buildCalendar(),
+                      const SizedBox(height: 16),
+                      _buildLegend(),
+                      if (_selectedDates.isNotEmpty) ...[
+                        const SizedBox(height: 16),
+                        _buildSelectedDates(),
+                      ],
+                    ],
                   ),
                 ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: FilledButton(
-                    onPressed: _selectedDates.isEmpty
-                        ? null
-                        : () => Navigator.pop(context, _selectedDates.toList()),
-                    child: Text('追加 (${_selectedDates.length}件)'),
+              ),
+              const SizedBox(height: 16),
+              // アクションボタン（下部固定＝小型端末でも必ず押せる）
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: () => Navigator.pop(context),
+                      child: const Text('キャンセル'),
+                    ),
                   ),
-                ),
-              ],
-            ),
-          ],
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: FilledButton(
+                      onPressed: _selectedDates.isEmpty
+                          ? null
+                          : () => Navigator.pop(context, _selectedDates.toList()),
+                      child: Text('追加 (${_selectedDates.length}件)'),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
         ),
       ),
     );
