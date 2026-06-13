@@ -2525,132 +2525,117 @@ class _MyPageScreenState extends State<MyPageScreen> {
     }
 
     int newRequestCount = 0;
-    List<String> lockedMonths = [];
+    final lockedMonths = <String>[];
+    final isAdmin = widget.appUser.isAdmin;
 
-    // 追加申請：selectedDatesにあるが、approvedDatesにない
+    // 管理者の即時反映は、ループ内で都度Staff全体を書き込むと各書き込みが直前の結果を
+    // 上書きして一部しか保存されない（最後の1件しか残らない）。これを防ぐため、最終的な
+    // リストを1つ作り、最後に1回だけ保存する。
+    final workingDaysOff = List<String>.from(myStaff.specificDaysOff);
+    bool adminChanged = false;
+
+    bool isLockedMonth(DateTime d) {
+      if (lockProvider.isLocked(d.year, d.month)) {
+        final monthStr = '${d.year}年${d.month}月';
+        if (!lockedMonths.contains(monthStr)) lockedMonths.add(monthStr);
+        return true;
+      }
+      return false;
+    }
+
+    bool sameDate(String iso, DateTime d) {
+      try {
+        final parsed = DateTime.parse(iso);
+        return parsed.year == d.year && parsed.month == d.month && parsed.day == d.day;
+      } catch (_) {
+        return false;
+      }
+    }
+
+    // 追加：selectedDatesにあるが、approvedDatesにない
     for (final date in selectedDates) {
       final normalizedDate = DateTime(date.year, date.month, date.day);
-
-      // 締めチェック
-      if (lockProvider.isLocked(normalizedDate.year, normalizedDate.month)) {
-        final monthStr = '${normalizedDate.year}年${normalizedDate.month}月';
-        if (!lockedMonths.contains(monthStr)) {
-          lockedMonths.add(monthStr);
-        }
-        continue;
-      }
+      if (isLockedMonth(normalizedDate)) continue;
 
       final isApproved = approvedDates.any((approved) =>
           approved.year == normalizedDate.year &&
           approved.month == normalizedDate.month &&
           approved.day == normalizedDate.day);
+      if (isApproved) continue;
 
-      if (!isApproved) {
-        if (widget.appUser.isAdmin) {
-          // 管理者：即時反映
-          final staffProvider = context.read<StaffProvider>();
-          final newSpecificDaysOff = List<String>.from(myStaff.specificDaysOff);
-          newSpecificDaysOff.add(normalizedDate.toIso8601String());
-          final updatedStaff = Staff(
-            id: myStaff.id,
-            name: myStaff.name,
-            phoneNumber: myStaff.phoneNumber,
-            email: myStaff.email,
-            maxShiftsPerMonth: myStaff.maxShiftsPerMonth,
-            preferredDaysOff: myStaff.preferredDaysOff,
-            isActive: myStaff.isActive,
-            createdAt: myStaff.createdAt,
-            updatedAt: DateTime.now(),
-            constraints: myStaff.constraints,
-            unavailableShiftTypes: myStaff.unavailableShiftTypes,
-            specificDaysOff: newSpecificDaysOff,
-            userId: myStaff.userId,
-            holidaysOff: myStaff.holidaysOff,
-            preferredDates: myStaff.preferredDates,
-          );
-          await staffProvider.updateStaff(updatedStaff);
-        } else {
-          // スタッフ：申請作成
-          final request = ConstraintRequest(
-            id: uuid.v4(),
-            staffId: myStaff.id,
-            userId: widget.appUser.uid,
-            requestType: ConstraintRequest.typeSpecificDay,
-            specificDate: normalizedDate,
-            status: ConstraintRequest.statusPending,
-            isDelete: false,
-          );
-          await requestProvider.createRequest(request);
-          newRequestCount++;
+      if (isAdmin) {
+        // 管理者：作業用リストに追加（保存は最後にまとめて1回）
+        if (!workingDaysOff.any((s) => sameDate(s, normalizedDate))) {
+          workingDaysOff.add(normalizedDate.toIso8601String());
+          adminChanged = true;
         }
+      } else {
+        // スタッフ：申請作成
+        await requestProvider.createRequest(ConstraintRequest(
+          id: uuid.v4(),
+          staffId: myStaff.id,
+          userId: widget.appUser.uid,
+          requestType: ConstraintRequest.typeSpecificDay,
+          specificDate: normalizedDate,
+          status: ConstraintRequest.statusPending,
+          isDelete: false,
+        ));
+        newRequestCount++;
       }
     }
 
-    // 削除申請：approvedDatesにあるが、selectedDatesにない
+    // 削除：approvedDatesにあるが、selectedDatesにない
     for (final approvedDate in approvedDates) {
       final normalizedApproved = DateTime(approvedDate.year, approvedDate.month, approvedDate.day);
-
-      // 締めチェック
-      if (lockProvider.isLocked(normalizedApproved.year, normalizedApproved.month)) {
-        final monthStr = '${normalizedApproved.year}年${normalizedApproved.month}月';
-        if (!lockedMonths.contains(monthStr)) {
-          lockedMonths.add(monthStr);
-        }
-        continue;
-      }
+      if (isLockedMonth(normalizedApproved)) continue;
 
       final isSelected = selectedDates.any((selected) =>
           selected.year == normalizedApproved.year &&
           selected.month == normalizedApproved.month &&
           selected.day == normalizedApproved.day);
+      if (isSelected) continue;
 
-      if (!isSelected) {
-        if (widget.appUser.isAdmin) {
-          // 管理者：即時反映
-          final staffProvider = context.read<StaffProvider>();
-          final newSpecificDaysOff = myStaff.specificDaysOff.where((dateStr) {
-            try {
-              final date = DateTime.parse(dateStr);
-              return !(date.year == normalizedApproved.year &&
-                  date.month == normalizedApproved.month &&
-                  date.day == normalizedApproved.day);
-            } catch (e) {
-              return true;
-            }
-          }).toList();
-          final updatedStaff = Staff(
-            id: myStaff.id,
-            name: myStaff.name,
-            phoneNumber: myStaff.phoneNumber,
-            email: myStaff.email,
-            maxShiftsPerMonth: myStaff.maxShiftsPerMonth,
-            preferredDaysOff: myStaff.preferredDaysOff,
-            isActive: myStaff.isActive,
-            createdAt: myStaff.createdAt,
-            updatedAt: DateTime.now(),
-            constraints: myStaff.constraints,
-            unavailableShiftTypes: myStaff.unavailableShiftTypes,
-            specificDaysOff: newSpecificDaysOff,
-            userId: myStaff.userId,
-            holidaysOff: myStaff.holidaysOff,
-            preferredDates: myStaff.preferredDates,
-          );
-          await staffProvider.updateStaff(updatedStaff);
-        } else {
-          // スタッフ：削除申請作成
-          final request = ConstraintRequest(
-            id: uuid.v4(),
-            staffId: myStaff.id,
-            userId: widget.appUser.uid,
-            requestType: ConstraintRequest.typeSpecificDay,
-            specificDate: normalizedApproved,
-            status: ConstraintRequest.statusPending,
-            isDelete: true,
-          );
-          await requestProvider.createRequest(request);
-          newRequestCount++;
-        }
+      if (isAdmin) {
+        // 管理者：作業用リストから削除（保存は最後にまとめて1回）
+        final before = workingDaysOff.length;
+        workingDaysOff.removeWhere((s) => sameDate(s, normalizedApproved));
+        if (workingDaysOff.length != before) adminChanged = true;
+      } else {
+        // スタッフ：削除申請作成
+        await requestProvider.createRequest(ConstraintRequest(
+          id: uuid.v4(),
+          staffId: myStaff.id,
+          userId: widget.appUser.uid,
+          requestType: ConstraintRequest.typeSpecificDay,
+          specificDate: normalizedApproved,
+          status: ConstraintRequest.statusPending,
+          isDelete: true,
+        ));
+        newRequestCount++;
       }
+    }
+
+    // 管理者：最終結果を1回だけ保存（途中上書きを防ぐ）
+    if (isAdmin && adminChanged) {
+      final staffProvider = context.read<StaffProvider>();
+      final updatedStaff = Staff(
+        id: myStaff.id,
+        name: myStaff.name,
+        phoneNumber: myStaff.phoneNumber,
+        email: myStaff.email,
+        maxShiftsPerMonth: myStaff.maxShiftsPerMonth,
+        preferredDaysOff: myStaff.preferredDaysOff,
+        isActive: myStaff.isActive,
+        createdAt: myStaff.createdAt,
+        updatedAt: DateTime.now(),
+        constraints: myStaff.constraints,
+        unavailableShiftTypes: myStaff.unavailableShiftTypes,
+        specificDaysOff: workingDaysOff,
+        userId: myStaff.userId,
+        holidaysOff: myStaff.holidaysOff,
+        preferredDates: myStaff.preferredDates,
+      );
+      await staffProvider.updateStaff(updatedStaff);
     }
 
     if (mounted) {
@@ -2699,132 +2684,117 @@ class _MyPageScreenState extends State<MyPageScreen> {
     }
 
     int newRequestCount = 0;
-    List<String> lockedMonths = [];
+    final lockedMonths = <String>[];
+    final isAdmin = widget.appUser.isAdmin;
 
-    // 追加申請：selectedDatesにあるが、approvedDatesにない
+    // 管理者の即時反映は、ループ内で都度Staff全体を書き込むと各書き込みが直前の結果を
+    // 上書きして一部しか保存されない（最後の1件しか残らない）。これを防ぐため、最終的な
+    // リストを1つ作り、最後に1回だけ保存する。
+    final workingDates = List<String>.from(myStaff.preferredDates);
+    bool adminChanged = false;
+
+    bool isLockedMonth(DateTime d) {
+      if (lockProvider.isLocked(d.year, d.month)) {
+        final monthStr = '${d.year}年${d.month}月';
+        if (!lockedMonths.contains(monthStr)) lockedMonths.add(monthStr);
+        return true;
+      }
+      return false;
+    }
+
+    bool sameDate(String iso, DateTime d) {
+      try {
+        final parsed = DateTime.parse(iso);
+        return parsed.year == d.year && parsed.month == d.month && parsed.day == d.day;
+      } catch (_) {
+        return false;
+      }
+    }
+
+    // 追加：selectedDatesにあるが、approvedDatesにない
     for (final date in selectedDates) {
       final normalizedDate = DateTime(date.year, date.month, date.day);
-
-      // 締めチェック
-      if (lockProvider.isLocked(normalizedDate.year, normalizedDate.month)) {
-        final monthStr = '${normalizedDate.year}年${normalizedDate.month}月';
-        if (!lockedMonths.contains(monthStr)) {
-          lockedMonths.add(monthStr);
-        }
-        continue;
-      }
+      if (isLockedMonth(normalizedDate)) continue;
 
       final isApproved = approvedDates.any((approved) =>
           approved.year == normalizedDate.year &&
           approved.month == normalizedDate.month &&
           approved.day == normalizedDate.day);
+      if (isApproved) continue;
 
-      if (!isApproved) {
-        if (widget.appUser.isAdmin) {
-          // 管理者：即時反映
-          final staffProvider = context.read<StaffProvider>();
-          final newPreferredDates = List<String>.from(myStaff.preferredDates);
-          newPreferredDates.add(normalizedDate.toIso8601String());
-          final updatedStaff = Staff(
-            id: myStaff.id,
-            name: myStaff.name,
-            phoneNumber: myStaff.phoneNumber,
-            email: myStaff.email,
-            maxShiftsPerMonth: myStaff.maxShiftsPerMonth,
-            preferredDaysOff: myStaff.preferredDaysOff,
-            isActive: myStaff.isActive,
-            createdAt: myStaff.createdAt,
-            updatedAt: DateTime.now(),
-            constraints: myStaff.constraints,
-            unavailableShiftTypes: myStaff.unavailableShiftTypes,
-            specificDaysOff: myStaff.specificDaysOff,
-            userId: myStaff.userId,
-            holidaysOff: myStaff.holidaysOff,
-            preferredDates: newPreferredDates,
-          );
-          await staffProvider.updateStaff(updatedStaff);
-        } else {
-          // スタッフ：申請作成
-          final request = ConstraintRequest(
-            id: uuid.v4(),
-            staffId: myStaff.id,
-            userId: widget.appUser.uid,
-            requestType: ConstraintRequest.typePreferredDate,
-            specificDate: normalizedDate,
-            status: ConstraintRequest.statusPending,
-            isDelete: false,
-          );
-          await requestProvider.createRequest(request);
-          newRequestCount++;
+      if (isAdmin) {
+        // 管理者：作業用リストに追加（保存は最後にまとめて1回）
+        if (!workingDates.any((s) => sameDate(s, normalizedDate))) {
+          workingDates.add(normalizedDate.toIso8601String());
+          adminChanged = true;
         }
+      } else {
+        // スタッフ：申請作成
+        await requestProvider.createRequest(ConstraintRequest(
+          id: uuid.v4(),
+          staffId: myStaff.id,
+          userId: widget.appUser.uid,
+          requestType: ConstraintRequest.typePreferredDate,
+          specificDate: normalizedDate,
+          status: ConstraintRequest.statusPending,
+          isDelete: false,
+        ));
+        newRequestCount++;
       }
     }
 
-    // 削除申請：approvedDatesにあるが、selectedDatesにない
+    // 削除：approvedDatesにあるが、selectedDatesにない
     for (final approvedDate in approvedDates) {
       final normalizedApproved = DateTime(approvedDate.year, approvedDate.month, approvedDate.day);
-
-      // 締めチェック
-      if (lockProvider.isLocked(normalizedApproved.year, normalizedApproved.month)) {
-        final monthStr = '${normalizedApproved.year}年${normalizedApproved.month}月';
-        if (!lockedMonths.contains(monthStr)) {
-          lockedMonths.add(monthStr);
-        }
-        continue;
-      }
+      if (isLockedMonth(normalizedApproved)) continue;
 
       final isSelected = selectedDates.any((selected) =>
           selected.year == normalizedApproved.year &&
           selected.month == normalizedApproved.month &&
           selected.day == normalizedApproved.day);
+      if (isSelected) continue;
 
-      if (!isSelected) {
-        if (widget.appUser.isAdmin) {
-          // 管理者：即時反映
-          final staffProvider = context.read<StaffProvider>();
-          final newPreferredDates = myStaff.preferredDates.where((dateStr) {
-            try {
-              final date = DateTime.parse(dateStr);
-              return !(date.year == normalizedApproved.year &&
-                  date.month == normalizedApproved.month &&
-                  date.day == normalizedApproved.day);
-            } catch (e) {
-              return true;
-            }
-          }).toList();
-          final updatedStaff = Staff(
-            id: myStaff.id,
-            name: myStaff.name,
-            phoneNumber: myStaff.phoneNumber,
-            email: myStaff.email,
-            maxShiftsPerMonth: myStaff.maxShiftsPerMonth,
-            preferredDaysOff: myStaff.preferredDaysOff,
-            isActive: myStaff.isActive,
-            createdAt: myStaff.createdAt,
-            updatedAt: DateTime.now(),
-            constraints: myStaff.constraints,
-            unavailableShiftTypes: myStaff.unavailableShiftTypes,
-            specificDaysOff: myStaff.specificDaysOff,
-            userId: myStaff.userId,
-            holidaysOff: myStaff.holidaysOff,
-            preferredDates: newPreferredDates,
-          );
-          await staffProvider.updateStaff(updatedStaff);
-        } else {
-          // スタッフ：削除申請作成
-          final request = ConstraintRequest(
-            id: uuid.v4(),
-            staffId: myStaff.id,
-            userId: widget.appUser.uid,
-            requestType: ConstraintRequest.typePreferredDate,
-            specificDate: normalizedApproved,
-            status: ConstraintRequest.statusPending,
-            isDelete: true,
-          );
-          await requestProvider.createRequest(request);
-          newRequestCount++;
-        }
+      if (isAdmin) {
+        // 管理者：作業用リストから削除（保存は最後にまとめて1回）
+        final before = workingDates.length;
+        workingDates.removeWhere((s) => sameDate(s, normalizedApproved));
+        if (workingDates.length != before) adminChanged = true;
+      } else {
+        // スタッフ：削除申請作成
+        await requestProvider.createRequest(ConstraintRequest(
+          id: uuid.v4(),
+          staffId: myStaff.id,
+          userId: widget.appUser.uid,
+          requestType: ConstraintRequest.typePreferredDate,
+          specificDate: normalizedApproved,
+          status: ConstraintRequest.statusPending,
+          isDelete: true,
+        ));
+        newRequestCount++;
       }
+    }
+
+    // 管理者：最終結果を1回だけ保存（途中上書きを防ぐ）
+    if (isAdmin && adminChanged) {
+      final staffProvider = context.read<StaffProvider>();
+      final updatedStaff = Staff(
+        id: myStaff.id,
+        name: myStaff.name,
+        phoneNumber: myStaff.phoneNumber,
+        email: myStaff.email,
+        maxShiftsPerMonth: myStaff.maxShiftsPerMonth,
+        preferredDaysOff: myStaff.preferredDaysOff,
+        isActive: myStaff.isActive,
+        createdAt: myStaff.createdAt,
+        updatedAt: DateTime.now(),
+        constraints: myStaff.constraints,
+        unavailableShiftTypes: myStaff.unavailableShiftTypes,
+        specificDaysOff: myStaff.specificDaysOff,
+        userId: myStaff.userId,
+        holidaysOff: myStaff.holidaysOff,
+        preferredDates: workingDates,
+      );
+      await staffProvider.updateStaff(updatedStaff);
     }
 
     if (mounted) {
