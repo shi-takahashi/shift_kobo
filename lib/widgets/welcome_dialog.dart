@@ -56,7 +56,7 @@ class WelcomeDialog extends StatelessWidget {
               const SizedBox(height: 8),
               const Text('2. カレンダーで全員分のシフトを確認'),
               const SizedBox(height: 8),
-              const Text('3. 休み希望を入力して申請'),
+              const Text('3. 休み希望・勤務希望などを申請'),
             ],
             const SizedBox(height: 16),
             Container(

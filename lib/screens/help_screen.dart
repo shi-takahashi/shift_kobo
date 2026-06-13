@@ -186,7 +186,7 @@ class _HelpScreenState extends State<HelpScreen> {
                   const SizedBox(height: 12),
                   _buildBenefitItem(
                     Icons.sync,
-                    '休み希望の申請・承認機能',
+                    '休み希望・勤務希望などの申請・承認機能',
                     'スタッフが直接希望を入力できる',
                   ),
                 ],
@@ -455,7 +455,7 @@ class _HelpScreenState extends State<HelpScreen> {
                 const Divider(),
                 const SizedBox(height: 16),
                 Text(
-                  '休み希望の申請・承認',
+                  '休み希望・勤務希望などの申請・承認',
                   style: TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.bold,
@@ -464,7 +464,7 @@ class _HelpScreenState extends State<HelpScreen> {
                 ),
                 const SizedBox(height: 12),
                 Text(
-                  'スタッフを招待すると、スタッフが休み希望や制約を申請できるようになります。\n管理者は申請を承認・却下できます。',
+                  'スタッフを招待すると、スタッフが休み希望・勤務希望などの希望や制約を申請できるようになります。\n管理者は申請を承認・却下できます。',
                   style: TextStyle(
                     fontSize: 13,
                     color: Colors.grey.shade700,
@@ -497,7 +497,7 @@ class _HelpScreenState extends State<HelpScreen> {
                       ),
                       const SizedBox(height: 8),
                       Text(
-                        'マイページから休み希望を入力 > 申請ボタンをタップ',
+                        'マイページから休み希望・勤務希望などを入力 > 申請ボタンをタップ',
                         style: TextStyle(
                           fontSize: 12,
                           color: Colors.grey.shade800,
@@ -625,8 +625,8 @@ class _HelpScreenState extends State<HelpScreen> {
                 ),
                 _buildFeatureItem(
                   Icons.event_busy,
-                  '休み希望・制約の入力・申請',
-                  'マイページから休み希望や月間最大シフト数などの制約を入力し、管理者に申請',
+                  '休み希望・勤務希望・制約の入力・申請',
+                  'マイページから休み希望・勤務希望や月間最大シフト数などを入力し、管理者に申請',
                 ),
                 _buildFeatureItem(
                   Icons.check_circle,

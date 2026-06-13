@@ -10,9 +10,15 @@ import 'team_creation_screen.dart';
 class JoinTeamScreen extends StatefulWidget {
   final String userId;
 
+  /// true の場合、作成/参加の選択画面を出さず、最初から招待コード入力を表示する。
+  /// 「招待を受けて参加する」経路でアカウント登録した直後に使う。
+  /// （AuthGateのフォールバック等、意図不明な場合は false で選択画面を出す）
+  final bool startInInviteMode;
+
   const JoinTeamScreen({
     super.key,
     required this.userId,
+    this.startInInviteMode = false,
   });
 
   @override
@@ -25,6 +31,13 @@ class _JoinTeamScreenState extends State<JoinTeamScreen> {
   final _formKey = GlobalKey<FormState>();
   bool _isLoading = false;
   bool _showInviteCodeInput = false; // 招待コード入力フォームを表示するかどうか
+
+  @override
+  void initState() {
+    super.initState();
+    // 招待参加経路では最初から招待コード入力を表示する
+    _showInviteCodeInput = widget.startInInviteMode;
+  }
 
   @override
   void dispose() {
@@ -313,7 +326,7 @@ class _JoinTeamScreenState extends State<JoinTeamScreen> {
                 Text(
                   '• チームは管理者とスタッフで構成されます\n'
                   '• 管理者：スタッフ登録・シフト作成が可能\n'
-                  '• スタッフ：シフト閲覧・休み希望入力が可能\n'
+                  '• スタッフ：シフト閲覧・休み希望/勤務希望などの申請が可能\n'
                   '• チームに管理者は必須、スタッフは任意で招待',
                   style: TextStyle(fontSize: 13),
                 ),
@@ -335,21 +348,23 @@ class _JoinTeamScreenState extends State<JoinTeamScreen> {
         children: [
           const SizedBox(height: 40),
 
-          // 戻るボタン
-          Align(
-            alignment: Alignment.centerLeft,
-            child: TextButton.icon(
-              onPressed: () {
-                setState(() {
-                  _showInviteCodeInput = false;
-                  _inviteCodeController.clear();
-                });
-              },
-              icon: const Icon(Icons.arrow_back),
-              label: const Text('選択画面に戻る'),
+          // 戻るボタン（選択画面から来た場合のみ表示。招待参加直行モードでは選択画面が無いので出さない）
+          if (!widget.startInInviteMode) ...[
+            Align(
+              alignment: Alignment.centerLeft,
+              child: TextButton.icon(
+                onPressed: () {
+                  setState(() {
+                    _showInviteCodeInput = false;
+                    _inviteCodeController.clear();
+                  });
+                },
+                icon: const Icon(Icons.arrow_back),
+                label: const Text('選択画面に戻る'),
+              ),
             ),
-          ),
-          const SizedBox(height: 24),
+            const SizedBox(height: 24),
+          ],
 
           // アイコン
           Icon(
@@ -450,7 +465,7 @@ class _JoinTeamScreenState extends State<JoinTeamScreen> {
                   SizedBox(height: 8),
                   Text(
                     '招待コードはチーム管理者から受け取った8文字のコードです。\n'
-                    'チーム参加後、シフトの閲覧や休み希望の入力ができます。',
+                    'チーム参加後、シフトの閲覧や、休み希望・勤務希望などの申請ができます。',
                     style: TextStyle(fontSize: 13),
                   ),
                 ],

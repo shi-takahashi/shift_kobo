@@ -143,9 +143,10 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
                 onPressed: _isLoading
                     ? null
                     : () {
+                        // シフト作成を始める→アカウント登録 → 登録後は新しいチーム作成へ直行
                         Navigator.of(context).pushReplacement(
                           MaterialPageRoute(
-                            builder: (_) => const SignupScreen(),
+                            builder: (_) => const SignupScreen(joinExisting: false),
                           ),
                         );
                       },

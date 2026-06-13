@@ -380,7 +380,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       ),
                       const SizedBox(height: 16),
                       const Text(
-                        'シフト管理を簡単に。チームでシフトを共有し、休み希望の申請・承認もスムーズに。',
+                        'シフト管理を簡単に。チームでシフトを共有し、休み希望・勤務希望などの申請・承認もスムーズに。',
                         style: TextStyle(fontSize: 14),
                       ),
                       const SizedBox(height: 16),
@@ -395,7 +395,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       const Text(
                         '• チームでシフト共有\n'
                         '• シフト自動割り当て\n'
-                        '• 休み希望の申請・承認\n'
+                        '• 休み希望・勤務希望などの申請・承認\n'
                         '• スタッフ管理\n'
                         '• シフト表出力',
                         style: TextStyle(fontSize: 14),

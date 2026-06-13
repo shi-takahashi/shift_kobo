@@ -1438,7 +1438,7 @@ class _StaffEditDialogState extends State<StaffEditDialog> {
                   _buildPermissionItem(Icons.settings, '各種設定の変更'),
                   const SizedBox(height: 12),
                   const Text(
-                    'シフトの閲覧と自分の休み希望入力のみ可能になります。',
+                    'シフトの閲覧と、自分の休み希望・勤務希望などの申請のみ可能になります。',
                     style: TextStyle(fontSize: 12, color: Colors.grey),
                   ),
                 ],
