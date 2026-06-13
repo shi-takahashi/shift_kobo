@@ -192,7 +192,7 @@ class _MonthlyShiftSettingsScreenState extends State<MonthlyShiftSettingsScreen>
 
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('設定を保存しました')),
+        const SnackBar(content: Text('基本設定を保存しました')),
       );
     }
   }
@@ -240,7 +240,6 @@ class _MonthlyShiftSettingsScreenState extends State<MonthlyShiftSettingsScreen>
                   ),
                 ),
               ),
-              _buildSaveButton(),
               const SafeArea(
                 top: false,
                 child: BannerAdWidget(),
@@ -328,6 +327,22 @@ class _MonthlyShiftSettingsScreenState extends State<MonthlyShiftSettingsScreen>
             ),
             const Divider(),
             ...sortedSettings.map((setting) => _buildRequirementField(setting)),
+            const SizedBox(height: 12),
+            // 基本設定は数値入力のため、この「基本設定を保存」ボタンで明示的に保存する。
+            // （曜日別・日付個別の設定は変更した瞬間に自動保存されるので、このボタンは不要）
+            // ※ ページ下部の固定ボタンだと“ページ全体の保存”に見えて誤解を招くため、
+            //   保存対象である基本設定カードの中に置いて適用範囲を明示している。
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton.icon(
+                onPressed: _hasChanges ? _saveRequirements : null,
+                icon: const Icon(Icons.save),
+                label: const Text('基本設定を保存'),
+                style: FilledButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                ),
+              ),
+            ),
           ],
         ),
       ),
@@ -368,7 +383,7 @@ class _MonthlyShiftSettingsScreenState extends State<MonthlyShiftSettingsScreen>
             ),
             const SizedBox(height: 4),
             Text(
-              '曜日ごとに異なる人数を設定できます',
+              '曜日ごとに異なる人数を設定できます（変更すると自動保存）',
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
                 color: Colors.grey[600],
               ),
@@ -680,7 +695,7 @@ class _MonthlyShiftSettingsScreenState extends State<MonthlyShiftSettingsScreen>
             ),
             const SizedBox(height: 4),
             Text(
-              '特定の日付に異なる人数を設定できます（最優先）',
+              '特定の日付に異なる人数を設定できます（最優先・変更すると自動保存）',
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
                 color: Colors.grey[600],
               ),
@@ -1205,34 +1220,4 @@ class _MonthlyShiftSettingsScreenState extends State<MonthlyShiftSettingsScreen>
     );
   }
 
-  Widget _buildSaveButton() {
-    return SafeArea(
-      child: Container(
-        decoration: BoxDecoration(
-          color: Theme.of(context).scaffoldBackgroundColor,
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.1),
-              blurRadius: 4,
-              offset: const Offset(0, -2),
-            ),
-          ],
-        ),
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
-          child: SizedBox(
-            width: double.infinity,
-            child: FilledButton.icon(
-              onPressed: _hasChanges ? _saveRequirements : null,
-              icon: const Icon(Icons.save),
-              label: const Text('基本設定を保存'),
-              style: FilledButton.styleFrom(
-                padding: const EdgeInsets.symmetric(vertical: 12),
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
 }
