@@ -58,6 +58,7 @@ class _SetupWizardScreenState extends State<SetupWizardScreen> {
   int _staffCounter = 0;
 
   String? _selectedTemplate;
+  bool _defaultApplied = false; // ステップ2の「日勤のみ」デフォルトを実データへ反映済みか
   final Map<String, int> _headcounts = {}; // displayName -> 人数
 
   @override
@@ -67,6 +68,12 @@ class _SetupWizardScreenState extends State<SetupWizardScreen> {
     // 新規開始のみ計測（再開＝initialStep>0 は除く）
     if (_step == 0) {
       AnalyticsService.logWizardStep('start');
+    }
+    // 新規開始時はステップ2のデフォルトを「日勤のみ」にしておく。
+    // 先にチップの選択状態だけ立てておき（最初の描画から選択済みに見せる）、
+    // 実データ（有効シフト）の反映はステップ2表示時に設定読み込み完了後へ委ねる。
+    if (widget.initialStep == 0) {
+      _selectedTemplate = _templates.first.label; // 日勤のみ
     }
   }
 
@@ -306,6 +313,17 @@ class _SetupWizardScreenState extends State<SetupWizardScreen> {
   Widget _buildShiftTimeStep() {
     return Consumer<ShiftTimeProvider>(
       builder: (context, provider, child) {
+        // 新規開始時のみ、デフォルトの「日勤のみ」を一度だけ実データへ反映する。
+        // 設定（_settings/_docIds）の読み込み完了後に実行する必要があるため、ここで判定する。
+        if (widget.initialStep == 0 &&
+            !_defaultApplied &&
+            !provider.isLoading &&
+            provider.settings.isNotEmpty) {
+          _defaultApplied = true;
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted) _applyTemplate(_templates.first); // 日勤のみ
+          });
+        }
         final active = provider.settings.where((s) => s.isActive).toList();
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
