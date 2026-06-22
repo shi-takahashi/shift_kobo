@@ -1,5 +1,7 @@
 import 'dart:math';
 
+import 'package:flutter/foundation.dart';
+
 import 'package:shift_kobo/models/assignment_strategy.dart';
 import 'package:shift_kobo/models/companion_rule.dart';
 import 'package:shift_kobo/models/shift.dart';
@@ -117,6 +119,13 @@ class ShiftAssignmentService {
   /// ペアを表す安定キー（順序に依存しない）
   String _pairKey(String a, String b) => a.compareTo(b) <= 0 ? '$a|$b' : '$b|$a';
 
+  /// デバッグ時のみログ出力（リリースビルドでは出力されない）。
+  void _log(String message) {
+    if (kDebugMode) {
+      print(message);
+    }
+  }
+
   // ========================================
   // 自動作成のエントリポイント
   // ========================================
@@ -137,7 +146,7 @@ class ShiftAssignmentService {
     // 有効なスタッフのみ使用（月間最大シフト数0のスタッフは候補生成側で除外される）
     final List<Staff> availableStaff = staffProvider.activeStaffList;
     if (availableStaff.isEmpty) {
-      print('利用可能なスタッフがいません');
+      _log('利用可能なスタッフがいません');
       return [];
     }
 
@@ -160,7 +169,7 @@ class ShiftAssignmentService {
     final previousMonthEnd = startDate.subtract(const Duration(days: 1));
     final previousMonthStart = startDate.subtract(Duration(days: effectiveMaxConsecutive + 1));
     final previousMonthShifts = shiftProvider.getShiftsInRange(previousMonthStart, previousMonthEnd);
-    print('前月シフト取得: ${previousMonthStart.toString().split(' ')[0]} 〜 ${previousMonthEnd.toString().split(' ')[0]} (${previousMonthShifts.length}件, 最大連続日数=$effectiveMaxConsecutive)');
+    _log('前月シフト取得: ${previousMonthStart.toString().split(' ')[0]} 〜 ${previousMonthEnd.toString().split(' ')[0]} (${previousMonthShifts.length}件, 最大連続日数=$effectiveMaxConsecutive)');
 
     // アクティブなシフトタイプ名のセットを取得
     final activeShiftTypeNames = shiftTimeProvider.settings
@@ -173,7 +182,7 @@ class ShiftAssignmentService {
       dailyShiftRequirements.entries.where((e) => activeShiftTypeNames.contains(e.key)),
     );
 
-    print('利用可能なスタッフ数: ${availableStaff.length}');
+    _log('利用可能なスタッフ数: ${availableStaff.length}');
 
     // ========================================
     // best-of-N: N個の候補を生成して一番公平なものを選ぶ
@@ -203,7 +212,7 @@ class ShiftAssignmentService {
         rng,
       );
       final score = _scoreCandidate(candidate, availableStaff, activeShiftTypeNames, companionByStaff);
-      print('候補#$i: score=${score.toStringAsFixed(1)}, shifts=${candidate.shifts.length}, 未充足=${candidate.unfilled}, 希望充足=${candidate.preferredGranted}');
+      _log('候補#$i: score=${score.toStringAsFixed(1)}, shifts=${candidate.shifts.length}, 未充足=${candidate.unfilled}, 希望充足=${candidate.preferredGranted}');
       if (score > bestScore) {
         bestScore = score;
         best = candidate;
@@ -268,7 +277,7 @@ class ShiftAssignmentService {
     // Analytics（採用された候補で1回だけ送信）
     await _logPreferredAnalytics(startDate, endDate, availableStaff, result);
 
-    print('best-of-$_candidateCount 採用: score=${bestScore.toStringAsFixed(1)}, 作成シフト数=${result.length}');
+    _log('best-of-$_candidateCount 採用: score=${bestScore.toStringAsFixed(1)}, 作成シフト数=${result.length}');
     return result;
   }
 
@@ -1258,12 +1267,12 @@ class ShiftAssignmentService {
     final totals = workable.map((s) => totalCounts[s.id]!).toList();
     final maxT = totals.reduce(max);
     final minT = totals.reduce(min);
-    print('=== 公平性[$label] 総数差=${maxT - minT}（最大$maxT / 最小$minT）===');
+    _log('=== 公平性[$label] 総数差=${maxT - minT}（最大$maxT / 最小$minT）===');
     for (final s in workable) {
       final tm = typeCounts[s.id]!;
       final typeStr = activeShiftTypeNames.map((t) => '$t:${tm[t] ?? 0}').join(' ');
       final runs = _maxRunAndRest(daysByStaff[s.id] ?? const []);
-      print('  ${s.name}: 計${totalCounts[s.id]}（$typeStr）最長連勤${runs.$1} 最長連休${runs.$2}');
+      _log('  ${s.name}: 計${totalCounts[s.id]}（$typeStr）最長連勤${runs.$1} 最長連休${runs.$2}');
     }
   }
 
@@ -1294,10 +1303,10 @@ class ShiftAssignmentService {
       }
       if (maxRun > effMax) {
         violations++;
-        print('⚠️ 連勤違反: ${staff.name} 最大連勤$maxRun > 上限$effMax');
+        _log('⚠️ 連勤違反: ${staff.name} 最大連勤$maxRun > 上限$effMax');
       }
     }
-    print('連勤チェック: 違反$violations件（0なら全員上限以内）');
+    _log('連勤チェック: 違反$violations件（0なら全員上限以内）');
   }
 
   /// 勤務日リストから (最長連勤, 最長連休) を返す。
@@ -1359,7 +1368,7 @@ class ShiftAssignmentService {
     } catch (_) {
       // Analyticsエラーは無視
     }
-    print('勤務希望日: 総数=$totalPreferences, 割り当て=$granted');
+    _log('勤務希望日: 総数=$totalPreferences, 割り当て=$granted');
   }
 
   bool _isStaffAvailableOnDate(Staff staff, DateTime date) {
