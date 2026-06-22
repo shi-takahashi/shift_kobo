@@ -5,10 +5,12 @@ import '../models/app_user.dart';
 import '../providers/monthly_requirements_provider.dart';
 import '../providers/shift_provider.dart';
 import '../providers/shift_time_provider.dart';
+import '../providers/staff_provider.dart';
 import '../services/analytics_service.dart';
 import '../services/auth_service.dart';
 import '../services/notification_service.dart';
 import 'constraint_settings_screen.dart';
+import 'pair_settings_screen.dart';
 import 'monthly_shift_settings_screen.dart';
 import 'shift_time_settings_screen.dart';
 import 'team/team_holidays_screen.dart';
@@ -176,6 +178,27 @@ class _TeamSettingsScreenState extends State<TeamSettingsScreen> {
                 builder: (context) => ChangeNotifierProvider<ShiftProvider>.value(
                   value: shiftProvider,
                   child: const ConstraintSettingsScreen(),
+                ),
+              ),
+            );
+          },
+        ),
+        ListTile(
+          leading: const Icon(Icons.people_alt),
+          title: const Text('ペア設定'),
+          subtitle: const Text('NGペア・新人の付き添い必須を設定'),
+          trailing: const Icon(Icons.chevron_right),
+          onTap: () {
+            final shiftProvider = context.read<ShiftProvider>();
+            final staffProvider = context.read<StaffProvider>();
+            Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (context) => MultiProvider(
+                  providers: [
+                    ChangeNotifierProvider<ShiftProvider>.value(value: shiftProvider),
+                    ChangeNotifierProvider<StaffProvider>.value(value: staffProvider),
+                  ],
+                  child: const PairSettingsScreen(),
                 ),
               ),
             );

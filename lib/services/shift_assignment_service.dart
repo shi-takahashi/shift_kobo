@@ -1,6 +1,7 @@
 import 'dart:math';
 
 import 'package:shift_kobo/models/assignment_strategy.dart';
+import 'package:shift_kobo/models/companion_rule.dart';
 import 'package:shift_kobo/models/shift.dart';
 import 'package:shift_kobo/models/shift_constraint.dart';
 import 'package:shift_kobo/models/shift_type.dart' as old_shift_type;
@@ -33,6 +34,10 @@ class ShiftAssignmentService {
   static const int _candidateCount = 8;
   // 各枠を埋める時、上位何人からランダムに選ぶか（探索の幅＝毎回違う結果になる源）。
   static const int _explorationTopK = 3;
+  // 公平性ガード: 総数が「最も少ない人＋この値」までの人だけを枠の候補にする（総数のバラつき上限）。
+  // この窓の中では種別が少ない人を優先するので、総数を抑えつつ種別（日勤/夜勤）も均等化できる。
+  // max20なら約1.5日分。小さいほど総数は揃うが種別を散らす余地が減る。
+  static const double _fairnessTolerance = 0.075;
 
   // 公平性スコアの重み（大きいほど重視）。
   static const double _wUnfilled = 1000.0; // 未充足枠（最重視＝できるだけ埋める）
@@ -40,6 +45,7 @@ class ShiftAssignmentService {
   static const double _wTotalSpread = 5.0; // 総シフト数の偏り
   static const double _wPair = 1.0; // ペア（同じ2人組）の固定度
   static const double _wPreferred = 2.0; // 勤務希望日の充足（ボーナス）
+  static const double _wCompanion = 50.0; // 付き添い必須(ソフト)違反＝相方なしで単独になった回数の罰
 
   // カスタム名から従来のShiftType名へのマッピング
   static Map<String, String> get _customToOldMapping => {
@@ -130,6 +136,13 @@ class ShiftAssignmentService {
       return [];
     }
 
+    // ペア設定（チーム単位）。NGは同居不可のハード制約として使う。
+    final Set<String> ngPairKeys = team?.ngPairs.toSet() ?? <String>{};
+    // 付き添い必須ルール（スタッフID -> ルール）。ハードは適格判定、ソフトはスコアで扱う。
+    final Map<String, CompanionRule> companionByStaff = {
+      for (final r in (team?.companionRules ?? const <CompanionRule>[])) r.staffId: r,
+    };
+
     // 前月のシフトを取得（連続勤務日数・勤務間インターバルのチェック用）
     // スタッフ個別設定の最大値を考慮して取得範囲を決定
     int effectiveMaxConsecutive = maxConsecutiveDays;
@@ -176,13 +189,15 @@ class ShiftAssignmentService {
         maxConsecutiveDays,
         minRestHours,
         overnightCountsAsTwoDays,
+        ngPairKeys,
+        companionByStaff,
         strategy,
         requirementsProvider,
         activeShiftTypeNames,
         previousMonthShifts,
         rng,
       );
-      final score = _scoreCandidate(candidate, availableStaff, activeShiftTypeNames);
+      final score = _scoreCandidate(candidate, availableStaff, activeShiftTypeNames, companionByStaff);
       print('候補#$i: score=${score.toStringAsFixed(1)}, shifts=${candidate.shifts.length}, 未充足=${candidate.unfilled}, 希望充足=${candidate.preferredGranted}');
       if (score > bestScore) {
         bestScore = score;
@@ -218,6 +233,8 @@ class ShiftAssignmentService {
     int maxConsecutiveDays,
     int minRestHours,
     bool overnightCountsAsTwoDays,
+    Set<String> ngPairKeys,
+    Map<String, CompanionRule> companionByStaff,
     AssignmentStrategy strategy,
     MonthlyRequirementsProvider? requirementsProvider,
     Set<String> activeShiftTypeNames,
@@ -256,6 +273,8 @@ class ShiftAssignmentService {
       activeShiftTypeNames: activeShiftTypeNames,
       previousMonthShifts: previousMonthShifts,
       overnightCountsAsTwoDays: overnightCountsAsTwoDays,
+      ngPairKeys: ngPairKeys,
+      companionByStaff: companionByStaff,
     );
 
     // --- 第2段階: 残りのシフトを割り当て ---
@@ -281,55 +300,135 @@ class ShiftAssignmentService {
             _isSameDay(shift.date, currentDate) && shift.shiftType == shiftType).length;
 
         final remainingSlots = requiredStaffCount - alreadyAssigned;
+        if (remainingSlots <= 0) continue;
 
-        for (int i = 0; i < remainingSlots; i++) {
-          final eligible = availableStaff.where((staff) => _isEligible(
-                staff,
-                currentDate,
-                shiftType,
-                assignedShifts,
-                staffShiftCounts,
-                maxConsecutiveDays,
-                minRestHours,
-                previousMonthShifts,
-                overnightCountsAsTwoDays: overnightCountsAsTwoDays,
-              )).toList();
+        final timeRange = _getShiftTimeRange(shiftType, currentDate);
+        if (timeRange == null) {
+          unfilled += remainingSlots;
+          continue;
+        }
 
-          if (eligible.isEmpty) {
-            unfilled++;
-            continue;
-          }
-
-          final assignedStaff = _selectStaffForSlot(
-            eligible,
-            currentDate,
-            shiftType,
-            staffShiftCounts,
-            staffTypeCounts,
-            pairCounts,
-            assignedShifts,
-            strategy,
-            rng,
-          );
-
-          final timeRange = _getShiftTimeRange(shiftType, currentDate);
-          if (timeRange == null) {
-            unfilled++;
-            continue;
-          }
-
+        // この枠に1人割り当てる
+        void place(Staff staff) {
           idCounter++;
           final shift = Shift(
             id: 'tmp_$idCounter',
             date: currentDate,
             startTime: timeRange.$1,
             endTime: timeRange.$2,
-            staffId: assignedStaff.id,
+            staffId: staff.id,
             shiftType: shiftType,
             assignmentStrategy: strategy.name,
           );
           assignedShifts.add(shift);
-          _recordAssignment(assignedStaff.id, currentDate, shiftType, assignedShifts, staffShiftCounts, staffTypeCounts, pairCounts);
+          _recordAssignment(staff.id, currentDate, shiftType, assignedShifts, staffShiftCounts, staffTypeCounts, pairCounts);
+        }
+
+        // この枠に付き添い必須スタッフの相方候補が既に在席しているか
+        bool companionPresent(CompanionRule rule) => assignedShifts.any((s) =>
+            _isSameDay(s.date, currentDate) && s.shiftType == shiftType && rule.companionIds.contains(s.staffId));
+
+        bool eligibleHere(Staff staff, {bool withCompanionReq = true}) => _isEligible(
+              staff,
+              currentDate,
+              shiftType,
+              assignedShifts,
+              staffShiftCounts,
+              maxConsecutiveDays,
+              minRestHours,
+              previousMonthShifts,
+              overnightCountsAsTwoDays: overnightCountsAsTwoDays,
+              ngPairKeys: ngPairKeys,
+              companionByStaff: withCompanionReq ? companionByStaff : const {},
+            );
+
+        int filled = 0;
+
+        // --- 底上げシード: 出勤が遅れている付き添い必須スタッフを、相方とセットで先に確保する ---
+        // 「ベテラン2人で埋まる枠」を「遅れている新人＋ベテラン」に振り向け、新人の出勤を公平水準まで引き上げる。
+        // 平均充足率（担当数/最大日数の平均）を超えたら対象外になるので入れ過ぎない。
+        if (companionByStaff.isNotEmpty) {
+          double fillRate(Staff s) =>
+              s.maxShiftsPerMonth > 0 ? (staffShiftCounts[s.id] ?? 0) / s.maxShiftsPerMonth : 1.0;
+          final workableForAvg = availableStaff.where((s) => s.maxShiftsPerMonth > 0).toList();
+          final avgFill = workableForAvg.isEmpty
+              ? 0.0
+              : workableForAvg.map(fillRate).reduce((a, b) => a + b) / workableForAvg.length;
+
+          // 遅れている順に処理
+          final laggers = availableStaff
+              .where((s) => (companionByStaff[s.id]?.hard ?? false) && fillRate(s) < avgFill)
+              .toList()
+            ..sort((a, b) => fillRate(a).compareTo(fillRate(b)));
+
+          for (final c in laggers) {
+            if (remainingSlots - filled < 2) break; // 本人＋相方で2席必要
+            final rule = companionByStaff[c.id]!;
+            if (companionPresent(rule)) continue; // 既に相方在席なら通常フローで入れる
+            if (!eligibleHere(c, withCompanionReq: false)) continue; // 本人が相方要件以外で適格か
+            final companions = availableStaff
+                .where((x) => x.id != c.id && rule.companionIds.contains(x.id) && eligibleHere(x))
+                .toList();
+            if (companions.isEmpty) continue;
+            final companion = _selectStaffForSlot(
+                companions, currentDate, shiftType, staffShiftCounts, staffTypeCounts, pairCounts, assignedShifts, strategy, rng);
+            place(companion);
+            place(c);
+            filled += 2;
+          }
+        }
+
+        while (filled < remainingSlots) {
+          final seatsLeft = remainingSlots - filled;
+
+          // 通常の適格者（付き添い必須スタッフは相方が在席する枠でだけ含まれる）
+          final eligible = availableStaff.where((s) => eligibleHere(s)).toList();
+
+          // ブートストラップ候補: 相方未在席でも、適格な相方を1人連れて来れば入れる付き添い必須スタッフ。
+          // 本人＋相方で2席必要なので seatsLeft>=2 のときだけ。これで本人も「1人目の席」を取りに行ける。
+          final bootstrap = <Staff>[];
+          if (seatsLeft >= 2) {
+            for (final staff in availableStaff) {
+              final rule = companionByStaff[staff.id];
+              if (rule == null || !rule.hard) continue;
+              if (companionPresent(rule)) continue; // 在席なら通常eligible側で扱う
+              if (!eligibleHere(staff, withCompanionReq: false)) continue; // 相方要件以外で適格か
+              final hasBringable =
+                  availableStaff.any((c) => c.id != staff.id && rule.companionIds.contains(c.id) && eligibleHere(c));
+              if (hasBringable) bootstrap.add(staff);
+            }
+          }
+
+          final eligibleIds = eligible.map((s) => s.id).toSet();
+          final pool = [...eligible, ...bootstrap.where((s) => !eligibleIds.contains(s.id))];
+          if (pool.isEmpty) {
+            unfilled += seatsLeft;
+            break;
+          }
+
+          final chosen = _selectStaffForSlot(
+            pool, currentDate, shiftType, staffShiftCounts, staffTypeCounts, pairCounts, assignedShifts, strategy, rng);
+
+          final chosenRule = companionByStaff[chosen.id];
+          if (chosenRule != null && chosenRule.hard && !companionPresent(chosenRule)) {
+            // ブートストラップ: 相方を1人先に確保してから本人を入れる（本人を単独にしない）
+            final companions = availableStaff
+                .where((c) => c.id != chosen.id && chosenRule.companionIds.contains(c.id) && eligibleHere(c))
+                .toList();
+            if (companions.isEmpty || seatsLeft < 2) {
+              // 想定外（poolに入る条件で担保済み）。安全側で残り席を諦める。
+              unfilled += seatsLeft;
+              break;
+            }
+            final companion = _selectStaffForSlot(
+                companions, currentDate, shiftType, staffShiftCounts, staffTypeCounts, pairCounts, assignedShifts, strategy, rng);
+            place(companion);
+            place(chosen);
+            filled += 2;
+          } else {
+            place(chosen);
+            filled++;
+          }
         }
       }
 
@@ -358,6 +457,8 @@ class ShiftAssignmentService {
     Set<String>? activeShiftTypeNames,
     List<Shift> previousMonthShifts = const [],
     bool overnightCountsAsTwoDays = true,
+    Set<String> ngPairKeys = const {},
+    Map<String, CompanionRule> companionByStaff = const {},
   }) {
     int granted = 0;
 
@@ -419,6 +520,8 @@ class ShiftAssignmentService {
                   minRestHours,
                   previousMonthShifts,
                   overnightCountsAsTwoDays: overnightCountsAsTwoDays,
+                  ngPairKeys: ngPairKeys,
+                  companionByStaff: companionByStaff,
                 ))
             .toList();
         if (validCandidates.isEmpty) continue;
@@ -478,6 +581,8 @@ class ShiftAssignmentService {
     int minRestHours,
     List<Shift> previousMonthShifts, {
     bool overnightCountsAsTwoDays = true,
+    Set<String> ngPairKeys = const {},
+    Map<String, CompanionRule> companionByStaff = const {},
   }) {
     // 休み希望・勤務不可日
     if (!_isStaffAvailableOnDate(staff, date)) return false;
@@ -494,6 +599,27 @@ class ShiftAssignmentService {
     // 同じ日に既にシフトがある場合は除外
     final hasShiftOnDate = assignedShifts.any((shift) => shift.staffId == staff.id && _isSameDay(shift.date, date));
     if (hasShiftOnDate) return false;
+
+    // NGペア: 同じ日・同じシフト枠にNG相手が既に入っているなら不可
+    if (ngPairKeys.isNotEmpty) {
+      final hasNgCoworker = assignedShifts.any((shift) =>
+          shift.staffId != staff.id &&
+          _isSameDay(shift.date, date) &&
+          shift.shiftType == shiftType &&
+          ngPairKeys.contains(Team.pairKey(staff.id, shift.staffId)));
+      if (hasNgCoworker) return false;
+    }
+
+    // 付き添い必須（ハード）: この枠に相方候補が誰も入っていないなら不可（＝単独勤務させない）。
+    // 相方が既にいる枠にのみ後乗りできる＝本人が枠の先頭になれないので一人になることがない。
+    final companionRule = companionByStaff[staff.id];
+    if (companionRule != null && companionRule.hard) {
+      final hasCompanion = assignedShifts.any((shift) =>
+          _isSameDay(shift.date, date) &&
+          shift.shiftType == shiftType &&
+          companionRule.companionIds.contains(shift.staffId));
+      if (!hasCompanion) return false;
+    }
 
     // 連続勤務日数（個別設定を優先、前月も考慮）
     // これから入れるシフトが夜勤なら2日分消費する扱い。直前までの連勤＋今回分が上限を超えたら不可。
@@ -543,7 +669,11 @@ class ShiftAssignmentService {
       return cost;
     }
 
-    double typeCountOf(Staff staff) => (staffTypeCounts[staff.id]?[shiftType] ?? 0).toDouble();
+    // 種別の偏りも最大出勤日数に対する比率で見る（全員同じ上限なら生枚数と同値）
+    double typeCountOf(Staff staff) {
+      final c = (staffTypeCounts[staff.id]?[shiftType] ?? 0).toDouble();
+      return staff.maxShiftsPerMonth > 0 ? c / staff.maxShiftsPerMonth : c;
+    }
 
     double fillRateOf(Staff staff) {
       final count = staffShiftCounts[staff.id] ?? 0;
@@ -566,7 +696,9 @@ class ShiftAssignmentService {
         if (cmp != 0) return cmp;
         return pairCostOf(a).compareTo(pairCostOf(b));
       } else {
-        // シフト数優先（公平性）: まず種別ごとの偏り → 総数 → ペア → 間隔
+        // 公平性優先: まず種別ごとの偏り → 総数（充足率）→ ペア → 間隔。
+        // 総数は別途「公平性ガードの窓」で範囲を抑えるので、ここでは種別を優先し、
+        // 窓内（総数がほぼ同じ人たち）で「その種別が少ない人」を選んで種別を均等化する。
         cmp = typeCountOf(a).compareTo(typeCountOf(b));
         if (cmp != 0) return cmp;
         cmp = fillRateOf(a).compareTo(fillRateOf(b));
@@ -577,17 +709,24 @@ class ShiftAssignmentService {
       }
     });
 
+    // 公平性ガード: 最も空いている人より充足率が _fairnessTolerance 以上多い人は探索対象から外す。
+    // これで「まだ空いている人がいるのに、もう入っている人を先に選ぶ」のを防ぎ、総数のバラつきを抑える。
+    // （whereは順序を保つので、種別バランス優先のソート順は維持される）
+    final minFill = eligible.map(fillRateOf).reduce(min);
+    final candidates = eligible.where((s) => fillRateOf(s) <= minFill + _fairnessTolerance).toList();
+    final pool = candidates.isNotEmpty ? candidates : eligible;
+
     // 上位K人から重み付きランダム（上位ほど選ばれやすい）
-    final k = min(_explorationTopK, eligible.length);
+    final k = min(_explorationTopK, pool.length);
     // 重み: [k, k-1, ..., 1]
     final totalWeight = k * (k + 1) / 2;
     double r = rng.nextDouble() * totalWeight;
     for (int i = 0; i < k; i++) {
       final w = (k - i).toDouble();
-      if (r < w) return eligible[i];
+      if (r < w) return pool[i];
       r -= w;
     }
-    return eligible.first;
+    return pool.first;
   }
 
   /// 割り当てを記録して各集計を更新する
@@ -617,7 +756,8 @@ class ShiftAssignmentService {
   // ========================================
   // 公平性スコア（高いほど良い候補）
   // ========================================
-  double _scoreCandidate(_Candidate candidate, List<Staff> availableStaff, Set<String> activeShiftTypeNames) {
+  double _scoreCandidate(_Candidate candidate, List<Staff> availableStaff, Set<String> activeShiftTypeNames,
+      [Map<String, CompanionRule> companionByStaff = const {}]) {
     final shifts = candidate.shifts;
 
     // 実際に働ける（月間最大>0）スタッフのみを公平性の対象にする
@@ -652,17 +792,23 @@ class ShiftAssignmentService {
       }
     }
 
-    // 総数の偏り（標準偏差）
-    final totalSpread = _stddev(workable.map((s) => totalCounts[s.id]!.toDouble()).toList());
+    // 公平性は「最大出勤日数に対する比率」で見る（多く働ける人は多く・少ない人は少なく）。
+    // 担当数を「平均最大日数を持っていたら何枚相当か」に正規化してから散らばりを測る。
+    // 全員の最大日数が同じなら正規化後＝生枚数になり、既存のチューニング（重み）を壊さない。
+    final avgMax = workable.map((s) => s.maxShiftsPerMonth).reduce((a, b) => a + b) / workable.length;
+    double normalized(int count, int max) => max > 0 ? count / max * avgMax : count.toDouble();
 
-    // 種別ごとの偏り（各種別について、その種別を担当できるスタッフ間の標準偏差を合計）
+    // 総数の偏り（比率ベースの標準偏差）
+    final totalSpread = _stddev(workable.map((s) => normalized(totalCounts[s.id]!, s.maxShiftsPerMonth)).toList());
+
+    // 種別ごとの偏り（各種別について、担当できるスタッフ間の比率の標準偏差を合計）
     double typeSpread = 0;
     for (final type in activeShiftTypeNames) {
       final oldName = _mapCustomToOldShiftType(type);
       final capable = workable.where((s) =>
           !s.unavailableShiftTypes.contains(type) && !s.unavailableShiftTypes.contains(oldName)).toList();
       if (capable.length < 2) continue;
-      final counts = capable.map((s) => (typeCounts[s.id]?[type] ?? 0).toDouble()).toList();
+      final counts = capable.map((s) => normalized(typeCounts[s.id]?[type] ?? 0, s.maxShiftsPerMonth)).toList();
       typeSpread += _stddev(counts);
     }
 
@@ -672,10 +818,27 @@ class ShiftAssignmentService {
       if (v > 1) pairPenalty += (v - 1) * (v - 1).toDouble();
     }
 
+    // 付き添い必須（ソフト）: 相方なしで単独になっている回数を罰する。
+    // ハードは適格判定で担保済みなので、ここではソフトのルールだけ見る。
+    double companionPenalty = 0;
+    if (companionByStaff.isNotEmpty) {
+      for (final shift in shifts) {
+        final rule = companionByStaff[shift.staffId];
+        if (rule == null || rule.hard) continue;
+        final hasCompanion = shifts.any((s) =>
+            !identical(s, shift) &&
+            _isSameDay(s.date, shift.date) &&
+            s.shiftType == shift.shiftType &&
+            rule.companionIds.contains(s.staffId));
+        if (!hasCompanion) companionPenalty += 1;
+      }
+    }
+
     final score = -_wUnfilled * candidate.unfilled -
         _wTypeSpread * typeSpread -
         _wTotalSpread * totalSpread -
-        _wPair * pairPenalty +
+        _wPair * pairPenalty -
+        _wCompanion * companionPenalty +
         _wPreferred * candidate.preferredGranted;
 
     return score;
