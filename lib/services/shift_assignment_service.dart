@@ -46,6 +46,11 @@ class ShiftAssignmentService {
   static const double _wPair = 1.0; // ペア（同じ2人組）の固定度
   static const double _wPreferred = 2.0; // 勤務希望日の充足（ボーナス）
   static const double _wCompanion = 50.0; // 付き添い必須(ソフト)違反＝相方なしで単独になった回数の罰
+  // 生成後の公平化リバランス（局所探索）の最大反復回数。改善が止まれば早期終了する。
+  static const int _rebalanceMaxIters = 300;
+  // リバランスのコスト重み。総数を支配的にして「総数優先・種別は総数を崩さない範囲」にする。
+  static const double _rebalanceTotalWeight = 100.0;
+  static const double _rebalanceTypeWeight = 1.0;
 
   // カスタム名から従来のShiftType名へのマッピング
   static Map<String, String> get _customToOldMapping => {
@@ -203,6 +208,52 @@ class ShiftAssignmentService {
         bestScore = score;
         best = candidate;
       }
+    }
+
+    // best候補に対して公平化リバランス（後処理で総数・種別の偏りをならす）。
+    // 貪欲生成の経路依存（種別の偏り・4連休など）を、制約を守ったまま付け替えで解消する。
+    if (best != null) {
+      _logFairnessSummary('リバランス前', best.shifts, availableStaff, activeShiftTypeNames);
+      // 厳しい連勤上限でも総数を揃えられるよう、先に「間隔ならし」で塊をほぐして隙間を作り、
+      // その隙間に総数/種別リバランスで少ない人のシフトを入れ、最後にもう一度ならす。
+      // 各パスとも制約安全（連勤上限などの違反は作らない）。
+      for (int round = 0; round < 2; round++) {
+        // 総数・種別を変えずに、勤務/休みのタイミングだけ平均化する（同種別の日付交換）。
+        _rebalanceSpacing(
+          best.shifts,
+          availableStaff,
+          maxConsecutiveDays,
+          minRestHours,
+          overnightCountsAsTwoDays,
+          ngPairKeys,
+          companionByStaff,
+          previousMonthShifts,
+        );
+        _rebalanceFairness(
+          best.shifts,
+          availableStaff,
+          activeShiftTypeNames,
+          maxConsecutiveDays,
+          minRestHours,
+          overnightCountsAsTwoDays,
+          ngPairKeys,
+          companionByStaff,
+          previousMonthShifts,
+        );
+      }
+      _rebalanceSpacing(
+        best.shifts,
+        availableStaff,
+        maxConsecutiveDays,
+        minRestHours,
+        overnightCountsAsTwoDays,
+        ngPairKeys,
+        companionByStaff,
+        previousMonthShifts,
+      );
+      _logFairnessSummary('リバランス後', best.shifts, availableStaff, activeShiftTypeNames);
+      // 念のため: 最終結果が連勤上限を満たしているか自動検証してログに出す。
+      _logConsecutiveCheck(best.shifts, availableStaff, maxConsecutiveDays, overnightCountsAsTwoDays, previousMonthShifts);
     }
 
     final result = best?.shifts ?? [];
@@ -622,12 +673,17 @@ class ShiftAssignmentService {
     }
 
     // 連続勤務日数（個別設定を優先、前月も考慮）
-    // これから入れるシフトが夜勤なら2日分消費する扱い。直前までの連勤＋今回分が上限を超えたら不可。
+    // これから入れるシフトが夜勤なら2日分消費する扱い。
+    // 「前の連勤 ＋ 今回 ＋ 後ろの連勤」が上限を超えたら不可。
+    // 前方向だけでなく後方向も見るのは、リバランス等でスケジュールの途中に差し込む場合に
+    // 差し込み日の未来側に既にある連勤を見落とさないため（生成は追加のみなので後ろ=0）。
     final effectiveMaxConsecutive = _getEffectiveMaxConsecutiveDays(staff, maxConsecutiveDays);
     final priorConsecutive = _getConsecutiveWorkDays(
         staff.id, date, assignedShifts, previousMonthShifts, overnightCountsAsTwoDays);
+    final forwardConsecutive = _getConsecutiveWorkDaysForward(
+        staff.id, date, assignedShifts, overnightCountsAsTwoDays);
     final newShiftCost = (overnightCountsAsTwoDays && _isOvernightShiftType(shiftType, date)) ? 2 : 1;
-    if (priorConsecutive + newShiftCost > effectiveMaxConsecutive) {
+    if (priorConsecutive + newShiftCost + forwardConsecutive > effectiveMaxConsecutive) {
       return false;
     }
 
@@ -842,6 +898,425 @@ class ShiftAssignmentService {
         _wPreferred * candidate.preferredGranted;
 
     return score;
+  }
+
+  // ========================================
+  // 生成後の公平化リバランス（局所探索 / 山登り）
+  // ========================================
+  // 2種類の操作で偏りをならす（制約は _isEligible を再利用して完全維持）：
+  //   ・付け替え: 1枚のシフトを別の適格スタッフに渡す → 主に「総数」を調整する。
+  //   ・交換    : 2人の異種別シフトの担当を入れ替える → 各自の総数を変えずに「種別」だけ調整する。
+  // コストは「総数」を支配的に重み付けし、総数を悪化させてまで種別を直すことはしない
+  // （夜勤ができない人が日勤を多めにやって総数を合わせる、等の正しい配分を壊さないため）。
+  void _rebalanceFairness(
+    List<Shift> shifts,
+    List<Staff> availableStaff,
+    Set<String> activeShiftTypeNames,
+    int maxConsecutiveDays,
+    int minRestHours,
+    bool overnightCountsAsTwoDays,
+    Set<String> ngPairKeys,
+    Map<String, CompanionRule> companionByStaff,
+    List<Shift> previousMonthShifts,
+  ) {
+    final workable = availableStaff.where((s) => s.maxShiftsPerMonth > 0).toList();
+    if (workable.length < 2 || shifts.isEmpty) return;
+
+    final staffById = {for (final s in workable) s.id: s};
+    final totalCounts = {for (final s in workable) s.id: 0};
+    final typeCounts = {for (final s in workable) s.id: <String, int>{}};
+    for (final sh in shifts) {
+      if (!totalCounts.containsKey(sh.staffId)) continue;
+      totalCounts[sh.staffId] = totalCounts[sh.staffId]! + 1;
+      final tm = typeCounts[sh.staffId]!;
+      tm[sh.shiftType] = (tm[sh.shiftType] ?? 0) + 1;
+    }
+
+    final avgMax = workable.map((s) => s.maxShiftsPerMonth).reduce((a, b) => a + b) / workable.length;
+    double norm(int c, int max) => max > 0 ? c / max * avgMax : c.toDouble();
+
+    // コスト = 総数の標準偏差（支配的）＋ 種別ごとの標準偏差の合計。
+    // 総数の重みを大きくして「総数優先・種別は総数を崩さない範囲で」を実現する。
+    double cost() {
+      final total = _stddev(workable.map((s) => norm(totalCounts[s.id]!, s.maxShiftsPerMonth)).toList());
+      double type = 0;
+      for (final t in activeShiftTypeNames) {
+        final oldName = _mapCustomToOldShiftType(t);
+        final capable = workable
+            .where((s) => !s.unavailableShiftTypes.contains(t) && !s.unavailableShiftTypes.contains(oldName))
+            .toList();
+        if (capable.length < 2) continue;
+        type += _stddev(capable.map((s) => norm(typeCounts[s.id]?[t] ?? 0, s.maxShiftsPerMonth)).toList());
+      }
+      return _rebalanceTotalWeight * total + _rebalanceTypeWeight * type;
+    }
+
+    // 付け替え（from→to に1枚）。total/type を更新。
+    void applyMove(String from, String to, String type, int sign) {
+      totalCounts[from] = totalCounts[from]! - sign;
+      totalCounts[to] = totalCounts[to]! + sign;
+      typeCounts[from]![type] = (typeCounts[from]![type] ?? 0) - sign;
+      typeCounts[to]![type] = (typeCounts[to]![type] ?? 0) + sign;
+    }
+
+    // 交換（a の type1 と b の type2 を入れ替え）。総数は不変、種別のみ変化。
+    void applySwap(String a, String b, String type1, String type2, int sign) {
+      typeCounts[a]![type1] = (typeCounts[a]![type1] ?? 0) - sign;
+      typeCounts[a]![type2] = (typeCounts[a]![type2] ?? 0) + sign;
+      typeCounts[b]![type2] = (typeCounts[b]![type2] ?? 0) - sign;
+      typeCounts[b]![type1] = (typeCounts[b]![type1] ?? 0) + sign;
+    }
+
+    for (int iter = 0; iter < _rebalanceMaxIters; iter++) {
+      double bestCost = cost();
+      int bestKind = 0; // 0=なし, 1=付け替え, 2=交換
+      Shift? m1;
+      Shift? m2;
+      String? toId;
+
+      // --- 付け替え候補（総数調整）---
+      for (final sh in shifts) {
+        final from = sh.staffId;
+        if (!totalCounts.containsKey(from)) continue;
+        for (final z in workable) {
+          if (z.id == from) continue;
+          if (!_canReassign(sh, z, shifts, totalCounts, maxConsecutiveDays, minRestHours,
+              overnightCountsAsTwoDays, ngPairKeys, companionByStaff, previousMonthShifts)) {
+            continue;
+          }
+          applyMove(from, z.id, sh.shiftType, 1);
+          final c = cost();
+          applyMove(from, z.id, sh.shiftType, -1);
+          if (c < bestCost - 1e-9) {
+            bestCost = c;
+            bestKind = 1;
+            m1 = sh;
+            toId = z.id;
+          }
+        }
+      }
+
+      // --- 交換候補（種別調整・総数不変）---
+      for (int i = 0; i < shifts.length; i++) {
+        final s1 = shifts[i];
+        if (!totalCounts.containsKey(s1.staffId)) continue;
+        for (int j = i + 1; j < shifts.length; j++) {
+          final s2 = shifts[j];
+          if (s1.staffId == s2.staffId || s1.shiftType == s2.shiftType) continue;
+          if (!totalCounts.containsKey(s2.staffId)) continue;
+          if (!_canSwap(s1, s2, shifts, totalCounts, staffById, maxConsecutiveDays, minRestHours,
+              overnightCountsAsTwoDays, ngPairKeys, companionByStaff, previousMonthShifts)) {
+            continue;
+          }
+          applySwap(s1.staffId, s2.staffId, s1.shiftType, s2.shiftType, 1);
+          final c = cost();
+          applySwap(s1.staffId, s2.staffId, s1.shiftType, s2.shiftType, -1);
+          if (c < bestCost - 1e-9) {
+            bestCost = c;
+            bestKind = 2;
+            m1 = s1;
+            m2 = s2;
+          }
+        }
+      }
+
+      if (bestKind == 1 && m1 != null && toId != null) {
+        applyMove(m1.staffId, toId, m1.shiftType, 1);
+        m1.staffId = toId;
+      } else if (bestKind == 2 && m1 != null && m2 != null) {
+        applySwap(m1.staffId, m2.staffId, m1.shiftType, m2.shiftType, 1);
+        final tmp = m1.staffId;
+        m1.staffId = m2.staffId;
+        m2.staffId = tmp;
+      } else {
+        break; // これ以上改善できない
+      }
+    }
+  }
+
+  /// シフト s1 と s2 の担当を入れ替えられるか（総数不変・種別交換）。制約は _isEligible を再利用。
+  bool _canSwap(
+    Shift s1,
+    Shift s2,
+    List<Shift> shifts,
+    Map<String, int> totalCounts,
+    Map<String, Staff> staffById,
+    int maxConsecutiveDays,
+    int minRestHours,
+    bool overnightCountsAsTwoDays,
+    Set<String> ngPairKeys,
+    Map<String, CompanionRule> companionByStaff,
+    List<Shift> previousMonthShifts,
+  ) {
+    final a = s1.staffId;
+    final b = s2.staffId;
+    final sa = staffById[a];
+    final sb = staffById[b];
+    if (sa == null || sb == null) return false;
+
+    // 両方を一旦外す。交換では総数不変なので、最大シフト数判定用に各自-1して評価する。
+    shifts.remove(s1);
+    shifts.remove(s2);
+    totalCounts[a] = totalCounts[a]! - 1;
+    totalCounts[b] = totalCounts[b]! - 1;
+
+    bool ok = _isEligible(sa, s2.date, s2.shiftType, shifts, totalCounts, maxConsecutiveDays, minRestHours,
+            previousMonthShifts,
+            overnightCountsAsTwoDays: overnightCountsAsTwoDays, ngPairKeys: ngPairKeys, companionByStaff: companionByStaff) &&
+        _isEligible(sb, s1.date, s1.shiftType, shifts, totalCounts, maxConsecutiveDays, minRestHours, previousMonthShifts,
+            overnightCountsAsTwoDays: overnightCountsAsTwoDays, ngPairKeys: ngPairKeys, companionByStaff: companionByStaff);
+    if (ok) {
+      ok = _slotCompanionsSatisfiedAfterSwap(s2.date, s2.shiftType, shifts, a, companionByStaff) &&
+          _slotCompanionsSatisfiedAfterSwap(s1.date, s1.shiftType, shifts, b, companionByStaff);
+    }
+
+    // 復元
+    totalCounts[a] = totalCounts[a]! + 1;
+    totalCounts[b] = totalCounts[b]! + 1;
+    shifts.add(s1);
+    shifts.add(s2);
+    return ok;
+  }
+
+  /// シフト sh の担当を z に付け替えられるか（制約は _isEligible を再利用）。
+  bool _canReassign(
+    Shift sh,
+    Staff z,
+    List<Shift> shifts,
+    Map<String, int> totalCounts,
+    int maxConsecutiveDays,
+    int minRestHours,
+    bool overnightCountsAsTwoDays,
+    Set<String> ngPairKeys,
+    Map<String, CompanionRule> companionByStaff,
+    List<Shift> previousMonthShifts,
+  ) {
+    // shを一旦外して、その枠をzに渡せるか判定する（元の担当はこの枠から抜ける前提）
+    shifts.remove(sh);
+    bool ok = _isEligible(
+      z,
+      sh.date,
+      sh.shiftType,
+      shifts,
+      totalCounts,
+      maxConsecutiveDays,
+      minRestHours,
+      previousMonthShifts,
+      overnightCountsAsTwoDays: overnightCountsAsTwoDays,
+      ngPairKeys: ngPairKeys,
+      companionByStaff: companionByStaff,
+    );
+    // 元の担当が抜けることで、同じ枠の付き添い必須スタッフを孤立させないか確認
+    if (ok) {
+      ok = _slotCompanionsSatisfiedAfterSwap(sh.date, sh.shiftType, shifts, z.id, companionByStaff);
+    }
+    shifts.add(sh); // 復元
+    return ok;
+  }
+
+  /// 付け替え後の枠（元担当を除き z を加えた状態）で、付き添い必須スタッフ全員に相方がいるか。
+  bool _slotCompanionsSatisfiedAfterSwap(
+    DateTime date,
+    String shiftType,
+    List<Shift> shiftsWithoutTarget,
+    String addedStaffId,
+    Map<String, CompanionRule> companionByStaff,
+  ) {
+    if (companionByStaff.isEmpty) return true;
+    final members = shiftsWithoutTarget
+        .where((s) => _isSameDay(s.date, date) && s.shiftType == shiftType)
+        .map((s) => s.staffId)
+        .toSet()
+      ..add(addedStaffId);
+    for (final m in members) {
+      final rule = companionByStaff[m];
+      if (rule == null || !rule.hard) continue;
+      final hasCompanion = members.any((o) => o != m && rule.companionIds.contains(o));
+      if (!hasCompanion) return false;
+    }
+    return true;
+  }
+
+  // ========================================
+  // 間隔ならし（タイミングの平均化）
+  // ========================================
+  // 「同じ種別のシフトを2人で日付交換する」操作だけで、勤務/休みの塊（5連勤→5連休など）をならす。
+  // 同種別交換なので各人の総数・種別の枚数は不変＝公平性を一切崩さない。タイミングだけ変える。
+  void _rebalanceSpacing(
+    List<Shift> shifts,
+    List<Staff> availableStaff,
+    int maxConsecutiveDays,
+    int minRestHours,
+    bool overnightCountsAsTwoDays,
+    Set<String> ngPairKeys,
+    Map<String, CompanionRule> companionByStaff,
+    List<Shift> previousMonthShifts,
+  ) {
+    final workable = availableStaff.where((s) => s.maxShiftsPerMonth > 0).toList();
+    if (workable.length < 2 || shifts.isEmpty) return;
+    final staffById = {for (final s in workable) s.id: s};
+    final workableIds = workable.map((s) => s.id).toSet();
+    final totalCounts = {for (final s in workable) s.id: 0};
+    for (final sh in shifts) {
+      if (totalCounts.containsKey(sh.staffId)) totalCounts[sh.staffId] = totalCounts[sh.staffId]! + 1;
+    }
+
+    // 勤務/休みの塊を罰するコスト（各人の連勤・連休の長さの二乗和）。小さいほど均等。
+    double spacingCost() {
+      final byStaff = <String, List<DateTime>>{};
+      for (final sh in shifts) {
+        if (!workableIds.contains(sh.staffId)) continue;
+        (byStaff[sh.staffId] ??= []).add(sh.date);
+      }
+      double sum = 0;
+      for (final days in byStaff.values) {
+        sum += _spacingPenaltyFor(days);
+      }
+      return sum;
+    }
+
+    for (int iter = 0; iter < _rebalanceMaxIters; iter++) {
+      double bestCost = spacingCost();
+      Shift? b1;
+      Shift? b2;
+
+      for (int i = 0; i < shifts.length; i++) {
+        final s1 = shifts[i];
+        if (!totalCounts.containsKey(s1.staffId)) continue;
+        for (int j = i + 1; j < shifts.length; j++) {
+          final s2 = shifts[j];
+          if (s1.staffId == s2.staffId) continue;
+          if (s1.shiftType != s2.shiftType) continue; // 同種別のみ＝総数・種別を変えない
+          if (_isSameDay(s1.date, s2.date)) continue; // 同日交換は意味なし
+          if (!totalCounts.containsKey(s2.staffId)) continue;
+          if (!_canSwap(s1, s2, shifts, totalCounts, staffById, maxConsecutiveDays, minRestHours,
+              overnightCountsAsTwoDays, ngPairKeys, companionByStaff, previousMonthShifts)) {
+            continue;
+          }
+          final a = s1.staffId;
+          final b = s2.staffId;
+          s1.staffId = b;
+          s2.staffId = a;
+          final c = spacingCost();
+          s1.staffId = a;
+          s2.staffId = b;
+          if (c < bestCost - 1e-9) {
+            bestCost = c;
+            b1 = s1;
+            b2 = s2;
+          }
+        }
+      }
+
+      if (b1 == null || b2 == null) break;
+      final tmp = b1.staffId;
+      b1.staffId = b2.staffId;
+      b2.staffId = tmp;
+    }
+  }
+
+  /// 1人の勤務日リストから、連勤・連休の塊の度合い（長さの二乗和）を計算する。小さいほど均等。
+  double _spacingPenaltyFor(List<DateTime> days) {
+    if (days.length < 2) return 0;
+    final sorted = days.map((d) => DateTime(d.year, d.month, d.day)).toList()..sort();
+    double pen = 0;
+    int run = 1;
+    for (int i = 1; i < sorted.length; i++) {
+      final gap = sorted[i].difference(sorted[i - 1]).inDays;
+      if (gap <= 1) {
+        run++;
+      } else {
+        pen += (run * run).toDouble();
+        final rest = gap - 1; // 間の休み日数
+        pen += (rest * rest).toDouble();
+        run = 1;
+      }
+    }
+    pen += (run * run).toDouble();
+    return pen;
+  }
+
+  /// 公平性の内訳をログ出力（各スタッフの総数＋種別ごとの枚数、総数の最大-最小差）。
+  void _logFairnessSummary(
+    String label,
+    List<Shift> shifts,
+    List<Staff> availableStaff,
+    Set<String> activeShiftTypeNames,
+  ) {
+    final workable = availableStaff.where((s) => s.maxShiftsPerMonth > 0).toList();
+    if (workable.isEmpty) return;
+    final totalCounts = {for (final s in workable) s.id: 0};
+    final typeCounts = {for (final s in workable) s.id: <String, int>{}};
+    final daysByStaff = <String, List<DateTime>>{};
+    for (final sh in shifts) {
+      if (!totalCounts.containsKey(sh.staffId)) continue;
+      totalCounts[sh.staffId] = totalCounts[sh.staffId]! + 1;
+      final tm = typeCounts[sh.staffId]!;
+      tm[sh.shiftType] = (tm[sh.shiftType] ?? 0) + 1;
+      (daysByStaff[sh.staffId] ??= []).add(sh.date);
+    }
+    final totals = workable.map((s) => totalCounts[s.id]!).toList();
+    final maxT = totals.reduce(max);
+    final minT = totals.reduce(min);
+    print('=== 公平性[$label] 総数差=${maxT - minT}（最大$maxT / 最小$minT）===');
+    for (final s in workable) {
+      final tm = typeCounts[s.id]!;
+      final typeStr = activeShiftTypeNames.map((t) => '$t:${tm[t] ?? 0}').join(' ');
+      final runs = _maxRunAndRest(daysByStaff[s.id] ?? const []);
+      print('  ${s.name}: 計${totalCounts[s.id]}（$typeStr）最長連勤${runs.$1} 最長連休${runs.$2}');
+    }
+  }
+
+  /// 最終結果が連勤上限を満たしているか検証してログ出力（デグレ検知用）。
+  /// 各スタッフの実際の最大連勤（夜勤2日カウント・前月跨ぎ込み）を上限と比較する。
+  void _logConsecutiveCheck(
+    List<Shift> shifts,
+    List<Staff> availableStaff,
+    int teamMaxConsecutive,
+    bool overnightCountsAsTwoDays,
+    List<Shift> previousMonthShifts,
+  ) {
+    final daysByStaff = <String, List<DateTime>>{};
+    for (final sh in shifts) {
+      (daysByStaff[sh.staffId] ??= []).add(sh.date);
+    }
+    int violations = 0;
+    for (final staff in availableStaff) {
+      final dates = daysByStaff[staff.id];
+      if (dates == null || dates.isEmpty) continue;
+      final effMax = _getEffectiveMaxConsecutiveDays(staff, teamMaxConsecutive);
+      int maxRun = 0;
+      for (final d in dates) {
+        // d+1日の「直前連勤」= dで終わる連勤の長さ（夜勤2日カウント・前月跨ぎ込み）
+        final run = _getConsecutiveWorkDays(
+            staff.id, d.add(const Duration(days: 1)), shifts, previousMonthShifts, overnightCountsAsTwoDays);
+        if (run > maxRun) maxRun = run;
+      }
+      if (maxRun > effMax) {
+        violations++;
+        print('⚠️ 連勤違反: ${staff.name} 最大連勤$maxRun > 上限$effMax');
+      }
+    }
+    print('連勤チェック: 違反$violations件（0なら全員上限以内）');
+  }
+
+  /// 勤務日リストから (最長連勤, 最長連休) を返す。
+  (int, int) _maxRunAndRest(List<DateTime> days) {
+    if (days.isEmpty) return (0, 0);
+    final sorted = days.map((d) => DateTime(d.year, d.month, d.day)).toList()..sort();
+    int maxRun = 1, run = 1, maxRest = 0;
+    for (int i = 1; i < sorted.length; i++) {
+      final gap = sorted[i].difference(sorted[i - 1]).inDays;
+      if (gap <= 1) {
+        run++;
+        if (run > maxRun) maxRun = run;
+      } else {
+        final rest = gap - 1;
+        if (rest > maxRest) maxRest = rest;
+        run = 1;
+      }
+    }
+    return (maxRun, maxRest);
   }
 
   double _stddev(List<double> values) {
@@ -1063,6 +1538,30 @@ class ShiftAssignmentService {
 
       consecutiveDays += (overnightCountsAsTwoDays && _isOvernightShift(shift)) ? 2 : 1;
       checkDate = checkDate.subtract(const Duration(days: 1));
+    }
+
+    return consecutiveDays;
+  }
+
+  // 指定日より「後ろ（未来側）」の連続勤務日数を計算する。
+  // スケジュールの途中にシフトを差し込む（リバランス）際、差し込み日の未来側にある連勤を
+  // 見落とさないために使う。前月は未来側に関係しないので考慮しない。
+  int _getConsecutiveWorkDaysForward(String staffId, DateTime date, List<Shift> assignedShifts,
+      [bool overnightCountsAsTwoDays = true]) {
+    int consecutiveDays = 0;
+    DateTime checkDate = date.add(const Duration(days: 1));
+
+    while (true) {
+      final shift = assignedShifts.where((shift) =>
+          shift.staffId == staffId &&
+          shift.date.year == checkDate.year &&
+          shift.date.month == checkDate.month &&
+          shift.date.day == checkDate.day).firstOrNull;
+
+      if (shift == null) break;
+
+      consecutiveDays += (overnightCountsAsTwoDays && _isOvernightShift(shift)) ? 2 : 1;
+      checkDate = checkDate.add(const Duration(days: 1));
     }
 
     return consecutiveDays;
