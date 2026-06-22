@@ -89,9 +89,10 @@ class StaffWelcomeScreen extends StatelessWidget {
               // メインボタン: アカウント登録して参加
               FilledButton.icon(
                 onPressed: () {
+                  // 招待された人向け → 登録後は招待コード入力へ直行
                   Navigator.of(context).push(
                     MaterialPageRoute(
-                      builder: (_) => const SignupScreen(),
+                      builder: (_) => const SignupScreen(joinExisting: true),
                     ),
                   );
                 },

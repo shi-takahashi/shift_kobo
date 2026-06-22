@@ -58,6 +58,7 @@ class _SetupWizardScreenState extends State<SetupWizardScreen> {
   int _staffCounter = 0;
 
   String? _selectedTemplate;
+  bool _defaultApplied = false; // ステップ2の「日勤のみ」デフォルトを実データへ反映済みか
   final Map<String, int> _headcounts = {}; // displayName -> 人数
 
   @override
@@ -67,6 +68,12 @@ class _SetupWizardScreenState extends State<SetupWizardScreen> {
     // 新規開始のみ計測（再開＝initialStep>0 は除く）
     if (_step == 0) {
       AnalyticsService.logWizardStep('start');
+    }
+    // 新規開始時はステップ2のデフォルトを「日勤のみ」にしておく。
+    // 先にチップの選択状態だけ立てておき（最初の描画から選択済みに見せる）、
+    // 実データ（有効シフト）の反映はステップ2表示時に設定読み込み完了後へ委ねる。
+    if (widget.initialStep == 0) {
+      _selectedTemplate = _templates.first.label; // 日勤のみ
     }
   }
 
@@ -306,6 +313,17 @@ class _SetupWizardScreenState extends State<SetupWizardScreen> {
   Widget _buildShiftTimeStep() {
     return Consumer<ShiftTimeProvider>(
       builder: (context, provider, child) {
+        // 新規開始時のみ、デフォルトの「日勤のみ」を一度だけ実データへ反映する。
+        // 設定（_settings/_docIds）の読み込み完了後に実行する必要があるため、ここで判定する。
+        if (widget.initialStep == 0 &&
+            !_defaultApplied &&
+            !provider.isLoading &&
+            provider.settings.isNotEmpty) {
+          _defaultApplied = true;
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted) _applyTemplate(_templates.first); // 日勤のみ
+          });
+        }
         final active = provider.settings.where((s) => s.isActive).toList();
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -456,104 +474,113 @@ class _SetupWizardScreenState extends State<SetupWizardScreen> {
   // ここでは自動作成しない（広告も出さない）。最初の自動作成はカレンダー画面の
   // 「自動作成」ボタンで本人にやってもらう（ボタンの場所を学習＋初回ヒントもそこで出る）。
   Widget _buildGenerateStep() {
-    return SingleChildScrollView(
-      child: Column(
-        children: [
-          const SizedBox(height: 24),
-          Icon(Icons.check_circle, color: Colors.green[600], size: 72),
-          const SizedBox(height: 16),
-          const Text('準備ができました！', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
-          const SizedBox(height: 8),
-          Text(
-            'スタッフ・シフト・必要人数の設定が完了しました。',
-            textAlign: TextAlign.center,
-            style: TextStyle(fontSize: 15, color: Colors.grey[850]),
-          ),
-          const SizedBox(height: 24),
-
-          // ===== 主役：次にすること（自動作成ボタンを押す）を強調 =====
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(18),
-            decoration: BoxDecoration(
-              color: Colors.blue.shade50,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: Colors.blue.shade300, width: 1.5),
-            ),
+    // 小型端末（iPhone SE2/SE3 等）でも「カレンダーを開く」ボタンが必ず
+    // ファーストビューに入るよう、ボタンは下部に固定し、説明部分のみスクロールさせる。
+    // （ステップ1〜3と同じ「Expanded＋下部ボタン」構造に合わせる）
+    return Column(
+      children: [
+        Expanded(
+          child: SingleChildScrollView(
             child: Column(
               children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(Icons.touch_app, size: 20, color: Colors.blue.shade700),
-                    const SizedBox(width: 6),
-                    Text('次にすること', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Colors.blue.shade900)),
-                  ],
-                ),
                 const SizedBox(height: 12),
+                Icon(Icons.check_circle, color: Colors.green[600], size: 56),
+                const SizedBox(height: 12),
+                const Text('準備ができました！', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
+                const SizedBox(height: 8),
                 Text(
-                  'このあと開くカレンダー画面の右上にある',
+                  'スタッフ・シフト・必要人数の設定が完了しました。',
                   textAlign: TextAlign.center,
-                  style: TextStyle(fontSize: 14, color: Colors.grey[850], height: 1.4),
+                  style: TextStyle(fontSize: 15, color: Colors.grey[850]),
                 ),
-                const SizedBox(height: 12),
-                // 実際の「自動作成」ボタンに似せた見本（認識しやすくするため）
+                const SizedBox(height: 16),
+
+                // ===== 主役：次にすること（自動作成ボタンを押す）を強調 =====
                 Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    color: Colors.blue.shade600,
-                    borderRadius: BorderRadius.circular(8),
+                    color: Colors.blue.shade50,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: Colors.blue.shade300, width: 1.5),
                   ),
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
-                  child: const Row(
-                    mainAxisSize: MainAxisSize.min,
+                  child: Column(
                     children: [
-                      Icon(Icons.auto_fix_high, size: 16, color: Colors.white),
-                      SizedBox(width: 4),
-                      Text('自動作成', style: TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w600)),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.touch_app, size: 20, color: Colors.blue.shade700),
+                          const SizedBox(width: 6),
+                          Text('次にすること', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Colors.blue.shade900)),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      Text(
+                        'このあと開くカレンダー画面の右上にある',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(fontSize: 14, color: Colors.grey[850], height: 1.4),
+                      ),
+                      const SizedBox(height: 12),
+                      // 実際の「自動作成」ボタンに似せた見本（認識しやすくするため）
+                      Container(
+                        decoration: BoxDecoration(
+                          color: Colors.blue.shade600,
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+                        child: const Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.auto_fix_high, size: 16, color: Colors.white),
+                            SizedBox(width: 4),
+                            Text('自動作成', style: TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w600)),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      Text(
+                        'を押してシフトを作成するだけ！\nさぁ、シフト管理を始めましょう。',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(fontSize: 14, color: Colors.grey[850], height: 1.5, fontWeight: FontWeight.w500),
+                      ),
                     ],
                   ),
                 ),
-                const SizedBox(height: 12),
-                Text(
-                  'を押してシフトを作成するだけ！\nさぁ、シフト管理を始めましょう。',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(fontSize: 14, color: Colors.grey[850], height: 1.5, fontWeight: FontWeight.w500),
+                const SizedBox(height: 16),
+
+                // ===== 補足（控えめ） =====
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text('ヒント', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.grey[600])),
                 ),
+                const SizedBox(height: 8),
+                _miniHint('作成されたシフトが気に入らなければ、もう一度「自動作成」すると、別案が作れます（毎回ちがう案）'),
+                const SizedBox(height: 6),
+                _miniHint('作成されたシフトは、日付をタップして手動で調整できます（追加・削除・入れ替え・日付移動）'),
+                const SizedBox(height: 6),
+                _miniHint('シフト表は「シフト表」画面から出力できます（PDF・画像・Excel）'),
+                const SizedBox(height: 6),
+                _miniHint('使い方は画面右上の「？」からいつでも確認できます'),
+                const SizedBox(height: 12),
               ],
             ),
           ),
-          const SizedBox(height: 20),
-
-          // ===== 補足（控えめ） =====
-          Align(
-            alignment: Alignment.centerLeft,
-            child: Text('ヒント', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.grey[600])),
+        ),
+        // 下部に固定するCTA（端末サイズに関わらず常に見える）
+        const SizedBox(height: 8),
+        SizedBox(
+          width: double.infinity,
+          child: FilledButton.icon(
+            onPressed: () {
+              AnalyticsService.logWizardStep('finished');
+              widget.onFinished();
+            },
+            icon: const Icon(Icons.calendar_month),
+            style: FilledButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 14)),
+            label: const Text('シフト管理を始める'),
           ),
-          const SizedBox(height: 8),
-          _miniHint('作成されたシフトが気に入らなければ、もう一度「自動作成」すると、別案が作れます（毎回ちがう案）'),
-          const SizedBox(height: 6),
-          _miniHint('作成されたシフトは、日付をタップして手動で調整できます（追加・削除・入れ替え・日付移動）'),
-          const SizedBox(height: 6),
-          _miniHint('シフト表は「シフト表」画面から出力できます（PDF・画像・Excel）'),
-          const SizedBox(height: 6),
-          _miniHint('使い方は画面右上の「？」からいつでも確認できます'),
-
-          const SizedBox(height: 24),
-          SizedBox(
-            width: double.infinity,
-            child: FilledButton.icon(
-              onPressed: () {
-                AnalyticsService.logWizardStep('finished');
-                widget.onFinished();
-              },
-              icon: const Icon(Icons.calendar_month),
-              style: FilledButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 14)),
-              label: const Text('カレンダーを開く'),
-            ),
-          ),
-          const SizedBox(height: 24),
-        ],
-      ),
+        ),
+      ],
     );
   }
 }

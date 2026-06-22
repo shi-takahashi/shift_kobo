@@ -220,6 +220,8 @@ class _ShiftEditDialogState extends State<ShiftEditDialog> {
                             // 新規シフト作成時は自動選択しない（ユーザーに選択させる）
                             
                             return DropdownButtonFormField<ShiftTimeSetting>(
+                              // 選択項目に幅いっぱいを与え、長いラベルでも右端に溢れさせない
+                              isExpanded: true,
                               decoration: const InputDecoration(
                                 labelText: 'シフトタイプ',
                                 border: OutlineInputBorder(),
@@ -242,7 +244,12 @@ class _ShiftEditDialogState extends State<ShiftEditDialog> {
                                         ),
                                       ),
                                       const SizedBox(width: 8),
-                                      Text('${setting.displayName} (${setting.timeRange})'),
+                                      Flexible(
+                                        child: Text(
+                                          '${setting.displayName} (${setting.timeRange})',
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      ),
                                     ],
                                   ),
                                 );
@@ -250,7 +257,6 @@ class _ShiftEditDialogState extends State<ShiftEditDialog> {
                               selectedItemBuilder: (context) {
                                 return activeSettings.map((setting) {
                                   return Row(
-                                    mainAxisSize: MainAxisSize.min,
                                     children: [
                                       CircleAvatar(
                                         radius: 8,
@@ -262,7 +268,12 @@ class _ShiftEditDialogState extends State<ShiftEditDialog> {
                                         ),
                                       ),
                                       const SizedBox(width: 8),
-                                      Text('${setting.displayName} (${setting.timeRange})'),
+                                      Expanded(
+                                        child: Text(
+                                          '${setting.displayName} (${setting.timeRange})',
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      ),
                                     ],
                                   );
                                 }).toList();

@@ -549,6 +549,16 @@ class _CalendarScreenState extends State<CalendarScreen> {
           // キーボード表示時にbodyを縮める必要がない。縮むと固定高のカレンダーが
           // 一瞬あふれてRenderFlexオーバーフローのアサートが出るため無効化する。
           resizeToAvoidBottomInset: false,
+          // シフト追加は、スタッフ画面の「スタッフを追加」と同じく浮かせたFABにする。
+          // フル幅ボタンで縦スペースを消費しないことで、シフト一覧の表示領域を確保する。
+          // 管理者・入替モード外・日付選択中のときだけ表示（旧フル幅ボタンと同条件）。
+          floatingActionButton: (widget.appUser.isAdmin && !_isSwapMode && _selectedDay != null)
+              ? FloatingActionButton.extended(
+                  onPressed: () => _showAddShiftDialog(context),
+                  icon: const Icon(Icons.add),
+                  label: const Text('シフトを追加'),
+                )
+              : null,
           appBar: _isSwapMode
               ? AppBar(
                   toolbarHeight: 50,
@@ -1097,6 +1107,8 @@ class _CalendarScreenState extends State<CalendarScreen> {
                                 thickness: 6.0,
                                 radius: const Radius.circular(3.0),
                                 child: ListView.builder(
+                                  // 最後のシフトがFABに隠れないよう下部に余白を確保
+                                  padding: const EdgeInsets.only(bottom: 88),
                                   itemCount: value.length,
                                   itemBuilder: (context, index) {
                                     final currentShift = value[index];
@@ -1116,22 +1128,8 @@ class _CalendarScreenState extends State<CalendarScreen> {
                               ),
                             ),
                           ],
-                          // 管理者のみ、かつ入れ替えモード中でない場合のみシフト追加ボタンを表示
-                          if (widget.appUser.isAdmin && !_isSwapMode)
-                            Padding(
-                              padding: const EdgeInsets.all(16.0),
-                              child: SizedBox(
-                                width: double.infinity,
-                                child: ElevatedButton.icon(
-                                  onPressed: () => _showAddShiftDialog(context),
-                                  icon: const Icon(Icons.add),
-                                  label: const Text('シフトを追加'),
-                                  style: ElevatedButton.styleFrom(
-                                    padding: const EdgeInsets.symmetric(vertical: 12),
-                                  ),
-                                ),
-                              ),
-                            ),
+                          // シフト追加ボタンはScaffoldのFAB（floatingActionButton）へ移設。
+                          // ここではフル幅ボタンを置かず、一覧の表示領域を確保する。
                         ],
                       );
                     },
