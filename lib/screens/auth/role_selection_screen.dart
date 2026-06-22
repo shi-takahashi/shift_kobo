@@ -123,9 +123,10 @@ class _RoleSelectionScreenState extends State<RoleSelectionScreen> {
                 elevation: 2,
                 child: InkWell(
                   onTap: () {
+                    // 招待を受けて参加 → 登録後は招待コード入力へ直行
                     Navigator.of(context).pushReplacement(
                       MaterialPageRoute(
-                        builder: (_) => const SignupScreen(),
+                        builder: (_) => const SignupScreen(joinExisting: true),
                       ),
                     );
                   },
@@ -163,7 +164,7 @@ class _RoleSelectionScreenState extends State<RoleSelectionScreen> {
                         ),
                         const SizedBox(height: 8),
                         Text(
-                          'チームに参加してシフトを確認できます。\n休み希望の申請もできます。',
+                          'チームに参加してシフトを確認できます。\n休み希望・勤務希望などの申請もできます。',
                           style: TextStyle(
                             fontSize: 13,
                             color: Colors.grey.shade700,

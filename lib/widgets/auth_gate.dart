@@ -47,9 +47,12 @@ class AuthGate extends StatelessWidget {
               return AppUser.fromFirestore(doc);
             }),
             builder: (context, userSnapshot) {
-              // 初回読み込み中、またはデータ待ちの場合はローディング
-              if (userSnapshot.connectionState == ConnectionState.waiting ||
-                  !userSnapshot.hasData) {
+              // 最初のデータが届くまで（waiting）だけローディング。
+              // ⚠️ ここで !hasData を条件に入れてはいけない:
+              //   ドキュメントが存在しない場合 .map() は null を emit するが、
+              //   AsyncSnapshot.hasData は (data != null) なので null だと false になり、
+              //   !hasData が永久に true → アカウント削除後にローディングで固まる（過去のデグレ）。
+              if (userSnapshot.connectionState == ConnectionState.waiting) {
                 debugPrint('🔄 [AuthGate] usersドキュメント読み込み中...');
                 return const Scaffold(
                   body: Center(
@@ -58,6 +61,18 @@ class AuthGate extends StatelessWidget {
                 );
               }
 
+              // 読み取りエラー時は有効なユーザーを誤って弾かないようローディング維持（自動リトライを待つ）。
+              // ※ Auth自体が無効化されればauthStateChangesがnullを発火し、外側で未ログイン処理される。
+              if (userSnapshot.hasError) {
+                debugPrint('⚠️ [AuthGate] usersドキュメント読み取りエラー: ${userSnapshot.error}');
+                return const Scaffold(
+                  body: Center(
+                    child: CircularProgressIndicator(),
+                  ),
+                );
+              }
+
+              // ここに来た時点で最初のemissionは届いている（null = ドキュメント無し も含む）。
               final appUser = userSnapshot.data;
 
               // usersドキュメントが存在しない場合（アカウント削除直後など）

@@ -3,12 +3,20 @@ import 'package:flutter/material.dart';
 import '../../models/app_user.dart';
 import '../../services/auth_service.dart';
 import '../team/join_team_screen.dart';
+import '../team/team_creation_screen.dart';
 import 'login_screen.dart';
 
 /// サインアップ（新規登録）画面
 class SignupScreen extends StatefulWidget {
+  /// 「招待を受けて参加する」経路かどうか。
+  /// - true: 登録後に「既存チームに参加（招待コード入力）」へ直行する。
+  /// - false（「シフト作成を始める」→アカウント登録）: 「新しいチーム作成」へ直行する。
+  /// 役割選択で意図が決まっているため、登録後に作成/参加の選択画面は挟まない。
+  final bool joinExisting;
+
   const SignupScreen({
     super.key,
+    this.joinExisting = false,
   });
 
   @override
@@ -80,10 +88,14 @@ class _SignupScreenState extends State<SignupScreen> {
 
       if (!mounted) return;
 
-      // 新規ユーザー → チーム作成 or 参加を選択
+      // 役割選択で選んだ意図に応じて、作成/参加の選択画面を挟まず直接その先へ進む。
       Navigator.of(context).pushReplacement(
         MaterialPageRoute(
-          builder: (_) => JoinTeamScreen(userId: user.uid),
+          builder: (_) => widget.joinExisting
+              // 招待を受けて参加：招待コード入力へ直行
+              ? JoinTeamScreen(userId: user.uid, startInInviteMode: true)
+              // シフト作成を始める：新しいチーム作成へ直行
+              : TeamCreationScreen(userId: user.uid),
         ),
       );
     } catch (e) {
@@ -265,12 +277,12 @@ class _SignupScreenState extends State<SignupScreen> {
                 // 注意事項
                 Card(
                   color: Colors.blue.shade50,
-                  child: const Padding(
-                    padding: EdgeInsets.all(12),
+                  child: Padding(
+                    padding: const EdgeInsets.all(12),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Row(
+                        const Row(
                           children: [
                             Icon(Icons.info_outline, size: 20),
                             SizedBox(width: 8),
@@ -280,15 +292,21 @@ class _SignupScreenState extends State<SignupScreen> {
                             ),
                           ],
                         ),
-                        SizedBox(height: 8),
-                        Text('1. アカウント作成'),
-                        Text('2. チーム作成 または チーム参加'),
-                        Text('3. シフト管理 または 共有を開始'),
-                        SizedBox(height: 8),
-                        Text(
-                          '※ チームは1人から作成・利用できます\n   後からスタッフを招待することも可能',
-                          style: TextStyle(fontSize: 11, color: Colors.grey),
-                        ),
+                        const SizedBox(height: 8),
+                        if (widget.joinExisting) ...const [
+                          Text('1. アカウント作成'),
+                          Text('2. 招待コードを入力してチームに参加'),
+                          Text('3. シフト確認・休み希望/勤務希望などの申請を開始'),
+                        ] else ...const [
+                          Text('1. アカウント作成'),
+                          Text('2. 新しいチームを作成'),
+                          Text('3. スタッフ登録・自動シフト作成を開始'),
+                          SizedBox(height: 8),
+                          Text(
+                            '※ チームは1人から作成・利用できます\n   後からスタッフを招待することも可能',
+                            style: TextStyle(fontSize: 11, color: Colors.grey),
+                          ),
+                        ],
                       ],
                     ),
                   ),

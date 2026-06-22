@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../services/auth_service.dart';
-import '../../widgets/invite_guide_dialog.dart';
 import '../home_screen.dart';
 
 /// チーム作成画面
@@ -61,49 +60,6 @@ class _TeamCreationScreenState extends State<TeamCreationScreen> {
     return null;
   }
 
-  /// 招待案内ダイアログを表示してホーム画面へ遷移
-  Future<void> _showInviteGuideDialog(
-    String teamId,
-    String teamName,
-    String inviteCode,
-  ) async {
-    // 招待案内ダイアログを表示
-    await showDialog(
-      context: context,
-      barrierDismissible: false, // 必ず「始める」ボタンを押してもらう
-      builder: (context) => InviteGuideDialog(
-        inviteCode: inviteCode,
-        teamName: teamName,
-      ),
-    );
-
-    if (!mounted) return;
-
-    // AppUserを取得（リトライ機能付き）
-    final appUser = await _getUserWithRetry(widget.userId);
-    if (!mounted) return;
-
-    if (appUser == null) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('ユーザー情報の取得に失敗しました。もう一度お試しください。')),
-        );
-      }
-      return;
-    }
-
-    // ホーム画面へ遷移（ウェルカムダイアログは表示しない）
-    Navigator.of(context).pushAndRemoveUntil(
-      MaterialPageRoute(
-        builder: (_) => HomeScreen(
-          appUser: appUser,
-          showWelcomeDialog: false, // 招待案内を表示したのでウェルカムは不要
-        ),
-      ),
-      (route) => false, // 全ての前の画面を削除
-    );
-  }
-
   /// チーム作成処理
   Future<void> _handleCreateTeam() async {
     if (!_formKey.currentState!.validate()) return;
@@ -112,7 +68,7 @@ class _TeamCreationScreenState extends State<TeamCreationScreen> {
 
     try {
       // チーム作成
-      final team = await _authService.createTeam(
+      await _authService.createTeam(
         teamName: _teamNameController.text.trim(),
         ownerId: widget.userId,
       );
@@ -127,8 +83,26 @@ class _TeamCreationScreenState extends State<TeamCreationScreen> {
         const SnackBar(content: Text('✅ チームを作成しました')),
       );
 
-      // 招待案内ダイアログを表示してからホーム画面へ
-      await _showInviteGuideDialog(team.id, team.name, team.inviteCode);
+      // 完了ダイアログ（招待案内）は出さず、そのままオンボーディング（ホーム画面）へ進む。
+      // 招待コードは後からチーム設定／招待画面で確認できるため、ここで見せる必要はない。
+      final appUser = await _getUserWithRetry(widget.userId);
+      if (!mounted) return;
+      if (appUser == null) {
+        setState(() => _isLoading = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('ユーザー情報の取得に失敗しました。もう一度お試しください。')),
+        );
+        return;
+      }
+      Navigator.of(context).pushAndRemoveUntil(
+        MaterialPageRoute(
+          builder: (_) => HomeScreen(
+            appUser: appUser,
+            showWelcomeDialog: false,
+          ),
+        ),
+        (route) => false,
+      );
     } catch (e) {
       if (!mounted) return;
 

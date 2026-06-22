@@ -49,10 +49,18 @@ $inviteCode
     // mailto URLを生成
     final uri = Uri.parse('mailto:$recipients?subject=$subject&body=$body');
 
-    // メーラーを起動
-    if (await canLaunchUrl(uri)) {
-      await launchUrl(uri);
-    } else {
+    // メーラーを起動する。
+    // ※ iOSでは canLaunchUrl(mailto:) が false を返すことがある（Info.plistの
+    //   LSApplicationQueriesSchemes未宣言や判定の癖）。canLaunchUrlで弾くと、
+    //   実際には開けるのに「失敗」扱いになりiOSだけメールが送れない状態になる。
+    //   launchUrl自体は canOpenURL を使わないため、直接呼ぶ（url_launcher公式の推奨）。
+    try {
+      final launched = await launchUrl(uri);
+      if (!launched) {
+        throw 'メーラーを起動できませんでした';
+      }
+    } catch (_) {
+      // メールアプリが未設定/削除済みなどで起動できない場合
       throw 'メーラーを起動できませんでした';
     }
   }

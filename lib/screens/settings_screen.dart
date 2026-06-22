@@ -292,55 +292,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
                 return Column(
                   children: [
-                    if (!isNotificationEnabled)
-                      // 通知が拒否されている場合の警告
-                      Container(
-                        margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: Colors.orange.shade50,
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(color: Colors.orange.shade200),
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              children: [
-                                Icon(Icons.warning_amber, color: Colors.orange.shade700, size: 20),
-                                const SizedBox(width: 8),
-                                Expanded(
-                                  child: Text(
-                                    '通知が無効になっています',
-                                    style: TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      color: Colors.orange.shade900,
-                                      fontSize: 14,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 8),
-                            Text(
-                              '通知を受け取るには、端末の設定から\nこのアプリの通知を許可してください。',
-                              style: TextStyle(
-                                color: Colors.orange.shade900,
-                                fontSize: 13,
-                              ),
-                            ),
-                            const SizedBox(height: 8),
-                            Text(
-                              '【設定方法】\n'
-                              '設定 → アプリ → シフト工房 → 通知',
-                              style: TextStyle(
-                                color: Colors.orange.shade800,
-                                fontSize: 12,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
                     // 管理者向け通知設定
                     if (widget.appUser.isAdmin)
                       SwitchListTile(
@@ -429,7 +380,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       ),
                       const SizedBox(height: 16),
                       const Text(
-                        'シフト管理を簡単に。チームでシフトを共有し、休み希望の申請・承認もスムーズに。',
+                        'シフト管理を簡単に。チームでシフトを共有し、休み希望・勤務希望などの申請・承認もスムーズに。',
                         style: TextStyle(fontSize: 14),
                       ),
                       const SizedBox(height: 16),
@@ -444,7 +395,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       const Text(
                         '• チームでシフト共有\n'
                         '• シフト自動割り当て\n'
-                        '• 休み希望の申請・承認\n'
+                        '• 休み希望・勤務希望などの申請・承認\n'
                         '• スタッフ管理\n'
                         '• シフト表出力',
                         style: TextStyle(fontSize: 14),

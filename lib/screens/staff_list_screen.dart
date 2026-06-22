@@ -588,7 +588,7 @@ class _DeleteStaffDialogState extends State<_DeleteStaffDialog> {
                           const SizedBox(height: 4),
                           Text(
                             '• ログイン情報（メールアドレス・パスワード）\n'
-                            '• 休み希望の申請データ\n'
+                            '• 休み希望・勤務希望などの申請データ\n'
                             '• スタッフ登録データ',
                             style: TextStyle(
                               color: Colors.red.shade900,

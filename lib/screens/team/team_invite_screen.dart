@@ -197,13 +197,19 @@ class _TeamInviteScreenState extends State<TeamInviteScreen> {
                               ),
                             ),
                             const SizedBox(height: 16),
-                            Text(
-                              _inviteCode ?? '',
-                              style: TextStyle(
-                                fontSize: 42,
-                                fontWeight: FontWeight.bold,
-                                letterSpacing: 4,
-                                color: Theme.of(context).colorScheme.primary,
+                            // 小型端末(iPhone SE等)で招待コードが2行に折り返さないよう、
+                            // 横幅に収まらない場合だけ縮小する（収まる端末では42ptのまま）。
+                            FittedBox(
+                              fit: BoxFit.scaleDown,
+                              child: Text(
+                                _inviteCode ?? '',
+                                maxLines: 1,
+                                style: TextStyle(
+                                  fontSize: 42,
+                                  fontWeight: FontWeight.bold,
+                                  letterSpacing: 4,
+                                  color: Theme.of(context).colorScheme.primary,
+                                ),
                               ),
                             ),
                           ],

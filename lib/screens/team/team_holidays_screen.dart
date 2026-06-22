@@ -26,12 +26,6 @@ class _TeamHolidaysScreenState extends State<TeamHolidaysScreen> {
   late List<DateTime> _specificDaysOff;
   late bool _holidaysOff;
   bool _showPastDaysOff = false;
-  bool _hasChanges = false;
-
-  // 元の値を保持
-  late List<int> _originalDaysOff;
-  late List<DateTime> _originalSpecificDaysOff;
-  late bool _originalHolidaysOff;
 
   @override
   void initState() {
@@ -41,27 +35,12 @@ class _TeamHolidaysScreenState extends State<TeamHolidaysScreen> {
         .map((dateStr) => DateTime.parse(dateStr))
         .toList();
     _holidaysOff = widget.team.teamHolidaysOff;
-
-    // 元の値を保存
-    _originalDaysOff = List.from(_selectedDaysOff);
-    _originalSpecificDaysOff = List.from(_specificDaysOff);
-    _originalHolidaysOff = _holidaysOff;
   }
 
-  void _checkForChanges() {
-    final hasChanges = _selectedDaysOff.toSet().difference(_originalDaysOff.toSet()).isNotEmpty ||
-        _originalDaysOff.toSet().difference(_selectedDaysOff.toSet()).isNotEmpty ||
-        _specificDaysOff.length != _originalSpecificDaysOff.length ||
-        !_specificDaysOff.every((date) => _originalSpecificDaysOff.any((d) =>
-            d.year == date.year && d.month == date.month && d.day == date.day)) ||
-        _holidaysOff != _originalHolidaysOff;
-
-    setState(() {
-      _hasChanges = hasChanges;
-    });
-  }
-
-  Future<void> _saveSettings() async {
+  /// 変更を即座にFirebaseへ保存する（自動保存）。
+  /// この画面はテキスト入力が無く、チップ選択・チェック・日付の追加/削除のみのため、
+  /// 操作した瞬間に保存する方針に統一している（シフト割当て設定の日付個別設定と同じ挙動）。
+  Future<void> _persist() async {
     try {
       final authService = AuthService();
 
@@ -76,20 +55,6 @@ class _TeamHolidaysScreenState extends State<TeamHolidaysScreen> {
         teamSpecificDaysOff: specificDaysOffStrings,
         teamHolidaysOff: _holidaysOff,
       );
-
-      // 保存後、元の値を更新
-      setState(() {
-        _originalDaysOff = List.from(_selectedDaysOff);
-        _originalSpecificDaysOff = List.from(_specificDaysOff);
-        _originalHolidaysOff = _holidaysOff;
-        _hasChanges = false;
-      });
-
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('チーム休み設定を保存しました')),
-        );
-      }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -121,34 +86,6 @@ class _TeamHolidaysScreenState extends State<TeamHolidaysScreen> {
                   const SizedBox(height: 16),
                   _buildSpecificDaysOffSection(),
                 ],
-              ),
-            ),
-          ),
-          SafeArea(
-            child: Container(
-              decoration: BoxDecoration(
-                color: Theme.of(context).scaffoldBackgroundColor,
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.1),
-                    blurRadius: 4,
-                    offset: const Offset(0, -2),
-                  ),
-                ],
-              ),
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
-                child: SizedBox(
-                  width: double.infinity,
-                  child: FilledButton.icon(
-                    onPressed: _hasChanges ? _saveSettings : null,
-                    icon: const Icon(Icons.save),
-                    label: const Text('設定を保存'),
-                    style: FilledButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: 12),
-                    ),
-                  ),
-                ),
               ),
             ),
           ),
@@ -200,7 +137,7 @@ class _TeamHolidaysScreenState extends State<TeamHolidaysScreen> {
             ),
             const SizedBox(height: 8),
             Text(
-              '定期的にチーム全体で休みとする曜日を選択',
+              '定期的にチーム全体で休みとする曜日を選択（変更すると自動保存）',
               style: Theme.of(context).textTheme.bodySmall,
             ),
             const SizedBox(height: 16),
@@ -228,8 +165,8 @@ class _TeamHolidaysScreenState extends State<TeamHolidaysScreen> {
                         } else {
                           _selectedDaysOff.remove(dayNumber);
                         }
-                        _checkForChanges();
                       });
+                      _persist();
                     },
                   ),
                 );
@@ -241,8 +178,8 @@ class _TeamHolidaysScreenState extends State<TeamHolidaysScreen> {
               onChanged: (value) {
                 setState(() {
                   _holidaysOff = value ?? false;
-                  _checkForChanges();
                 });
+                _persist();
               },
               title: const Text(
                 '祝日をチーム休みとする',
@@ -292,7 +229,7 @@ class _TeamHolidaysScreenState extends State<TeamHolidaysScreen> {
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        '特定の日付でチーム全体を休みとする日を追加',
+                        '特定の日付でチーム全体を休みとする日を追加（変更すると自動保存）',
                         style: Theme.of(context).textTheme.bodySmall,
                       ),
                     ],
@@ -334,8 +271,8 @@ class _TeamHolidaysScreenState extends State<TeamHolidaysScreen> {
                             d.year == date.year &&
                             d.month == date.month &&
                             d.day == date.day);
-                        _checkForChanges();
                       });
+                      _persist();
                     },
                   );
                 }).toList(),
@@ -383,8 +320,13 @@ class _TeamHolidaysScreenState extends State<TeamHolidaysScreen> {
             _specificDaysOff.add(dateOnly);
           }
         }
-        _checkForChanges();
       });
+      await _persist();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('チーム休み日を追加しました')),
+        );
+      }
     }
   }
 }
@@ -445,66 +387,86 @@ class _TeamHolidaysCalendarDialogState extends State<_TeamHolidaysCalendarDialog
 
   @override
   Widget build(BuildContext context) {
+    final size = MediaQuery.of(context).size;
     return Dialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      child: Container(
-        width: MediaQuery.of(context).size.width * 0.9,
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Row(
-              children: [
-                Icon(Icons.event_busy, color: Colors.orange.shade700),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    'チーム休み日の追加',
-                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                          color: Colors.orange.shade900,
-                        ),
+      // 小型端末(iPhone SE等)で日付選択後に縦へ伸びても画面外へはみ出さないよう、
+      // 高さを画面の85%までに制限。中身はスクロールさせ、ボタンは下部に固定して常に押せるようにする。
+      child: ConstrainedBox(
+        constraints: BoxConstraints(
+          maxWidth: size.width * 0.9,
+          maxHeight: size.height * 0.85,
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // タイトル（固定）
+              Row(
+                children: [
+                  Icon(Icons.event_busy, color: Colors.orange.shade700),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'チーム休日の追加',
+                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                            color: Colors.orange.shade900,
+                          ),
+                    ),
                   ),
-                ),
-                IconButton(
-                  onPressed: () => Navigator.pop(context),
-                  icon: const Icon(Icons.close),
-                ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            Text(
-              '休みにしたい日をタップして選択',
-              style: TextStyle(fontSize: 13, color: Colors.grey.shade600),
-            ),
-            const SizedBox(height: 16),
-            _buildCalendar(),
-            const SizedBox(height: 16),
-            _buildLegend(),
-            if (_selectedDates.isNotEmpty) ...[
-              const SizedBox(height: 16),
-              _buildSelectedDates(),
-            ],
-            const SizedBox(height: 16),
-            Row(
-              children: [
-                Expanded(
-                  child: OutlinedButton(
+                  IconButton(
                     onPressed: () => Navigator.pop(context),
-                    child: const Text('キャンセル'),
+                    icon: const Icon(Icons.close),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              // 中身（カレンダー・凡例・選択中リスト）はスクロール領域に入れる
+              Flexible(
+                child: SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        '休みにしたい日をタップして選択',
+                        style: TextStyle(fontSize: 13, color: Colors.grey.shade600),
+                      ),
+                      const SizedBox(height: 16),
+                      _buildCalendar(),
+                      const SizedBox(height: 16),
+                      _buildLegend(),
+                      if (_selectedDates.isNotEmpty) ...[
+                        const SizedBox(height: 16),
+                        _buildSelectedDates(),
+                      ],
+                    ],
                   ),
                 ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: FilledButton(
-                    onPressed: _selectedDates.isEmpty
-                        ? null
-                        : () => Navigator.pop(context, _selectedDates.toList()),
-                    child: Text('追加 (${_selectedDates.length}件)'),
+              ),
+              const SizedBox(height: 16),
+              // アクションボタン（下部固定＝小型端末でも必ず押せる）
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: () => Navigator.pop(context),
+                      child: const Text('キャンセル'),
+                    ),
                   ),
-                ),
-              ],
-            ),
-          ],
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: FilledButton(
+                      onPressed: _selectedDates.isEmpty
+                          ? null
+                          : () => Navigator.pop(context, _selectedDates.toList()),
+                      child: Text('追加 (${_selectedDates.length}件)'),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
         ),
       ),
     );
