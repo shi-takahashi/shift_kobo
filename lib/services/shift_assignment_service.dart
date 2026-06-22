@@ -120,6 +120,7 @@ class ShiftAssignmentService {
     AssignmentStrategy strategy = AssignmentStrategy.fairness,
     int maxConsecutiveDays = 5,
     int minRestHours = 12,
+    bool overnightCountsAsTwoDays = true,
     MonthlyRequirementsProvider? requirementsProvider,
   }) async {
     // 有効なスタッフのみ使用（月間最大シフト数0のスタッフは候補生成側で除外される）
@@ -174,6 +175,7 @@ class ShiftAssignmentService {
         team,
         maxConsecutiveDays,
         minRestHours,
+        overnightCountsAsTwoDays,
         strategy,
         requirementsProvider,
         activeShiftTypeNames,
@@ -215,6 +217,7 @@ class ShiftAssignmentService {
     Team? team,
     int maxConsecutiveDays,
     int minRestHours,
+    bool overnightCountsAsTwoDays,
     AssignmentStrategy strategy,
     MonthlyRequirementsProvider? requirementsProvider,
     Set<String> activeShiftTypeNames,
@@ -252,6 +255,7 @@ class ShiftAssignmentService {
       requirementsProvider: requirementsProvider,
       activeShiftTypeNames: activeShiftTypeNames,
       previousMonthShifts: previousMonthShifts,
+      overnightCountsAsTwoDays: overnightCountsAsTwoDays,
     );
 
     // --- 第2段階: 残りのシフトを割り当て ---
@@ -288,6 +292,7 @@ class ShiftAssignmentService {
                 maxConsecutiveDays,
                 minRestHours,
                 previousMonthShifts,
+                overnightCountsAsTwoDays: overnightCountsAsTwoDays,
               )).toList();
 
           if (eligible.isEmpty) {
@@ -352,6 +357,7 @@ class ShiftAssignmentService {
     MonthlyRequirementsProvider? requirementsProvider,
     Set<String>? activeShiftTypeNames,
     List<Shift> previousMonthShifts = const [],
+    bool overnightCountsAsTwoDays = true,
   }) {
     int granted = 0;
 
@@ -412,6 +418,7 @@ class ShiftAssignmentService {
                   maxConsecutiveDays,
                   minRestHours,
                   previousMonthShifts,
+                  overnightCountsAsTwoDays: overnightCountsAsTwoDays,
                 ))
             .toList();
         if (validCandidates.isEmpty) continue;
@@ -469,8 +476,9 @@ class ShiftAssignmentService {
     Map<String, int> staffShiftCounts,
     int maxConsecutiveDays,
     int minRestHours,
-    List<Shift> previousMonthShifts,
-  ) {
+    List<Shift> previousMonthShifts, {
+    bool overnightCountsAsTwoDays = true,
+  }) {
     // 休み希望・勤務不可日
     if (!_isStaffAvailableOnDate(staff, date)) return false;
 
@@ -488,8 +496,12 @@ class ShiftAssignmentService {
     if (hasShiftOnDate) return false;
 
     // 連続勤務日数（個別設定を優先、前月も考慮）
+    // これから入れるシフトが夜勤なら2日分消費する扱い。直前までの連勤＋今回分が上限を超えたら不可。
     final effectiveMaxConsecutive = _getEffectiveMaxConsecutiveDays(staff, maxConsecutiveDays);
-    if (_getConsecutiveWorkDays(staff.id, date, assignedShifts, previousMonthShifts) >= effectiveMaxConsecutive) {
+    final priorConsecutive = _getConsecutiveWorkDays(
+        staff.id, date, assignedShifts, previousMonthShifts, overnightCountsAsTwoDays);
+    final newShiftCost = (overnightCountsAsTwoDays && _isOvernightShiftType(shiftType, date)) ? 2 : 1;
+    if (priorConsecutive + newShiftCost > effectiveMaxConsecutive) {
       return false;
     }
 
@@ -867,7 +879,10 @@ class ShiftAssignmentService {
   }
 
   // 連続勤務日数を計算（前月のシフトも考慮）
-  int _getConsecutiveWorkDays(String staffId, DateTime date, List<Shift> assignedShifts, [List<Shift> previousMonthShifts = const []]) {
+  // overnightCountsAsTwoDays=true の場合、夜勤（日をまたぐシフト）は連勤2日分として数える。
+  // 夜勤は開始日だけでなく明けの翌日も実際に勤務しているため、暦日2日分を消費する扱い。
+  int _getConsecutiveWorkDays(String staffId, DateTime date, List<Shift> assignedShifts,
+      [List<Shift> previousMonthShifts = const [], bool overnightCountsAsTwoDays = true]) {
     int consecutiveDays = 0;
     DateTime checkDate = date.subtract(const Duration(days: 1));
 
@@ -875,16 +890,40 @@ class ShiftAssignmentService {
     final allShifts = [...assignedShifts, ...previousMonthShifts];
 
     while (true) {
-      bool hasShift = allShifts.any(
-          (shift) => shift.staffId == staffId && shift.date.year == checkDate.year && shift.date.month == checkDate.month && shift.date.day == checkDate.day);
+      final shift = allShifts.where((shift) =>
+          shift.staffId == staffId &&
+          shift.date.year == checkDate.year &&
+          shift.date.month == checkDate.month &&
+          shift.date.day == checkDate.day).firstOrNull;
 
-      if (!hasShift) break;
+      if (shift == null) break;
 
-      consecutiveDays++;
+      consecutiveDays += (overnightCountsAsTwoDays && _isOvernightShift(shift)) ? 2 : 1;
       checkDate = checkDate.subtract(const Duration(days: 1));
     }
 
     return consecutiveDays;
+  }
+
+  /// シフト（割り当て済み）が日をまたぐ夜勤かどうかを判定する。
+  /// 終了日が開始日より後、または時刻が開始＞終了（翌日まで）なら日またぎ。
+  bool _isOvernightShift(Shift shift) {
+    final startDay = DateTime(shift.startTime.year, shift.startTime.month, shift.startTime.day);
+    final endDay = DateTime(shift.endTime.year, shift.endTime.month, shift.endTime.day);
+    if (endDay.isAfter(startDay)) return true;
+
+    final startMinutes = shift.startTime.hour * 60 + shift.startTime.minute;
+    final endMinutes = shift.endTime.hour * 60 + shift.endTime.minute;
+    return endMinutes < startMinutes;
+  }
+
+  /// これから割り当てるシフトタイプが、その日付で日をまたぐ夜勤になるかを判定する。
+  bool _isOvernightShiftType(String shiftType, DateTime date) {
+    final range = _getShiftTimeRange(shiftType, date);
+    if (range == null) return false;
+    final startDay = DateTime(range.$1.year, range.$1.month, range.$1.day);
+    final endDay = DateTime(range.$2.year, range.$2.month, range.$2.day);
+    return endDay.isAfter(startDay);
   }
 
   // 最後の勤務からの経過日数を計算

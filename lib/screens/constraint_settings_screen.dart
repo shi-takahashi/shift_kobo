@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+
 import '../models/team.dart';
 import '../providers/shift_provider.dart';
 import '../services/analytics_service.dart';
@@ -19,6 +20,8 @@ class _ConstraintSettingsScreenState extends State<ConstraintSettingsScreen> {
 
   String? _originalMaxDays;
   String? _originalMinHours;
+  bool _countOvernightAsTwoDays = true;
+  bool _originalCountOvernight = true;
   bool _hasChanges = false;
   bool _isLoading = true;
   Team? _currentTeam;
@@ -56,10 +59,7 @@ class _ConstraintSettingsScreenState extends State<ConstraintSettingsScreen> {
     }
 
     try {
-      final teamDoc = await FirebaseFirestore.instance
-          .collection('teams')
-          .doc(teamId)
-          .get();
+      final teamDoc = await FirebaseFirestore.instance.collection('teams').doc(teamId).get();
 
       if (teamDoc.exists && mounted) {
         _currentTeam = Team.fromFirestore(teamDoc);
@@ -71,6 +71,8 @@ class _ConstraintSettingsScreenState extends State<ConstraintSettingsScreen> {
           _minRestHoursController.text = minHours;
           _originalMaxDays = maxDays;
           _originalMinHours = minHours;
+          _countOvernightAsTwoDays = _currentTeam!.countOvernightAsTwoDays;
+          _originalCountOvernight = _currentTeam!.countOvernightAsTwoDays;
           _isLoading = false;
         });
       }
@@ -116,8 +118,7 @@ class _ConstraintSettingsScreenState extends State<ConstraintSettingsScreen> {
       }
     }
 
-    final hasChanges = currentMaxDays != _originalMaxDays ||
-                       currentMinHours != _originalMinHours;
+    final hasChanges = currentMaxDays != _originalMaxDays || currentMinHours != _originalMinHours || _countOvernightAsTwoDays != _originalCountOvernight;
     final isValid = maxDaysError == null && minHoursError == null;
 
     setState(() {
@@ -149,17 +150,16 @@ class _ConstraintSettingsScreenState extends State<ConstraintSettingsScreen> {
       final updatedTeam = _currentTeam!.copyWith(
         maxConsecutiveDays: maxDays,
         minRestHours: minHours,
+        countOvernightAsTwoDays: _countOvernightAsTwoDays,
         updatedAt: DateTime.now(),
       );
 
-      await FirebaseFirestore.instance
-          .collection('teams')
-          .doc(_currentTeam!.id)
-          .update(updatedTeam.toFirestore());
+      await FirebaseFirestore.instance.collection('teams').doc(_currentTeam!.id).update(updatedTeam.toFirestore());
 
       setState(() {
         _originalMaxDays = maxDays.toString();
         _originalMinHours = minHours.toString();
+        _originalCountOvernight = _countOvernightAsTwoDays;
         _hasChanges = false;
         _currentTeam = updatedTeam;
       });
@@ -205,8 +205,8 @@ class _ConstraintSettingsScreenState extends State<ConstraintSettingsScreen> {
                           Text(
                             'ここで設定した値は、自動シフト割り当て時のデフォルト値として使用されます。',
                             style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                              color: Colors.grey[600],
-                            ),
+                                  color: Colors.grey[600],
+                                ),
                           ),
                           const SizedBox(height: 24),
                           Card(
@@ -243,6 +243,42 @@ class _ConstraintSettingsScreenState extends State<ConstraintSettingsScreen> {
                                     errorText: _minHoursError,
                                     icon: Icons.access_time,
                                     description: '勤務終了から次の勤務開始までの最低休息時間（0時間以上）',
+                                  ),
+                                  const SizedBox(height: 24),
+                                  const Divider(),
+                                  SwitchListTile(
+                                    contentPadding: EdgeInsets.zero,
+                                    value: _countOvernightAsTwoDays,
+                                    onChanged: (value) {
+                                      setState(() {
+                                        _countOvernightAsTwoDays = value;
+                                      });
+                                      _checkForChanges();
+                                    },
+                                    title: Row(
+                                      children: [
+                                        Icon(Icons.nightlight_round, size: 16, color: Colors.grey[700]),
+                                        const SizedBox(width: 8),
+                                        const Text(
+                                          '夜勤を連勤2日分として数える',
+                                          style: TextStyle(
+                                            fontSize: 14,
+                                            fontWeight: FontWeight.w500,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                    subtitle: Padding(
+                                      padding: const EdgeInsets.only(top: 4),
+                                      child: Text(
+                                        '日をまたぐ夜勤（例：22:00〜翌7:00）を連勤上限の2日分として数えます。'
+                                        'オフにすると1日分として数えます。',
+                                        style: TextStyle(
+                                          fontSize: 12,
+                                          color: Colors.grey[600],
+                                        ),
+                                      ),
+                                    ),
                                   ),
                                 ],
                               ),

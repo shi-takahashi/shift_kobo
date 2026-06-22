@@ -505,6 +505,7 @@ class _AutoAssignmentDialogState extends State<AutoAssignmentDialog> {
         strategy: _selectedStrategy,
         maxConsecutiveDays: maxConsecutiveDays,
         minRestHours: minRestHours,
+        overnightCountsAsTwoDays: _currentTeam?.countOvernightAsTwoDays ?? true,
         requirementsProvider: requirementsProvider,
       );
 

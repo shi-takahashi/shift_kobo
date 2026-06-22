@@ -11,6 +11,7 @@ class Team {
   final DateTime? shiftDeadline; // 休み希望締め日
   final int maxConsecutiveDays;  // 連続勤務日数上限（デフォルト5日）
   final int minRestHours;        // 勤務間インターバル（デフォルト12時間）
+  final bool countOvernightAsTwoDays; // 夜勤(日またぎ)を連勤2日分として数えるか（デフォルトtrue）
   final List<int> teamDaysOff;   // チーム全体の曜日休み（1=月曜〜7=日曜）
   final List<String> teamSpecificDaysOff; // チーム全体の特定日休み（ISO8601形式）
   final bool teamHolidaysOff;    // チーム全体の祝日休み
@@ -27,6 +28,7 @@ class Team {
     this.shiftDeadline,
     this.maxConsecutiveDays = 5,  // デフォルト5日
     this.minRestHours = 12,        // デフォルト12時間
+    this.countOvernightAsTwoDays = true, // デフォルト: 夜勤は連勤2日分
     List<int>? teamDaysOff,
     List<String>? teamSpecificDaysOff,
     this.teamHolidaysOff = false,
@@ -48,6 +50,7 @@ class Team {
       shiftDeadline: (data['shiftDeadline'] as Timestamp?)?.toDate(),
       maxConsecutiveDays: data['maxConsecutiveDays'] ?? 5,
       minRestHours: data['minRestHours'] ?? 12,
+      countOvernightAsTwoDays: data['countOvernightAsTwoDays'] ?? true,
       teamDaysOff: List<int>.from(data['teamDaysOff'] ?? []),
       teamSpecificDaysOff: List<String>.from(data['teamSpecificDaysOff'] ?? []),
       teamHolidaysOff: data['teamHolidaysOff'] ?? false,
@@ -69,6 +72,7 @@ class Team {
           : null,
       'maxConsecutiveDays': maxConsecutiveDays,
       'minRestHours': minRestHours,
+      'countOvernightAsTwoDays': countOvernightAsTwoDays,
       'teamDaysOff': teamDaysOff,
       'teamSpecificDaysOff': teamSpecificDaysOff,
       'teamHolidaysOff': teamHolidaysOff,
@@ -88,6 +92,7 @@ class Team {
     DateTime? shiftDeadline,
     int? maxConsecutiveDays,
     int? minRestHours,
+    bool? countOvernightAsTwoDays,
     List<int>? teamDaysOff,
     List<String>? teamSpecificDaysOff,
     bool? teamHolidaysOff,
@@ -104,6 +109,7 @@ class Team {
       shiftDeadline: shiftDeadline ?? this.shiftDeadline,
       maxConsecutiveDays: maxConsecutiveDays ?? this.maxConsecutiveDays,
       minRestHours: minRestHours ?? this.minRestHours,
+      countOvernightAsTwoDays: countOvernightAsTwoDays ?? this.countOvernightAsTwoDays,
       teamDaysOff: teamDaysOff ?? this.teamDaysOff,
       teamSpecificDaysOff: teamSpecificDaysOff ?? this.teamSpecificDaysOff,
       teamHolidaysOff: teamHolidaysOff ?? this.teamHolidaysOff,
