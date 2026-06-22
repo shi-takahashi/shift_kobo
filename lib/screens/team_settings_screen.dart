@@ -186,7 +186,7 @@ class _TeamSettingsScreenState extends State<TeamSettingsScreen> {
         ListTile(
           leading: const Icon(Icons.people_alt),
           title: const Text('ペア設定'),
-          subtitle: const Text('新人の付き添い必須・NGペアを設定'),
+          subtitle: const Text('新人の付き添い必須やNGペアを設定'),
           trailing: const Icon(Icons.chevron_right),
           onTap: () {
             final shiftProvider = context.read<ShiftProvider>();
