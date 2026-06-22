@@ -11,7 +11,7 @@ import '../services/analytics_service.dart';
 import '../widgets/banner_ad_widget.dart';
 
 /// ペア設定画面（管理者専用）
-/// NGペア（組ませない）を設定する。固定ペア（必ず一緒）は今後追加予定。
+/// 新人の付き添い必須（誰か1人と必ず同席）と、NGペア（組ませない）を設定する。
 class PairSettingsScreen extends StatefulWidget {
   const PairSettingsScreen({super.key});
 
