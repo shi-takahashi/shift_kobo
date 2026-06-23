@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 import 'companion_rule.dart';
+import 'consecutive_days_off_rule.dart';
 
 /// チーム（組織単位）
 class Team {
@@ -19,6 +20,9 @@ class Team {
   final List<int> teamDaysOff;   // チーム全体の曜日休み（1=月曜〜7=日曜）
   final List<String> teamSpecificDaysOff; // チーム全体の特定日休み（ISO8601形式）
   final bool teamHolidaysOff;    // チーム全体の祝日休み
+  // 連休（日付未指定）の確保ルール。空なら機能オフ。
+  // 例: [2連休×2回, 3連休×1回] のように複数の組み合わせを指定できる。
+  final List<ConsecutiveDaysOffRule> consecutiveDaysOffRules;
   final DateTime createdAt;     // 作成日時
   final DateTime updatedAt;     // 更新日時
 
@@ -38,12 +42,14 @@ class Team {
     List<int>? teamDaysOff,
     List<String>? teamSpecificDaysOff,
     this.teamHolidaysOff = false,
+    List<ConsecutiveDaysOffRule>? consecutiveDaysOffRules,
     required this.createdAt,
     required this.updatedAt,
   })  : ngPairs = ngPairs ?? [],
         companionRules = companionRules ?? [],
         teamDaysOff = teamDaysOff ?? [],
-        teamSpecificDaysOff = teamSpecificDaysOff ?? [];
+        teamSpecificDaysOff = teamSpecificDaysOff ?? [],
+        consecutiveDaysOffRules = consecutiveDaysOffRules ?? [];
 
   /// ペアの安定キー（順序に依存しない）。スタッフID2つから一意なキーを作る。
   static String pairKey(String a, String b) => a.compareTo(b) <= 0 ? '$a|$b' : '$b|$a';
@@ -79,9 +85,30 @@ class Team {
       teamDaysOff: List<int>.from(data['teamDaysOff'] ?? []),
       teamSpecificDaysOff: List<String>.from(data['teamSpecificDaysOff'] ?? []),
       teamHolidaysOff: data['teamHolidaysOff'] ?? false,
+      consecutiveDaysOffRules: _parseConsecutiveDaysOffRules(data),
       createdAt: (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
       updatedAt: (data['updatedAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
     );
+  }
+
+  /// 連休ルールをFirestoreデータから復元する。
+  /// 旧フィールド（consecutiveDaysOffLength / consecutiveDaysOffCount）が残っている
+  /// チームは、1ルールへ移行して読み込む（後方互換）。
+  static List<ConsecutiveDaysOffRule> _parseConsecutiveDaysOffRules(Map<String, dynamic> data) {
+    final raw = data['consecutiveDaysOffRules'] as List<dynamic>?;
+    if (raw != null) {
+      return raw
+          .map((e) => ConsecutiveDaysOffRule.fromMap(Map<String, dynamic>.from(e as Map)))
+          .where((r) => r.length >= 2 && r.count >= 1)
+          .toList();
+    }
+    // 旧スカラー形式からの移行
+    final oldCount = (data['consecutiveDaysOffCount'] as num?)?.toInt() ?? 0;
+    if (oldCount >= 1) {
+      final oldLength = (data['consecutiveDaysOffLength'] as num?)?.toInt() ?? 2;
+      return [ConsecutiveDaysOffRule(length: oldLength, count: oldCount)];
+    }
+    return [];
   }
 
   /// Firestoreへ保存
@@ -103,6 +130,7 @@ class Team {
       'teamDaysOff': teamDaysOff,
       'teamSpecificDaysOff': teamSpecificDaysOff,
       'teamHolidaysOff': teamHolidaysOff,
+      'consecutiveDaysOffRules': consecutiveDaysOffRules.map((e) => e.toMap()).toList(),
       'createdAt': Timestamp.fromDate(createdAt),
       'updatedAt': Timestamp.fromDate(updatedAt),
     };
@@ -125,6 +153,7 @@ class Team {
     List<int>? teamDaysOff,
     List<String>? teamSpecificDaysOff,
     bool? teamHolidaysOff,
+    List<ConsecutiveDaysOffRule>? consecutiveDaysOffRules,
     DateTime? createdAt,
     DateTime? updatedAt,
   }) {
@@ -144,6 +173,7 @@ class Team {
       teamDaysOff: teamDaysOff ?? this.teamDaysOff,
       teamSpecificDaysOff: teamSpecificDaysOff ?? this.teamSpecificDaysOff,
       teamHolidaysOff: teamHolidaysOff ?? this.teamHolidaysOff,
+      consecutiveDaysOffRules: consecutiveDaysOffRules ?? this.consecutiveDaysOffRules,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
     );

@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../models/consecutive_days_off_rule.dart';
 import '../models/team.dart';
 import '../providers/shift_provider.dart';
 import '../services/analytics_service.dart';
@@ -25,6 +26,10 @@ class _ConstraintSettingsScreenState extends State<ConstraintSettingsScreen> {
   bool _hasChanges = false;
   bool _isLoading = true;
   Team? _currentTeam;
+
+  // 連休（日付未指定）の確保ルール群。空なら機能オフ。
+  List<ConsecutiveDaysOffRule> _daysOffRules = [];
+  List<ConsecutiveDaysOffRule> _originalDaysOffRules = [];
 
   String? _maxDaysError;
   String? _minHoursError;
@@ -71,6 +76,12 @@ class _ConstraintSettingsScreenState extends State<ConstraintSettingsScreen> {
           _minRestHoursController.text = minHours;
           _originalMaxDays = maxDays;
           _originalMinHours = minHours;
+          _daysOffRules = _currentTeam!.consecutiveDaysOffRules
+              .map((r) => r.copyWith())
+              .toList();
+          _originalDaysOffRules = _currentTeam!.consecutiveDaysOffRules
+              .map((r) => r.copyWith())
+              .toList();
           _countOvernightAsTwoDays = _currentTeam!.countOvernightAsTwoDays;
           _originalCountOvernight = _currentTeam!.countOvernightAsTwoDays;
           _isLoading = false;
@@ -118,7 +129,10 @@ class _ConstraintSettingsScreenState extends State<ConstraintSettingsScreen> {
       }
     }
 
-    final hasChanges = currentMaxDays != _originalMaxDays || currentMinHours != _originalMinHours || _countOvernightAsTwoDays != _originalCountOvernight;
+    final hasChanges = currentMaxDays != _originalMaxDays ||
+        currentMinHours != _originalMinHours ||
+        !_rulesEqual(_daysOffRules, _originalDaysOffRules) ||
+        _countOvernightAsTwoDays != _originalCountOvernight;
     final isValid = maxDaysError == null && minHoursError == null;
 
     setState(() {
@@ -126,6 +140,14 @@ class _ConstraintSettingsScreenState extends State<ConstraintSettingsScreen> {
       _maxDaysError = maxDaysError;
       _minHoursError = minHoursError;
     });
+  }
+
+  bool _rulesEqual(List<ConsecutiveDaysOffRule> a, List<ConsecutiveDaysOffRule> b) {
+    if (a.length != b.length) return false;
+    for (int i = 0; i < a.length; i++) {
+      if (a[i] != b[i]) return false;
+    }
+    return true;
   }
 
   Future<void> _saveSettings() async {
@@ -150,6 +172,7 @@ class _ConstraintSettingsScreenState extends State<ConstraintSettingsScreen> {
       final updatedTeam = _currentTeam!.copyWith(
         maxConsecutiveDays: maxDays,
         minRestHours: minHours,
+        consecutiveDaysOffRules: _daysOffRules.map((r) => r.copyWith()).toList(),
         countOvernightAsTwoDays: _countOvernightAsTwoDays,
         updatedAt: DateTime.now(),
       );
@@ -159,6 +182,7 @@ class _ConstraintSettingsScreenState extends State<ConstraintSettingsScreen> {
       setState(() {
         _originalMaxDays = maxDays.toString();
         _originalMinHours = minHours.toString();
+        _originalDaysOffRules = _daysOffRules.map((r) => r.copyWith()).toList();
         _originalCountOvernight = _countOvernightAsTwoDays;
         _hasChanges = false;
         _currentTeam = updatedTeam;
@@ -286,6 +310,54 @@ class _ConstraintSettingsScreenState extends State<ConstraintSettingsScreen> {
                           ),
                           const SizedBox(height: 16),
                           Card(
+                            child: Padding(
+                              padding: const EdgeInsets.all(16.0),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
+                                    children: [
+                                      const Icon(Icons.weekend, size: 20),
+                                      const SizedBox(width: 8),
+                                      Text(
+                                        '連休の確保',
+                                        style: Theme.of(context).textTheme.titleMedium,
+                                      ),
+                                    ],
+                                  ),
+                                  const Divider(),
+                                  const SizedBox(height: 8),
+                                  Text(
+                                    '日付を指定せず「月のどこかで連続した休み」を確保します。'
+                                    '人手に余裕のある位置に自動で空けます（無理な場合は確保しないことがあります）。\n'
+                                    '「2連休を2回」「3連休を1回」のように複数の組み合わせを設定できます。',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: Colors.grey[600],
+                                    ),
+                                  ),
+                                  const SizedBox(height: 12),
+                                  ..._buildDaysOffRuleRows(),
+                                  const SizedBox(height: 4),
+                                  Align(
+                                    alignment: Alignment.centerLeft,
+                                    child: TextButton.icon(
+                                      onPressed: _daysOffRules.length < _daysOffLengthOptions.length
+                                          ? _addDaysOffRule
+                                          : null,
+                                      icon: const Icon(Icons.add, size: 18),
+                                      label: const Text('連休パターンを追加'),
+                                      style: TextButton.styleFrom(
+                                        padding: const EdgeInsets.symmetric(horizontal: 8),
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+                          Card(
                             color: Colors.blue.shade50,
                             child: Padding(
                               padding: const EdgeInsets.all(12.0),
@@ -347,6 +419,101 @@ class _ConstraintSettingsScreenState extends State<ConstraintSettingsScreen> {
               ],
             ),
     );
+  }
+
+  // ===== 連休ルール（リスト編集） =====
+
+  static const List<int> _daysOffLengthOptions = [2, 3, 4, 5, 6, 7];
+  static const List<int> _daysOffCountOptions = [1, 2, 3, 4, 5];
+
+  List<Widget> _buildDaysOffRuleRows() {
+    if (_daysOffRules.isEmpty) {
+      return [
+        Padding(
+          padding: const EdgeInsets.symmetric(vertical: 4),
+          child: Text(
+            '設定なし（連休の自動確保はオフ）',
+            style: TextStyle(fontSize: 13, color: Colors.grey[500]),
+          ),
+        ),
+      ];
+    }
+    return List.generate(_daysOffRules.length, (index) {
+      final rule = _daysOffRules[index];
+      // 選択肢に無い値（旧データ等）が来ても落ちないように補正
+      final lengthValue =
+          _daysOffLengthOptions.contains(rule.length) ? rule.length : _daysOffLengthOptions.first;
+      final countValue =
+          _daysOffCountOptions.contains(rule.count) ? rule.count : _daysOffCountOptions.first;
+      // 同じ長さの連休を複数行作っても意味がないので、他の行で使用中の長さは選べないようにする
+      final usedByOthers = <int>{
+        for (int j = 0; j < _daysOffRules.length; j++)
+          if (j != index) _daysOffRules[j].length,
+      };
+      final lengthItems = _daysOffLengthOptions
+          .where((v) => v == lengthValue || !usedByOthers.contains(v))
+          .toList();
+      return Padding(
+        padding: const EdgeInsets.symmetric(vertical: 4),
+        child: Row(
+          children: [
+            DropdownButton<int>(
+              value: lengthValue,
+              items: lengthItems
+                  .map((v) => DropdownMenuItem(value: v, child: Text('$v')))
+                  .toList(),
+              onChanged: (v) {
+                if (v == null) return;
+                setState(() {
+                  _daysOffRules[index] = rule.copyWith(length: v);
+                });
+                _checkForChanges();
+              },
+            ),
+            const Text(' 連休 を '),
+            DropdownButton<int>(
+              value: countValue,
+              items: _daysOffCountOptions
+                  .map((v) => DropdownMenuItem(value: v, child: Text('$v')))
+                  .toList(),
+              onChanged: (v) {
+                if (v == null) return;
+                setState(() {
+                  _daysOffRules[index] = rule.copyWith(count: v);
+                });
+                _checkForChanges();
+              },
+            ),
+            const Text(' 回 / 月'),
+            const Spacer(),
+            IconButton(
+              icon: Icon(Icons.delete_outline, size: 20, color: Colors.grey[600]),
+              tooltip: '削除',
+              onPressed: () {
+                setState(() {
+                  _daysOffRules.removeAt(index);
+                });
+                _checkForChanges();
+              },
+            ),
+          ],
+        ),
+      );
+    });
+  }
+
+  void _addDaysOffRule() {
+    // まだ使われていない最小の連休長を選ぶ（同じ長さの重複を作らない）
+    final used = _daysOffRules.map((r) => r.length).toSet();
+    final next = _daysOffLengthOptions.firstWhere(
+      (v) => !used.contains(v),
+      orElse: () => -1,
+    );
+    if (next < 0) return; // すべての長さを使い切っている
+    setState(() {
+      _daysOffRules.add(ConsecutiveDaysOffRule(length: next, count: 1));
+    });
+    _checkForChanges();
   }
 
   Widget _buildConstraintField({

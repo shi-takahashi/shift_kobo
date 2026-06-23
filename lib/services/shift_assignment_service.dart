@@ -27,6 +27,10 @@ class ShiftAssignmentService {
     required this.shiftTimeProvider,
   });
 
+  // 連休（日付未指定）の事前確保結果。staffId -> 休みに確保した日（_dateKey形式）の集合。
+  // autoAssignShifts の冒頭で計算してセットし、_isStaffAvailableOnDate で休み扱いに使う。
+  Map<String, Set<String>> _reservedDaysOff = {};
+
   // ========================================
   // 自動作成のチューニング定数
   // ========================================
@@ -119,6 +123,9 @@ class ShiftAssignmentService {
   /// ペアを表す安定キー（順序に依存しない）
   String _pairKey(String a, String b) => a.compareTo(b) <= 0 ? '$a|$b' : '$b|$a';
 
+  /// 日付を年月日だけのキーにする（時刻を無視して比較するため）
+  String _dateKey(DateTime d) => '${d.year}-${d.month}-${d.day}';
+
   /// デバッグ時のみログ出力（リリースビルドでは出力されない）。
   void _log(String message) {
     if (kDebugMode) {
@@ -143,6 +150,9 @@ class ShiftAssignmentService {
     bool overnightCountsAsTwoDays = true,
     MonthlyRequirementsProvider? requirementsProvider,
   }) async {
+    // 前回実行の連休予約が残らないようにクリアしておく
+    _reservedDaysOff = {};
+
     // 有効なスタッフのみ使用（月間最大シフト数0のスタッフは候補生成側で除外される）
     final List<Staff> availableStaff = staffProvider.activeStaffList;
     if (availableStaff.isEmpty) {
@@ -183,6 +193,29 @@ class ShiftAssignmentService {
     );
 
     _log('利用可能なスタッフ数: ${availableStaff.length}');
+
+    // ========================================
+    // 連休（日付未指定）の事前確保（ソフト）
+    // ========================================
+    // チーム設定「N連休をM回」を満たすため、人手に余裕のある位置に連続N日の休みを
+    // 事前に確保する。確保した日は _isStaffAvailableOnDate で休み扱いになり、
+    // 候補生成・リバランスの両方で尊重される。カバレッジが割れる日には置かない（＝ソフト）。
+    _reservedDaysOff = _computeConsecutiveDaysOffReservations(
+      startDate,
+      endDate,
+      availableStaff,
+      team,
+      filteredRequirements,
+      requirementsProvider,
+      activeShiftTypeNames,
+    );
+    final reservedTotal = _reservedDaysOff.values.fold<int>(0, (a, b) => a + b.length);
+    if (reservedTotal > 0) {
+      final rulesDesc = (team?.consecutiveDaysOffRules ?? const [])
+          .map((r) => '${r.length}連休×${r.count}')
+          .join(', ');
+      _log('連休事前確保: ${_reservedDaysOff.length}人 / 合計$reservedTotal日 (ルール: $rulesDesc)');
+    }
 
     // ========================================
     // best-of-N: N個の候補を生成して一番公平なものを選ぶ
@@ -1372,6 +1405,12 @@ class ShiftAssignmentService {
   }
 
   bool _isStaffAvailableOnDate(Staff staff, DateTime date) {
+    // 連休（日付未指定）で事前確保した休みをチェック
+    final reserved = _reservedDaysOff[staff.id];
+    if (reserved != null && reserved.contains(_dateKey(date))) {
+      return false;
+    }
+
     // 曜日ベースの休み希望をチェック
     if (staff.preferredDaysOff.contains(date.weekday)) {
       return false;
@@ -1401,6 +1440,275 @@ class ShiftAssignmentService {
       }
     }
     return true;
+  }
+
+  /// そのスタッフがその日に「確実に休み」か（チーム休み＋本人の休み希望）。
+  /// 連休の事前確保で「既に休みの日」を判定するために使う（予約分は含めない）。
+  bool _isStaffDefinitelyOff(Staff staff, DateTime date, Team team) {
+    if (_isTeamHoliday(team, date)) return true;
+    // _reservedDaysOff はこの計算時点では空なので、本人の休み希望のみ判定される。
+    if (!_isStaffAvailableOnDate(staff, date)) return true;
+    return false;
+  }
+
+  /// 連休（日付未指定）の事前確保。
+  /// チーム設定の連休ルール群（例「2連休を2回 ＋ 3連休を1回」）を満たすため、
+  /// 連続休みブロックを確保する。これは**ハード制約**（埋まりより優先）として扱う。
+  /// 他の制約（休み希望・連勤上限）と同様、対象スタッフ全員に確保し、
+  /// 一部だけ連休なしという不公平を作らない。
+  /// 返り値: staffId -> 確保した休み日（_dateKey形式）の集合。
+  ///
+  /// 方針:
+  /// - ルール群を「必要な連休（長さ）の集合」に展開する（2連休×2＋3連休×1 → [3,2,2]）。
+  /// - 既に休みが連続している箇所（チーム休み・祝日・休み希望）を「既存の連休」とみなし、
+  ///   長い要求から順に割り当てる（1つの連休は1回分としてのみカウント）。足りない分だけ新規確保。
+  /// - 各ブロックは前後を勤務日で挟む（既存/予約済みの休みと隣接させない）＝「2連休×2回」が
+  ///   「4連休×1回」に化けないように分離する。
+  /// - 置き場はカバレッジ（必要人数）に余裕のある位置を優先するが、余裕が無くても
+  ///   未充足を許容して確保する（_findBestOffWindow の多段フォールバック）。
+  Map<String, Set<String>> _computeConsecutiveDaysOffReservations(
+    DateTime startDate,
+    DateTime endDate,
+    List<Staff> availableStaff,
+    Team? team,
+    Map<String, int> filteredRequirements,
+    MonthlyRequirementsProvider? requirementsProvider,
+    Set<String> activeShiftTypeNames,
+  ) {
+    final reservations = <String, Set<String>>{};
+    if (team == null) return reservations;
+
+    // ルール群を「必要な連休の長さ」の集合に展開し、長い順に並べる。
+    final requiredLengths = <int>[];
+    for (final rule in team.consecutiveDaysOffRules) {
+      if (rule.length < 2 || rule.count < 1) continue;
+      for (int k = 0; k < rule.count; k++) {
+        requiredLengths.add(rule.length);
+      }
+    }
+    if (requiredLengths.isEmpty) return reservations; // 機能オフ
+    requiredLengths.sort((a, b) => b.compareTo(a)); // 長い連休から確保する
+
+    // 対象は自動割り当て対象のスタッフ（月間上限0は対象外）
+    final assignable = availableStaff.where((s) => s.maxShiftsPerMonth > 0).toList();
+    if (assignable.isEmpty) return reservations;
+
+    // 対象期間の日付リスト
+    final days = <DateTime>[];
+    for (var d = DateTime(startDate.year, startDate.month, startDate.day);
+        !d.isAfter(endDate);
+        d = d.add(const Duration(days: 1))) {
+      days.add(d);
+    }
+    final dayCount = days.length;
+    // 一番短い連休すら入らない月なら何もしない
+    if (dayCount < requiredLengths.last) return reservations;
+
+    // 各日の必要総人数（曜日別・日付個別設定を反映）
+    final requiredPerDay = List<int>.filled(dayCount, 0);
+    for (int i = 0; i < dayCount; i++) {
+      final raw = requirementsProvider?.getRequirementsForDate(days[i]) ?? filteredRequirements;
+      int sum = 0;
+      raw.forEach((k, v) {
+        if (activeShiftTypeNames.contains(k)) sum += v;
+      });
+      requiredPerDay[i] = sum;
+    }
+
+    // 各日の「勤務可能なスタッフ数」（確実に休みでない人数）。予約するたびに減らしていく。
+    final availablePerDay = List<int>.filled(dayCount, 0);
+    // スタッフごとの「確実に休み」フラグ（予約で埋めた日も後でtrueにして分離に使う）
+    final offByStaff = <String, List<bool>>{};
+    for (final s in assignable) {
+      final off = List<bool>.filled(dayCount, false);
+      for (int i = 0; i < dayCount; i++) {
+        final isOff = _isStaffDefinitelyOff(s, days[i], team);
+        off[i] = isOff;
+        if (!isOff) availablePerDay[i]++;
+      }
+      offByStaff[s.id] = off;
+    }
+
+    // 既存の連休が少ない人を優先（同じ日に集中させないため公平側に倒す）。
+    int existingRunCount(List<bool> off) {
+      int c = 0, run = 0;
+      for (final v in off) {
+        if (v) {
+          run++;
+        } else {
+          if (run >= 2) c++;
+          run = 0;
+        }
+      }
+      if (run >= 2) c++;
+      return c;
+    }
+
+    assignable.sort((a, b) => existingRunCount(offByStaff[a.id]!)
+        .compareTo(existingRunCount(offByStaff[b.id]!)));
+
+    for (final s in assignable) {
+      final off = offByStaff[s.id]!;
+
+      // 既存の連続休み（長さ>=2）の本数を集める
+      final existingRuns = <int>[];
+      int run = 0;
+      for (int i = 0; i < dayCount; i++) {
+        if (off[i]) {
+          run++;
+        } else {
+          if (run >= 2) existingRuns.add(run);
+          run = 0;
+        }
+      }
+      if (run >= 2) existingRuns.add(run);
+      existingRuns.sort((a, b) => b.compareTo(a)); // 長い順
+
+      // 必要な連休を長い順に既存連休へ割り当て、足りない長さを新規確保リストにする。
+      final usedRun = List<bool>.filled(existingRuns.length, false);
+      final toReserve = <int>[];
+      for (final reqLen in requiredLengths) {
+        int matched = -1;
+        for (int j = 0; j < existingRuns.length; j++) {
+          if (!usedRun[j] && existingRuns[j] >= reqLen) {
+            matched = j;
+            break;
+          }
+        }
+        if (matched >= 0) {
+          usedRun[matched] = true; // 1つの連休は1回分としてのみ消費
+        } else {
+          toReserve.add(reqLen);
+        }
+      }
+      if (toReserve.isEmpty) continue;
+
+      final preferredKeys =
+          s.preferredDates.map((iso) => _dateKey(DateTime.parse(iso))).toSet();
+      final reservedForStaff = reservations.putIfAbsent(s.id, () => <String>{});
+
+      // 長い連休から確保する（空きが多いうちに大きいブロックを置く）。
+      // 連休はハード制約（埋まりより優先）。まずカバレッジに余裕のある位置を狙い、
+      // 無ければカバレッジを割ってでも確保し（＝未充足を許容）、それでも無理なら
+      // 最後に境界（分離・勤務希望日）を緩めて確保する。
+      for (final blockLen in toReserve) {
+        int start = _findBestOffWindow(off, availablePerDay, requiredPerDay, days,
+            preferredKeys, blockLen,
+            respectCoverage: true, respectBoundaries: true);
+        if (start < 0) {
+          start = _findBestOffWindow(off, availablePerDay, requiredPerDay, days,
+              preferredKeys, blockLen,
+              respectCoverage: false, respectBoundaries: true);
+        }
+        if (start < 0) {
+          start = _findBestOffWindow(off, availablePerDay, requiredPerDay, days,
+              preferredKeys, blockLen,
+              respectCoverage: false, respectBoundaries: false);
+        }
+        if (start < 0) {
+          // 構造的に窓が取れない（極めて稀）。確保できなかったことを記録する。
+          _log('連休を確保できませんでした: ${s.name} ($blockLen連休)');
+          continue;
+        }
+
+        for (int i = start; i < start + blockLen; i++) {
+          off[i] = true; // 同じ人の次のブロックと分離させる
+          availablePerDay[i]--; // カバレッジを消費（他スタッフの確保にも反映）
+          reservedForStaff.add(_dateKey(days[i]));
+        }
+      }
+
+      if (reservedForStaff.isEmpty) reservations.remove(s.id);
+    }
+
+    return reservations;
+  }
+
+  /// 連休ブロック（長さ [blockLength]）を置く最適な開始位置を探す。見つからなければ -1。
+  /// 窓内が既に休みの日（off==true）は常に除外する。
+  ///
+  /// 選び方:
+  /// - 既存/予約済みの休みから**最も離れた（孤立した）位置**を優先する。これにより
+  ///   複数ブロックが月内で離れて配置され、間の1日が自動割り当てで偶然空いても
+  ///   連結して長大な連休になりにくい（例: 2連休と3連休が繋がって6連休、を抑止）。
+  /// - カバレッジを尊重する場合は、まず孤立度、次に余裕（スラック）で選ぶ。
+  ///   尊重しない場合は、まず割れ幅（スラック）が小さい位置、次に孤立度で選ぶ。
+  ///
+  /// - [respectCoverage] true: その日を休みにすると必要人数を割る窓は除外する。
+  ///   false: 割っても許容し、割れ幅が最小の位置を選ぶ（＝ハード確保のフォールバック）。
+  /// - [respectBoundaries] true: 勤務希望日を含まない／前後を勤務日で挟む（分離）窓に限る。
+  ///   false: それらを無視してでも確保する（最終手段）。
+  int _findBestOffWindow(
+    List<bool> off,
+    List<int> availablePerDay,
+    List<int> requiredPerDay,
+    List<DateTime> days,
+    Set<String> preferredKeys,
+    int blockLength, {
+    required bool respectCoverage,
+    required bool respectBoundaries,
+  }) {
+    final dayCount = off.length;
+    int bestStart = -1;
+    int bestScore = -1 << 30;
+    for (int start = 0; start + blockLength <= dayCount; start++) {
+      bool ok = true;
+      int minSlack = 1 << 30;
+      for (int i = start; i < start + blockLength; i++) {
+        if (off[i]) {
+          ok = false;
+          break;
+        }
+        if (respectBoundaries && preferredKeys.contains(_dateKey(days[i]))) {
+          ok = false;
+          break;
+        }
+        if (respectCoverage && availablePerDay[i] - 1 < requiredPerDay[i]) {
+          ok = false;
+          break;
+        }
+        final slack = availablePerDay[i] - requiredPerDay[i];
+        if (slack < minSlack) minSlack = slack;
+      }
+      if (!ok) continue;
+      if (respectBoundaries) {
+        // 既存/予約済みの休みと隣接させない（前後を勤務日で挟む＝分離）
+        if (start - 1 >= 0 && off[start - 1]) continue;
+        if (start + blockLength < dayCount && off[start + blockLength]) continue;
+      }
+
+      // 孤立度: 窓の前後それぞれ、最も近い既存/予約済みの休みまでの勤務日数の小さい方。
+      // 大きいほど他の休みから離れている＝連結しにくい。月端は連結相手がいないので大きく扱う。
+      int leftClear = dayCount;
+      for (int i = start - 1; i >= 0; i--) {
+        if (off[i]) {
+          leftClear = start - 1 - i;
+          break;
+        }
+      }
+      int rightClear = dayCount;
+      for (int i = start + blockLength; i < dayCount; i++) {
+        if (off[i]) {
+          rightClear = i - (start + blockLength);
+          break;
+        }
+      }
+      final isolation = leftClear < rightClear ? leftClear : rightClear;
+
+      // スコア化（大きいほど良い）。孤立度を主に置きたいが、カバレッジを割る場合は
+      // 割れ幅の小ささを最優先にする。
+      final int score;
+      if (respectCoverage) {
+        score = isolation * 1000 + minSlack; // 孤立優先、余裕でタイブレーク
+      } else {
+        score = minSlack * 1000 + isolation; // 割れ最小優先、孤立でタイブレーク
+      }
+      if (score > bestScore) {
+        bestScore = score;
+        bestStart = start;
+      }
+    }
+    return bestStart;
   }
 
   /// チーム全体の休みかどうかをチェック
