@@ -1,3 +1,7 @@
+import 'package:hive/hive.dart';
+
+part 'consecutive_days_off_rule.g.dart';
+
 /// 連休（日付未指定）の確保ルール
 ///
 /// 「月のどこかで、連続 [length] 日の休みを [count] 回 確保する」という指定。
@@ -6,9 +10,13 @@
 /// - [length]: 連続して休む日数（連休なので2以上）
 /// - [count]:  月に何回その連休を確保するか（1以上）
 ///
-/// チーム設定（全員一律）と、将来のスタッフ個別上書きの両方で同じ型を使い回す。
+/// チーム設定（全員一律）と、スタッフ個別上書きの両方で同じ型を使い回す。
+/// スタッフ個別上書きでは `Box<Staff>` 内に List として保存されるため HiveType でもある。
+@HiveType(typeId: 3)
 class ConsecutiveDaysOffRule {
+  @HiveField(0)
   final int length; // N: 連続日数
+  @HiveField(1)
   final int count;  // M: 月の回数
 
   const ConsecutiveDaysOffRule({

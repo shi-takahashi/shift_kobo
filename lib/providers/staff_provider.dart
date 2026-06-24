@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import '../models/consecutive_days_off_rule.dart';
 import '../models/staff.dart';
 import '../services/analytics_service.dart';
 
@@ -82,6 +83,13 @@ class StaffProvider extends ChangeNotifier {
         preferredDates: List<String>.from(data['preferredDates'] ?? []),
         maxConsecutiveDays: data['maxConsecutiveDays'],
         minRestHours: data['minRestHours'],
+        overrideConsecutiveDaysOff: data['overrideConsecutiveDaysOff'] ?? false,
+        consecutiveDaysOffRules:
+            (data['consecutiveDaysOffRules'] as List<dynamic>?)
+                    ?.map((e) => ConsecutiveDaysOffRule.fromMap(
+                        Map<String, dynamic>.from(e as Map)))
+                    .toList() ??
+                [],
       );
     } catch (e) {
       debugPrint('⚠️ [StaffProvider] スタッフのパース失敗（スキップ）: $id - $e');
@@ -105,6 +113,9 @@ class StaffProvider extends ChangeNotifier {
       'preferredDates': staff.preferredDates,
       'maxConsecutiveDays': staff.maxConsecutiveDays,
       'minRestHours': staff.minRestHours,
+      'overrideConsecutiveDaysOff': staff.overrideConsecutiveDaysOff,
+      'consecutiveDaysOffRules':
+          staff.consecutiveDaysOffRules.map((r) => r.toMap()).toList(),
       'createdAt': FieldValue.serverTimestamp(),
     };
 
@@ -151,6 +162,9 @@ class StaffProvider extends ChangeNotifier {
       'preferredDates': staff.preferredDates,
       'maxConsecutiveDays': staff.maxConsecutiveDays,
       'minRestHours': staff.minRestHours,
+      'overrideConsecutiveDaysOff': staff.overrideConsecutiveDaysOff,
+      'consecutiveDaysOffRules':
+          staff.consecutiveDaysOffRules.map((r) => r.toMap()).toList(),
       'updatedAt': FieldValue.serverTimestamp(),
     };
 

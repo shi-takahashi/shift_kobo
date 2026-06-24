@@ -1,5 +1,6 @@
 import 'package:hive/hive.dart';
 import 'shift_constraint.dart';
+import 'consecutive_days_off_rule.dart';
 
 part 'staff.g.dart';
 
@@ -56,6 +57,16 @@ class Staff extends HiveObject {
   @HiveField(16)
   int? minRestHours; // 個別の勤務間インターバル（nullならチーム設定を使用）
 
+  @HiveField(17, defaultValue: false)
+  bool overrideConsecutiveDaysOff; // 連休（日付未指定）をチーム設定でなく個別に設定するか
+
+  @HiveField(18)
+  List<ConsecutiveDaysOffRule> consecutiveDaysOffRules = [];
+  // 個別の連休ルール群。overrideConsecutiveDaysOff が true のときだけ有効。
+  //   override=false                       → チーム設定に従う
+  //   override=true  かつ rules が非空      → 個別の連休ルールを使う
+  //   override=true  かつ rules が空        → この人は連休なし（チーム設定も適用しない）
+
   Staff({
     required this.id,
     required this.name,
@@ -74,12 +85,15 @@ class Staff extends HiveObject {
     List<String>? preferredDates,
     this.maxConsecutiveDays,
     this.minRestHours,
+    this.overrideConsecutiveDaysOff = false,
+    List<ConsecutiveDaysOffRule>? consecutiveDaysOffRules,
   })  : preferredDaysOff = preferredDaysOff ?? [],
         createdAt = createdAt ?? DateTime.now() {
     this.constraints = constraints ?? [];
     this.unavailableShiftTypes = unavailableShiftTypes ?? [];
     this.specificDaysOff = specificDaysOff ?? [];
     this.preferredDates = preferredDates ?? [];
+    this.consecutiveDaysOffRules = consecutiveDaysOffRules ?? [];
   }
 
   Map<String, dynamic> toJson() {
@@ -99,6 +113,9 @@ class Staff extends HiveObject {
       'preferredDates': preferredDates,
       'maxConsecutiveDays': maxConsecutiveDays,
       'minRestHours': minRestHours,
+      'overrideConsecutiveDaysOff': overrideConsecutiveDaysOff,
+      'consecutiveDaysOffRules':
+          consecutiveDaysOffRules.map((r) => r.toMap()).toList(),
     };
   }
 
@@ -119,6 +136,12 @@ class Staff extends HiveObject {
       preferredDates: List<String>.from(json['preferredDates'] ?? []),
       maxConsecutiveDays: json['maxConsecutiveDays'],
       minRestHours: json['minRestHours'],
+      overrideConsecutiveDaysOff: json['overrideConsecutiveDaysOff'] ?? false,
+      consecutiveDaysOffRules: (json['consecutiveDaysOffRules'] as List<dynamic>?)
+              ?.map((e) =>
+                  ConsecutiveDaysOffRule.fromMap(Map<String, dynamic>.from(e as Map)))
+              .toList() ??
+          [],
     );
   }
 }

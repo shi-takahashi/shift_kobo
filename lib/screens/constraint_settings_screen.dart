@@ -329,7 +329,9 @@ class _ConstraintSettingsScreenState extends State<ConstraintSettingsScreen> {
                                   const SizedBox(height: 8),
                                   Text(
                                     '日付を指定せず「月のどこかで連続した休み」を確保します。'
-                                    '人手に余裕のある位置に自動で空けます（無理な場合は確保しないことがあります）。\n'
+                                    '設定した連休は必ず確保します（人手が足りない日でも優先して空けます）。\n'
+                                    'これは"最低限"の連休です。自動割り当ての結果、'
+                                    '指定より長い連休になることはあります（例: 3連休が4連休になる）。\n'
                                     '「2連休を2回」「3連休を1回」のように複数の組み合わせを設定できます。',
                                     style: TextStyle(
                                       fontSize: 12,

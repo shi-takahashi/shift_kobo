@@ -187,11 +187,15 @@
 このリリースは「③ 連休（チーム→個別）」＋「付き添いの人数手当て」を入れた状態を理想とする。
 段階ごとに動作確認してから次へ進める。
 
-### Day 1：連休 — チーム設定のみ（まず作る → 動作確認）
+### Day 1：連休 — チーム設定のみ（まず作る → 動作確認）✅ 完了（動作確認OK）
 - まず最小で動くものを出し、確認してから Day 2 へ。
 
-### Day 2：連休 — 個別上書き（Day 1の確認がOKなら着手）
+### Day 2：連休 — 個別上書き（Day 1の確認がOKなら着手）✅ 実装完了（2026-06-24 / 要実機確認）
 - チェック方式の上書き（下記「設計決定」参照）。
+- **データモデルはスカラーでなくリスト型を採用**（チーム設定と一貫。`ConsecutiveDaysOffRule` を HiveType(typeId:3) 化し、`Box<Staff>` 内に List で保存）。当初 doc の `consecutiveDaysOffLength/Count: int?` 案はリスト化前の記述だったため変更。
+- `Staff.overrideConsecutiveDaysOff: bool`（HiveField 17, defaultValue:false）＋ `Staff.consecutiveDaysOffRules: List<ConsecutiveDaysOffRule>`（HiveField 18）。3状態：OFF→チーム設定／ON＋非空→個別／ON＋空→連休なし。
+- 割り当て側：`_reserveConsecutiveDaysOff` の `requiredLengths` をスタッフ単位（`requiredLengthsFor(s)`）に変更。チーム未設定でも個別上書きがあれば確保する。
+- UI：スタッフ編集ダイアログ「個別制約設定」内に「連休を個別に設定」チェック＋リスト編集を追加（チーム設定画面と同じ操作感）。入力経路は管理者のみ（ConstraintRequest経路は未実装＝設計通り）。
 
 ### Day 3：付き添い必須の「人数の手当て」
 - 上記「今後の課題」のとおり、相方を**必要人数とは別枠の +1 指導役**として扱う。
@@ -239,11 +243,12 @@
 - **Team**（チーム設定・Day 1）
   - `consecutiveDaysOffRules: List<ConsecutiveDaysOffRule>`（各 length×count）。空リストで機能オフ。
 - **Staff**（個別上書き・Day 2）：3状態を表すため**「個別設定する」チェック＋値**で持つ
-  - `overrideConsecutiveDaysOff: bool`（既定 false）／`consecutiveDaysOffLength: int?`（N）／`consecutiveDaysOffCount: int?`（M）
+  - ~~`consecutiveDaysOffLength/Count: int?`~~ → **実装ではチームと一貫してリスト型を採用**：
+    `overrideConsecutiveDaysOff: bool`（既定 false）／`consecutiveDaysOffRules: List<ConsecutiveDaysOffRule>`
   - チェックOFF → **チーム設定に従う**
-  - チェックON ＋ M≥1 → **個別の値を使う**
-  - チェックON ＋ M=0 → **この人は連休なし**（チーム設定を適用しない）
-  - 単純な nullable では「チームに従う」と「明示的に連休なし」を区別できないため、boolean フラグを併用する。
+  - チェックON ＋ ルール非空 → **個別の値を使う**（複数パターン可）
+  - チェックON ＋ ルール空 → **この人は連休なし**（チーム設定を適用しない）
+  - 単純な nullable/空リストでは「チームに従う」と「明示的に連休なし」を区別できないため、boolean フラグを併用する。
 
 ### 入力経路
 - **管理者設定のみ**（チーム設定／スタッフ編集）。スタッフからの申請（`ConstraintRequest`）経路は**今回は実装しない**（将来検討）。

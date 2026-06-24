@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
 import '../models/app_user.dart';
+import '../models/consecutive_days_off_rule.dart';
 import '../models/staff.dart';
 import '../providers/shift_time_provider.dart';
 import '../providers/staff_provider.dart';
@@ -47,6 +48,9 @@ class _StaffEditDialogState extends State<StaffEditDialog> {
   int? _minRestHours; // 個別の勤務間インターバル
   bool _useCustomMaxConsecutiveDays = false; // 個別連続勤務日数上限を使用するか
   bool _useCustomMinRestHours = false; // 個別勤務間インターバルを使用するか
+  // 連休（日付未指定）の個別上書き
+  bool _overrideConsecutiveDaysOff = false; // チーム設定でなく個別に設定するか
+  List<ConsecutiveDaysOffRule> _consecutiveDaysOffRules = [];
 
   // ロール管理用
   AppUser? _linkedUser;
@@ -81,6 +85,11 @@ class _StaffEditDialogState extends State<StaffEditDialog> {
       _useCustomMaxConsecutiveDays =
           widget.existingStaff!.maxConsecutiveDays != null;
       _useCustomMinRestHours = widget.existingStaff!.minRestHours != null;
+      _overrideConsecutiveDaysOff =
+          widget.existingStaff!.overrideConsecutiveDaysOff;
+      _consecutiveDaysOffRules = widget.existingStaff!.consecutiveDaysOffRules
+          .map((r) => r.copyWith())
+          .toList();
 
       // 紐付け済みの場合、ユーザー情報とロールを取得
       _loadUserRoleInfo();
@@ -1157,6 +1166,111 @@ class _StaffEditDialogState extends State<StaffEditDialog> {
               ),
             ),
             const SizedBox(height: 12),
+            // 連休（日付未指定）の個別上書き
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: _overrideConsecutiveDaysOff
+                    ? Colors.purple.shade50
+                    : Colors.grey.shade100,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      SizedBox(
+                        width: 24,
+                        height: 24,
+                        child: Checkbox(
+                          value: _overrideConsecutiveDaysOff,
+                          onChanged: (value) {
+                            setState(() {
+                              _overrideConsecutiveDaysOff = value ?? false;
+                            });
+                          },
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          '連休を個別に設定',
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: _overrideConsecutiveDaysOff
+                                ? Colors.purple.shade900
+                                : Colors.grey.shade700,
+                            fontWeight: _overrideConsecutiveDaysOff
+                                ? FontWeight.bold
+                                : FontWeight.normal,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  if (_overrideConsecutiveDaysOff) ...[
+                    const SizedBox(height: 4),
+                    // 説明（何をする設定か）
+                    Padding(
+                      padding: const EdgeInsets.only(left: 32),
+                      child: Text(
+                        'チーム設定でなく、このスタッフ専用の連休を設定します。'
+                        '設定した連休は最低限の保証で、自動割り当ての結果'
+                        '指定より長い連休になることはあります。',
+                        style: TextStyle(
+                            fontSize: 12, color: Colors.grey.shade600),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    // 現在の設定（枠で囲んで説明と区別する）
+                    Padding(
+                      padding: const EdgeInsets.only(left: 8),
+                      child: Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.fromLTRB(10, 8, 4, 8),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          border: Border.all(color: Colors.grey.shade300),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              '現在の連休設定',
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.grey.shade500,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            ..._buildStaffDaysOffRuleRows(),
+                            const SizedBox(height: 4),
+                            TextButton.icon(
+                              onPressed: _consecutiveDaysOffRules.length >=
+                                      _staffDaysOffLengthOptions.length
+                                  ? null
+                                  : _addStaffDaysOffRule,
+                              icon: const Icon(Icons.add, size: 18),
+                              label: const Text('連休パターンを追加'),
+                              style: TextButton.styleFrom(
+                                padding: EdgeInsets.zero,
+                                minimumSize: const Size(0, 32),
+                                tapTargetSize:
+                                    MaterialTapTargetSize.shrinkWrap,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+            const SizedBox(height: 12),
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
@@ -1184,6 +1298,100 @@ class _StaffEditDialogState extends State<StaffEditDialog> {
         ),
       ),
     );
+  }
+
+  // ===== 連休ルール（個別上書き・リスト編集） =====
+  static const List<int> _staffDaysOffLengthOptions = [2, 3, 4, 5, 6, 7];
+  static const List<int> _staffDaysOffCountOptions = [1, 2, 3, 4, 5];
+
+  List<Widget> _buildStaffDaysOffRuleRows() {
+    if (_consecutiveDaysOffRules.isEmpty) {
+      return [
+        Text(
+          '連休を確保しません（休み希望やチーム休みで結果的に連休になることはあります）',
+          style: TextStyle(fontSize: 13, color: Colors.grey[600]),
+        ),
+      ];
+    }
+    return List.generate(_consecutiveDaysOffRules.length, (index) {
+      final rule = _consecutiveDaysOffRules[index];
+      // 選択肢に無い値が来ても落ちないように補正
+      final lengthValue = _staffDaysOffLengthOptions.contains(rule.length)
+          ? rule.length
+          : _staffDaysOffLengthOptions.first;
+      final countValue = _staffDaysOffCountOptions.contains(rule.count)
+          ? rule.count
+          : _staffDaysOffCountOptions.first;
+      // 同じ長さの連休を複数行作っても意味がないので、他の行で使用中の長さは選べないようにする
+      final usedByOthers = <int>{
+        for (int j = 0; j < _consecutiveDaysOffRules.length; j++)
+          if (j != index) _consecutiveDaysOffRules[j].length,
+      };
+      final lengthItems = _staffDaysOffLengthOptions
+          .where((v) => v == lengthValue || !usedByOthers.contains(v))
+          .toList();
+      return Padding(
+        padding: const EdgeInsets.symmetric(vertical: 2),
+        child: Row(
+          children: [
+            DropdownButton<int>(
+              value: lengthValue,
+              isDense: true,
+              items: lengthItems
+                  .map((v) => DropdownMenuItem(value: v, child: Text('$v')))
+                  .toList(),
+              onChanged: (v) {
+                if (v == null) return;
+                setState(() {
+                  _consecutiveDaysOffRules[index] = rule.copyWith(length: v);
+                });
+              },
+            ),
+            const Text(' 連休 '),
+            DropdownButton<int>(
+              value: countValue,
+              isDense: true,
+              items: _staffDaysOffCountOptions
+                  .map((v) => DropdownMenuItem(value: v, child: Text('$v')))
+                  .toList(),
+              onChanged: (v) {
+                if (v == null) return;
+                setState(() {
+                  _consecutiveDaysOffRules[index] = rule.copyWith(count: v);
+                });
+              },
+            ),
+            const Text(' 回/月'),
+            const Spacer(),
+            IconButton(
+              icon: Icon(Icons.delete_outline, size: 20, color: Colors.grey[600]),
+              tooltip: '削除',
+              padding: EdgeInsets.zero,
+              visualDensity: VisualDensity.compact,
+              constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+              onPressed: () {
+                setState(() {
+                  _consecutiveDaysOffRules.removeAt(index);
+                });
+              },
+            ),
+          ],
+        ),
+      );
+    });
+  }
+
+  void _addStaffDaysOffRule() {
+    // まだ使われていない最小の連休長を選ぶ（同じ長さの重複を作らない）
+    final used = _consecutiveDaysOffRules.map((r) => r.length).toSet();
+    final next = _staffDaysOffLengthOptions.firstWhere(
+      (v) => !used.contains(v),
+      orElse: () => -1,
+    );
+    if (next < 0) return; // すべての長さを使い切っている
+    setState(() {
+      _consecutiveDaysOffRules.add(ConsecutiveDaysOffRule(length: next, count: 1));
+    });
   }
 
   Widget _buildActionButtons() {
@@ -1252,6 +1460,10 @@ class _StaffEditDialogState extends State<StaffEditDialog> {
         maxConsecutiveDays:
             _useCustomMaxConsecutiveDays ? _maxConsecutiveDays : null,
         minRestHours: _useCustomMinRestHours ? _minRestHours : null,
+        overrideConsecutiveDaysOff: _overrideConsecutiveDaysOff,
+        consecutiveDaysOffRules: _overrideConsecutiveDaysOff
+            ? _consecutiveDaysOffRules.map((r) => r.copyWith()).toList()
+            : [],
       );
 
       // ロール変更がある場合、確認ダイアログを表示
@@ -1370,6 +1582,10 @@ class _StaffEditDialogState extends State<StaffEditDialog> {
         maxConsecutiveDays:
             _useCustomMaxConsecutiveDays ? _maxConsecutiveDays : null,
         minRestHours: _useCustomMinRestHours ? _minRestHours : null,
+        overrideConsecutiveDaysOff: _overrideConsecutiveDaysOff,
+        consecutiveDaysOffRules: _overrideConsecutiveDaysOff
+            ? _consecutiveDaysOffRules.map((r) => r.copyWith()).toList()
+            : [],
       );
 
       await staffProvider.addStaff(staff);

@@ -200,6 +200,9 @@ class ShiftAssignmentService {
     // チーム設定「N連休をM回」を満たすため、人手に余裕のある位置に連続N日の休みを
     // 事前に確保する。確保した日は _isStaffAvailableOnDate で休み扱いになり、
     // 候補生成・リバランスの両方で尊重される。カバレッジが割れる日には置かない（＝ソフト）。
+    // 連休ブロックの位置をクリックのたびに変えるため、時刻ベースの乱数を渡す。
+    // （best-of-N の前で1回だけ確保するので、ここで毎回シードを変えないと毎回同じ位置になる）
+    final reserveRng = Random(DateTime.now().microsecondsSinceEpoch & 0x7fffffff);
     _reservedDaysOff = _computeConsecutiveDaysOffReservations(
       startDate,
       endDate,
@@ -208,6 +211,7 @@ class ShiftAssignmentService {
       filteredRequirements,
       requirementsProvider,
       activeShiftTypeNames,
+      reserveRng,
     );
     final reservedTotal = _reservedDaysOff.values.fold<int>(0, (a, b) => a + b.length);
     if (reservedTotal > 0) {
@@ -1474,24 +1478,39 @@ class ShiftAssignmentService {
     Map<String, int> filteredRequirements,
     MonthlyRequirementsProvider? requirementsProvider,
     Set<String> activeShiftTypeNames,
+    Random rng,
   ) {
     final reservations = <String, Set<String>>{};
     if (team == null) return reservations;
 
-    // ルール群を「必要な連休の長さ」の集合に展開し、長い順に並べる。
-    final requiredLengths = <int>[];
-    for (final rule in team.consecutiveDaysOffRules) {
-      if (rule.length < 2 || rule.count < 1) continue;
-      for (int k = 0; k < rule.count; k++) {
-        requiredLengths.add(rule.length);
-      }
-    }
-    if (requiredLengths.isEmpty) return reservations; // 機能オフ
-    requiredLengths.sort((a, b) => b.compareTo(a)); // 長い連休から確保する
-
     // 対象は自動割り当て対象のスタッフ（月間上限0は対象外）
     final assignable = availableStaff.where((s) => s.maxShiftsPerMonth > 0).toList();
     if (assignable.isEmpty) return reservations;
+
+    // スタッフごとの「実効連休ルール」を「必要な連休の長さ」の集合（長い順）に展開する。
+    // 個別上書き（overrideConsecutiveDaysOff）が優先：
+    //   override OFF              → チーム設定に従う
+    //   override ON ＋ ルール非空 → 個別の連休ルールを使う
+    //   override ON ＋ ルール空   → この人は連休なし（チーム設定も適用しない）
+    List<int> requiredLengthsFor(Staff s) {
+      final rules = s.overrideConsecutiveDaysOff
+          ? s.consecutiveDaysOffRules
+          : team.consecutiveDaysOffRules;
+      final out = <int>[];
+      for (final rule in rules) {
+        if (rule.length < 2 || rule.count < 1) continue;
+        for (int k = 0; k < rule.count; k++) {
+          out.add(rule.length);
+        }
+      }
+      out.sort((a, b) => b.compareTo(a)); // 長い連休から確保する
+      return out;
+    }
+
+    // 誰一人として連休が必要でなければ何もしない（チーム未設定＋個別上書きも無し＝機能オフ）。
+    if (assignable.every((s) => requiredLengthsFor(s).isEmpty)) {
+      return reservations;
+    }
 
     // 対象期間の日付リスト
     final days = <DateTime>[];
@@ -1501,8 +1520,6 @@ class ShiftAssignmentService {
       days.add(d);
     }
     final dayCount = days.length;
-    // 一番短い連休すら入らない月なら何もしない
-    if (dayCount < requiredLengths.last) return reservations;
 
     // 各日の必要総人数（曜日別・日付個別設定を反映）
     final requiredPerDay = List<int>.filled(dayCount, 0);
@@ -1548,6 +1565,12 @@ class ShiftAssignmentService {
         .compareTo(existingRunCount(offByStaff[b.id]!)));
 
     for (final s in assignable) {
+      // このスタッフの実効連休ルール（個別上書き優先）。
+      final requiredLengths = requiredLengthsFor(s);
+      if (requiredLengths.isEmpty) continue; // この人は連休なし
+      // 一番短い連休すら入らない月は確保不能（スキップ）。
+      if (dayCount < requiredLengths.last) continue;
+
       final off = offByStaff[s.id]!;
 
       // 既存の連続休み（長さ>=2）の本数を集める
@@ -1593,16 +1616,16 @@ class ShiftAssignmentService {
       // 最後に境界（分離・勤務希望日）を緩めて確保する。
       for (final blockLen in toReserve) {
         int start = _findBestOffWindow(off, availablePerDay, requiredPerDay, days,
-            preferredKeys, blockLen,
+            preferredKeys, blockLen, rng,
             respectCoverage: true, respectBoundaries: true);
         if (start < 0) {
           start = _findBestOffWindow(off, availablePerDay, requiredPerDay, days,
-              preferredKeys, blockLen,
+              preferredKeys, blockLen, rng,
               respectCoverage: false, respectBoundaries: true);
         }
         if (start < 0) {
           start = _findBestOffWindow(off, availablePerDay, requiredPerDay, days,
-              preferredKeys, blockLen,
+              preferredKeys, blockLen, rng,
               respectCoverage: false, respectBoundaries: false);
         }
         if (start < 0) {
@@ -1644,13 +1667,18 @@ class ShiftAssignmentService {
     List<int> requiredPerDay,
     List<DateTime> days,
     Set<String> preferredKeys,
-    int blockLength, {
+    int blockLength,
+    Random rng, {
     required bool respectCoverage,
     required bool respectBoundaries,
   }) {
     final dayCount = off.length;
-    int bestStart = -1;
-    int bestScore = -1 << 30;
+    // 主目的（primary）が最良の窓を集め、その中からランダムに1つ選ぶ。
+    // これにより「毎回同じ位置（月初）」を避けつつ、孤立度/未充足の最小化という
+    // 本質的な目的は保たれる。primary は respectCoverage 時=孤立度、
+    // フォールバック時=スラック（割れの小ささ）。同点（タイ）の集合からランダムに選ぶ。
+    int bestPrimary = -1 << 30;
+    final bestStarts = <int>[];
     for (int start = 0; start + blockLength <= dayCount; start++) {
       bool ok = true;
       int minSlack = 1 << 30;
@@ -1695,20 +1723,22 @@ class ShiftAssignmentService {
       }
       final isolation = leftClear < rightClear ? leftClear : rightClear;
 
-      // スコア化（大きいほど良い）。孤立度を主に置きたいが、カバレッジを割る場合は
-      // 割れ幅の小ささを最優先にする。
-      final int score;
-      if (respectCoverage) {
-        score = isolation * 1000 + minSlack; // 孤立優先、余裕でタイブレーク
-      } else {
-        score = minSlack * 1000 + isolation; // 割れ最小優先、孤立でタイブレーク
-      }
-      if (score > bestScore) {
-        bestScore = score;
-        bestStart = start;
+      // 主目的（大きいほど良い）。respectCoverage 時は孤立度（連結防止）を最優先、
+      // 割っても確保するフォールバック時はスラック（割れの小ささ）を最優先にする。
+      // 従来あった副次タイブレークは、位置の多様性を出すためランダム選択に置き換える。
+      final int primary = respectCoverage ? isolation : minSlack;
+      if (primary > bestPrimary) {
+        bestPrimary = primary;
+        bestStarts
+          ..clear()
+          ..add(start);
+      } else if (primary == bestPrimary) {
+        bestStarts.add(start);
       }
     }
-    return bestStart;
+    if (bestStarts.isEmpty) return -1;
+    // 最良タイの集合からランダムに選ぶ（毎回違う位置になる）。
+    return bestStarts[rng.nextInt(bestStarts.length)];
   }
 
   /// チーム全体の休みかどうかをチェック

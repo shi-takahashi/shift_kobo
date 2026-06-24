@@ -13,6 +13,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'firebase_options.dart' as dev_options;
 import 'firebase_options_prod.dart' as prod_options;
+import 'models/consecutive_days_off_rule.dart';
 import 'models/shift.dart';
 import 'models/shift_constraint.dart';
 import 'models/shift_time_setting.dart';
@@ -50,6 +51,7 @@ void main() async {
   }
 
   await Hive.initFlutter();
+  Hive.registerAdapter(ConsecutiveDaysOffRuleAdapter());
   Hive.registerAdapter(StaffAdapter());
   Hive.registerAdapter(ShiftAdapter());
   Hive.registerAdapter(ShiftConstraintAdapter());

@@ -34,13 +34,17 @@ class StaffAdapter extends TypeAdapter<Staff> {
       preferredDates: (fields[14] as List?)?.cast<String>(),
       maxConsecutiveDays: fields[15] as int?,
       minRestHours: fields[16] as int?,
+      overrideConsecutiveDaysOff:
+          fields[17] == null ? false : fields[17] as bool,
+      consecutiveDaysOffRules:
+          (fields[18] as List?)?.cast<ConsecutiveDaysOffRule>(),
     );
   }
 
   @override
   void write(BinaryWriter writer, Staff obj) {
     writer
-      ..writeByte(17)
+      ..writeByte(19)
       ..writeByte(0)
       ..write(obj.id)
       ..writeByte(1)
@@ -74,7 +78,11 @@ class StaffAdapter extends TypeAdapter<Staff> {
       ..writeByte(15)
       ..write(obj.maxConsecutiveDays)
       ..writeByte(16)
-      ..write(obj.minRestHours);
+      ..write(obj.minRestHours)
+      ..writeByte(17)
+      ..write(obj.overrideConsecutiveDaysOff)
+      ..writeByte(18)
+      ..write(obj.consecutiveDaysOffRules);
   }
 
   @override
