@@ -25,6 +25,7 @@ import '../services/analytics_service.dart';
 import '../services/shift_plan_service.dart';
 import '../utils/constraint_checker.dart';
 import '../utils/japanese_calendar_utils.dart';
+import '../utils/shift_coverage.dart';
 import '../widgets/auto_assignment_dialog.dart';
 import '../widgets/restore_dialog.dart';
 import '../widgets/shift_edit_dialog.dart';
@@ -544,6 +545,23 @@ class _CalendarScreenState extends State<CalendarScreen> {
           _focusedDay.month,
         );
 
+        // 未充足（設定人数を満たしていない日）の判定材料。
+        // 設定や有効種別が変わったらカレンダーも再描画されるよう watch する。
+        final requirementsProvider = context.watch<MonthlyRequirementsProvider>();
+        final shiftTimeProvider = context.watch<ShiftTimeProvider>();
+        final activeShiftTypeNames = shiftTimeProvider.settings
+            .where((s) => s.isActive)
+            .map((s) => s.displayName)
+            .toSet();
+        // その月にシフトが1件も無いときは未充足マークを出さない。
+        // 理由:
+        //  - 自動作成は「全削除→全追加」の順なので、削除直後の一瞬だけ0件になり
+        //    全日が未充足に見えてチラつく（これを防ぐ）。
+        //  - まだ一度も作成していない月で、いきなり全日警告が出るのも不自然。
+        // （シフトがある月の中で特定の1日だけ0件、は従来どおり警告する。）
+        final hasAnyShiftThisMonth =
+            monthlyShifts.values.any((list) => list.isNotEmpty);
+
         return Scaffold(
           // この画面のbodyにはテキスト入力が無く（編集はダイアログ側）、
           // キーボード表示時にbodyを縮める必要がない。縮むと固定高のカレンダーが
@@ -997,8 +1015,25 @@ class _CalendarScreenState extends State<CalendarScreen> {
                     },
                     calendarBuilders: CalendarBuilders(
                       markerBuilder: (context, date, shifts) {
-                        if (shifts.isEmpty) return null;
-                        return _buildShiftMarkers(shifts);
+                        // その日が設定人数を満たしているか（自動・手動・プラン切替を問わず
+                        // 現在のシフトで都度判定。埋めれば自動でバッジが消える）。
+                        final required =
+                            requirementsProvider.getRequirementsForDate(date);
+                        final underfilled = hasAnyShiftThisMonth &&
+                            isDateUnderfilled(
+                              required: required,
+                              assigned: shifts,
+                              activeTypeNames: activeShiftTypeNames,
+                            );
+                        if (shifts.isEmpty && !underfilled) return null;
+                        return Positioned.fill(
+                          child: Stack(
+                            children: [
+                              if (shifts.isNotEmpty) _buildShiftMarkers(shifts),
+                              if (underfilled) _buildUnderfilledBadge(),
+                            ],
+                          ),
+                        );
                       },
                       dowBuilder: (context, day) {
                         final text = JapaneseCalendarUtils.getJapaneseDayOfWeek(day);
@@ -1637,6 +1672,57 @@ class _CalendarScreenState extends State<CalendarScreen> {
       setState(() {});
       _selectedShifts.value = _getShiftsForDay(_selectedDay!);
     }
+  }
+
+  /// 設定人数を満たしていない日の警告表示。
+  /// 「どの日か」を明確にするため、セル全体を薄い赤で塗り＋赤枠で囲み、右上に「!」を出す。
+  /// セル全体を覆うが [IgnorePointer] で日付タップは妨げない。
+  Widget _buildUnderfilledBadge() {
+    // バージョン非依存（withOpacity の非推奨回避）で薄い赤を作る。
+    const tint = Color.fromRGBO(229, 57, 53, 0.12);
+    const red = Color.fromRGBO(229, 57, 53, 1.0);
+    return Positioned.fill(
+      child: IgnorePointer(
+        child: Stack(
+          children: [
+            // セル全体を薄赤＋赤枠で囲って「この日」が未充足だと明示
+            Positioned.fill(
+              child: Container(
+                margin: const EdgeInsets.all(1),
+                decoration: BoxDecoration(
+                  color: tint,
+                  border: Border.all(color: red, width: 1.2),
+                  borderRadius: BorderRadius.circular(6),
+                ),
+              ),
+            ),
+            // 右上に「!」（シフトのドットは右下なので重ならない）
+            Positioned(
+              top: 0,
+              right: 0,
+              child: Container(
+                width: 13,
+                height: 13,
+                decoration: const BoxDecoration(
+                  color: red,
+                  shape: BoxShape.circle,
+                ),
+                alignment: Alignment.center,
+                child: const Text(
+                  '!',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 9,
+                    fontWeight: FontWeight.bold,
+                    height: 1.0,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   Widget _buildShiftMarkers(List<Shift> shifts) {

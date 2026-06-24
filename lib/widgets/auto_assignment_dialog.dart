@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/assignment_strategy.dart';
+import '../models/shift.dart';
 import '../models/team.dart';
 import '../providers/monthly_requirements_provider.dart';
 import '../providers/shift_provider.dart';
@@ -14,6 +15,7 @@ import '../services/ad_service.dart';
 import '../services/analytics_service.dart';
 import '../services/shift_assignment_service.dart';
 import '../services/shift_plan_service.dart';
+import '../utils/shift_coverage.dart';
 
 class AutoAssignmentDialog extends StatefulWidget {
   final DateTime selectedMonth;
@@ -525,6 +527,33 @@ class _AutoAssignmentDialogState extends State<AutoAssignmentDialog> {
         yearMonth: '${widget.selectedMonth.year}-${widget.selectedMonth.month}',
       );
 
+      // 未充足（設定人数を満たせなかった枠）を日付ごとに集計する。
+      // 「しれっと完璧に見えるが実は埋まっていない」を防ぐため、生成直後に警告する。
+      final activeTypeNames = shiftTimeProvider.settings
+          .where((s) => s.isActive)
+          .map((s) => s.displayName)
+          .toSet();
+      final shiftsByDate = <DateTime, List<Shift>>{};
+      for (final s in shifts) {
+        final key = DateTime(s.date.year, s.date.month, s.date.day);
+        (shiftsByDate[key] ??= []).add(s);
+      }
+      final unfilledByDate = <DateTime, Map<String, int>>{};
+      int unfilledTotal = 0;
+      for (var d = DateTime(_startDate.year, _startDate.month, _startDate.day);
+          !d.isAfter(_endDate);
+          d = d.add(const Duration(days: 1))) {
+        final sf = computeDateShortfall(
+          required: requirementsProvider.getRequirementsForDate(d),
+          assigned: shiftsByDate[d] ?? const [],
+          activeTypeNames: activeTypeNames,
+        );
+        if (sf.isNotEmpty) {
+          unfilledByDate[d] = sf;
+          unfilledTotal += sf.values.fold<int>(0, (a, b) => a + b);
+        }
+      }
+
       if (mounted) {
         // Navigator参照を事前に保存
         final navigatorContext = Navigator.of(context);
@@ -548,15 +577,26 @@ class _AutoAssignmentDialogState extends State<AutoAssignmentDialog> {
         // 12. ダイアログを閉じる
         navigatorContext.pop(true);
 
-        // 13. 広告表示（閉じた後に完了メッセージを表示）
+        // 13. 広告表示（閉じた後に完了メッセージ／未充足警告を表示）
+        // 未充足があれば「埋めきれなかった」警告ダイアログ（合計＋内訳）を出す。
+        // 全部埋まっていれば従来どおり完了スナックバー。
+        void showResult() {
+          if (unfilledTotal > 0) {
+            _showUnderfilledWarning(
+              navigatorContext.context,
+              unfilledByDate,
+              unfilledTotal,
+            );
+          } else {
+            _showCompletionMessage(scaffoldMessengerContext, shiftsCount,
+                showRegenerateHint: showRegenerateHint);
+          }
+        }
+
         AdService.showInterstitialAd(
           onAdShown: () {},
-          onAdClosed: () {
-            _showCompletionMessage(scaffoldMessengerContext, shiftsCount, showRegenerateHint: showRegenerateHint);
-          },
-          onAdFailedToShow: () {
-            _showCompletionMessage(scaffoldMessengerContext, shiftsCount, showRegenerateHint: showRegenerateHint);
-          },
+          onAdClosed: showResult,
+          onAdFailedToShow: showResult,
         );
       }
     } catch (e) {
@@ -594,6 +634,90 @@ class _AutoAssignmentDialogState extends State<AutoAssignmentDialog> {
       builder: (context) => AlertDialog(
         title: const Text('入力エラー'),
         content: Text(message),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('OK'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// 自動作成で設定人数を埋めきれなかったときの警告ダイアログ（合計＋日付別の内訳）。
+  /// 「しれっと完璧に見えるが実は埋まっていない」を防ぐためモーダルで明示する。
+  void _showUnderfilledWarning(
+    BuildContext context,
+    Map<DateTime, Map<String, int>> unfilledByDate,
+    int unfilledTotal,
+  ) {
+    final dates = unfilledByDate.keys.toList()..sort();
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Row(
+          children: [
+            const Icon(Icons.warning_amber_rounded, color: Colors.orange),
+            const SizedBox(width: 8),
+            const Expanded(child: Text('一部のシフトを埋めきれませんでした')),
+          ],
+        ),
+        content: SizedBox(
+          width: double.maxFinite,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('設定した人数に対して 合計 $unfilledTotal 枠 不足しています。',
+                  style: const TextStyle(fontWeight: FontWeight.bold)),
+              const SizedBox(height: 8),
+              const Text(
+                '制約（休み希望・連勤上限・連休など）を見直してもう一度作成するか、'
+                'カレンダーから手動で補ってください。'
+                '未充足の日はカレンダーに赤い「!」が付きます。',
+                style: TextStyle(fontSize: 13),
+              ),
+              const SizedBox(height: 12),
+              const Divider(height: 1),
+              const SizedBox(height: 4),
+              ConstrainedBox(
+                constraints: const BoxConstraints(maxHeight: 220),
+                child: SingleChildScrollView(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      for (final d in dates)
+                        Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 4),
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              SizedBox(
+                                width: 52,
+                                child: Text('${d.month}/${d.day}',
+                                    style: const TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 13)),
+                              ),
+                              Expanded(
+                                child: Text(
+                                  unfilledByDate[d]!
+                                      .entries
+                                      .map((e) => '${e.key} ${e.value}名不足')
+                                      .join('、'),
+                                  style: const TextStyle(fontSize: 13),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(),
