@@ -41,8 +41,8 @@ class _StaffEditDialogState extends State<StaffEditDialog> {
   late List<String> _unavailableShiftTypes;
   late List<DateTime> _specificDaysOff;
   late List<DateTime> _preferredDates; // 勤務希望日
-  late bool _holidaysOff; // 祝日を休み希望とするか
-  bool _showPastDaysOff = false; // 過去の休み希望日を表示するか
+  late bool _holidaysOff; // 祝日を休みとするか
+  bool _showPastDaysOff = false; // 過去の休みの日を表示するか
   bool _showPastPreferredDates = false; // 過去の勤務希望日を表示するか
   int? _maxConsecutiveDays; // 個別の連続勤務日数上限
   int? _minRestHours; // 個別の勤務間インターバル
@@ -64,32 +64,20 @@ class _StaffEditDialogState extends State<StaffEditDialog> {
     if (widget.existingStaff != null) {
       // 編集モード
       _nameController = TextEditingController(text: widget.existingStaff!.name);
-      _phoneController =
-          TextEditingController(text: widget.existingStaff!.phoneNumber ?? '');
-      _emailController =
-          TextEditingController(text: widget.existingStaff!.email ?? '');
-      _maxShiftsController = TextEditingController(
-          text: widget.existingStaff!.maxShiftsPerMonth.toString());
+      _phoneController = TextEditingController(text: widget.existingStaff!.phoneNumber ?? '');
+      _emailController = TextEditingController(text: widget.existingStaff!.email ?? '');
+      _maxShiftsController = TextEditingController(text: widget.existingStaff!.maxShiftsPerMonth.toString());
       _selectedDaysOff = List.from(widget.existingStaff!.preferredDaysOff);
-      _unavailableShiftTypes =
-          List.from(widget.existingStaff!.unavailableShiftTypes);
-      _specificDaysOff = widget.existingStaff!.specificDaysOff
-          .map((dateStr) => DateTime.parse(dateStr))
-          .toList();
-      _preferredDates = widget.existingStaff!.preferredDates
-          .map((dateStr) => DateTime.parse(dateStr))
-          .toList();
+      _unavailableShiftTypes = List.from(widget.existingStaff!.unavailableShiftTypes);
+      _specificDaysOff = widget.existingStaff!.specificDaysOff.map((dateStr) => DateTime.parse(dateStr)).toList();
+      _preferredDates = widget.existingStaff!.preferredDates.map((dateStr) => DateTime.parse(dateStr)).toList();
       _holidaysOff = widget.existingStaff!.holidaysOff;
       _maxConsecutiveDays = widget.existingStaff!.maxConsecutiveDays;
       _minRestHours = widget.existingStaff!.minRestHours;
-      _useCustomMaxConsecutiveDays =
-          widget.existingStaff!.maxConsecutiveDays != null;
+      _useCustomMaxConsecutiveDays = widget.existingStaff!.maxConsecutiveDays != null;
       _useCustomMinRestHours = widget.existingStaff!.minRestHours != null;
-      _overrideConsecutiveDaysOff =
-          widget.existingStaff!.overrideConsecutiveDaysOff;
-      _consecutiveDaysOffRules = widget.existingStaff!.consecutiveDaysOffRules
-          .map((r) => r.copyWith())
-          .toList();
+      _overrideConsecutiveDaysOff = widget.existingStaff!.overrideConsecutiveDaysOff;
+      _consecutiveDaysOffRules = widget.existingStaff!.consecutiveDaysOffRules.map((r) => r.copyWith()).toList();
 
       // 紐付け済みの場合、ユーザー情報とロールを取得
       _loadUserRoleInfo();
@@ -249,21 +237,15 @@ class _StaffEditDialogState extends State<StaffEditDialog> {
                     style: TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.bold,
-                      color: isLinked
-                          ? Colors.green.shade900
-                          : Colors.grey.shade700,
+                      color: isLinked ? Colors.green.shade900 : Colors.grey.shade700,
                     ),
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    isLinked
-                        ? 'このスタッフはアプリアカウントと紐付いています'
-                        : 'メールアドレスを入力すると、同じメールアドレスでアカウント作成した時に自動紐付き',
+                    isLinked ? 'このスタッフはアプリアカウントと紐付いています' : 'メールアドレスを入力すると、同じメールアドレスでアカウント作成した時に自動紐付き',
                     style: TextStyle(
                       fontSize: 12,
-                      color: isLinked
-                          ? Colors.green.shade700
-                          : Colors.grey.shade600,
+                      color: isLinked ? Colors.green.shade700 : Colors.grey.shade600,
                     ),
                   ),
                 ],
@@ -364,8 +346,7 @@ class _StaffEditDialogState extends State<StaffEditDialog> {
                       const SizedBox(height: 4),
                       Text(
                         '• シフト編集・自動生成が可能になります\n• スタッフ管理が可能になります\n• 設定変更が可能になります',
-                        style: TextStyle(
-                            fontSize: 11, color: Colors.blue.shade800),
+                        style: TextStyle(fontSize: 11, color: Colors.blue.shade800),
                       ),
                     ] else ...[
                       Text(
@@ -379,8 +360,7 @@ class _StaffEditDialogState extends State<StaffEditDialog> {
                       const SizedBox(height: 4),
                       Text(
                         '• シフト閲覧のみになります\n• スタッフ管理ができなくなります\n• 設定変更ができなくなります',
-                        style: TextStyle(
-                            fontSize: 11, color: Colors.blue.shade800),
+                        style: TextStyle(fontSize: 11, color: Colors.blue.shade800),
                       ),
                     ],
                   ],
@@ -444,24 +424,20 @@ class _StaffEditDialogState extends State<StaffEditDialog> {
               validator: (value) {
                 if (value != null && value.isNotEmpty) {
                   // メールアドレス形式チェック
-                  final emailRegex =
-                      RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$');
+                  final emailRegex = RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$');
                   if (!emailRegex.hasMatch(value)) {
                     return '正しいメールアドレスを入力してください';
                   }
 
                   // チーム内での重複チェック
-                  final staffProvider =
-                      Provider.of<StaffProvider>(context, listen: false);
+                  final staffProvider = Provider.of<StaffProvider>(context, listen: false);
                   final duplicateStaff = staffProvider.staffList.where((staff) {
                     // 編集モードの場合は自分自身を除外
-                    if (widget.existingStaff != null &&
-                        staff.id == widget.existingStaff!.id) {
+                    if (widget.existingStaff != null && staff.id == widget.existingStaff!.id) {
                       return false;
                     }
                     // メールアドレスが一致するスタッフを検索
-                    return staff.email != null &&
-                        staff.email!.toLowerCase() == value.toLowerCase();
+                    return staff.email != null && staff.email!.toLowerCase() == value.toLowerCase();
                   }).toList();
 
                   if (duplicateStaff.isNotEmpty) {
@@ -536,12 +512,12 @@ class _StaffEditDialogState extends State<StaffEditDialog> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              '休み希望曜日',
+              '休みの曜日',
               style: Theme.of(context).textTheme.titleMedium,
             ),
             const SizedBox(height: 8),
             Text(
-              '定期的に休みを希望する曜日を選択',
+              '毎週決まって休みの曜日を選択',
               style: Theme.of(context).textTheme.bodySmall,
             ),
             const SizedBox(height: 16),
@@ -584,7 +560,7 @@ class _StaffEditDialogState extends State<StaffEditDialog> {
                 });
               },
               title: const Text(
-                '祝日を休み希望とする',
+                '祝日は休み',
                 style: TextStyle(fontSize: 13),
               ),
               controlAffinity: ListTileControlAffinity.leading,
@@ -605,17 +581,11 @@ class _StaffEditDialogState extends State<StaffEditDialog> {
     final firstDayOfCurrentMonth = DateTime(now.year, now.month, 1);
 
     // 表示する日付をフィルタリング
-    final displayDaysOff = _showPastDaysOff
-        ? _specificDaysOff
-        : _specificDaysOff
-            .where((date) => date.isAfter(
-                firstDayOfCurrentMonth.subtract(const Duration(days: 1))))
-            .toList();
+    final displayDaysOff =
+        _showPastDaysOff ? _specificDaysOff : _specificDaysOff.where((date) => date.isAfter(firstDayOfCurrentMonth.subtract(const Duration(days: 1)))).toList();
 
-    // 過去の休み希望日の件数
-    final pastCount = _specificDaysOff
-        .where((date) => date.isBefore(firstDayOfCurrentMonth))
-        .length;
+    // 過去の休みの日の件数
+    final pastCount = _specificDaysOff.where((date) => date.isBefore(firstDayOfCurrentMonth)).length;
 
     return Card(
       child: Padding(
@@ -631,12 +601,12 @@ class _StaffEditDialogState extends State<StaffEditDialog> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        '休み希望日（特定日）',
+                        '休みの日（特定日）',
                         style: Theme.of(context).textTheme.titleMedium,
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        '特定の日付で休みを希望する日を追加',
+                        '特定の日付で休みの日を追加',
                         style: Theme.of(context).textTheme.bodySmall,
                       ),
                     ],
@@ -663,7 +633,7 @@ class _StaffEditDialogState extends State<StaffEditDialog> {
                   ),
                   Expanded(
                     child: Text(
-                      '過去の休み希望日も表示（${pastCount}件）',
+                      '過去の休みの日も表示（${pastCount}件）',
                       style: const TextStyle(fontSize: 13),
                     ),
                   ),
@@ -711,7 +681,7 @@ class _StaffEditDialogState extends State<StaffEditDialog> {
               const SizedBox(height: 8),
               Center(
                 child: Text(
-                  '今月以降の休み希望日はありません',
+                  '今月以降の休みの日はありません',
                   style: TextStyle(
                     fontSize: 13,
                     color: Colors.grey.shade600,
@@ -736,15 +706,10 @@ class _StaffEditDialogState extends State<StaffEditDialog> {
     // 表示する日付をフィルタリング
     final displayPreferredDates = _showPastPreferredDates
         ? _preferredDates
-        : _preferredDates
-            .where((date) => date.isAfter(
-                firstDayOfCurrentMonth.subtract(const Duration(days: 1))))
-            .toList();
+        : _preferredDates.where((date) => date.isAfter(firstDayOfCurrentMonth.subtract(const Duration(days: 1)))).toList();
 
     // 過去の勤務希望日の件数
-    final pastCount = _preferredDates
-        .where((date) => date.isBefore(firstDayOfCurrentMonth))
-        .length;
+    final pastCount = _preferredDates.where((date) => date.isBefore(firstDayOfCurrentMonth)).length;
 
     return Card(
       color: Colors.blue.shade50,
@@ -762,15 +727,11 @@ class _StaffEditDialogState extends State<StaffEditDialog> {
                     children: [
                       Row(
                         children: [
-                          Icon(Icons.favorite,
-                              color: Colors.blue.shade700, size: 20),
+                          Icon(Icons.favorite, color: Colors.blue.shade700, size: 20),
                           const SizedBox(width: 8),
                           Text(
                             '勤務希望日',
-                            style: Theme.of(context)
-                                .textTheme
-                                .titleMedium
-                                ?.copyWith(
+                            style: Theme.of(context).textTheme.titleMedium?.copyWith(
                                   color: Colors.blue.shade900,
                                 ),
                           ),
@@ -778,7 +739,8 @@ class _StaffEditDialogState extends State<StaffEditDialog> {
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        'シフトに入りたい日を設定',
+                        'シフトに入りたい日を設定（'
+                        '他の条件次第で必ず希望通りになるとは限りません）',
                         style: Theme.of(context).textTheme.bodySmall?.copyWith(
                               color: Colors.blue.shade700,
                             ),
@@ -830,8 +792,7 @@ class _StaffEditDialogState extends State<StaffEditDialog> {
                         decoration: isPast ? TextDecoration.lineThrough : null,
                       ),
                     ),
-                    backgroundColor:
-                        isPast ? Colors.grey.shade200 : Colors.blue.shade100,
+                    backgroundColor: isPast ? Colors.grey.shade200 : Colors.blue.shade100,
                     side: BorderSide.none,
                     deleteIcon: const Icon(Icons.close, size: 16),
                     onDeleted: () {
@@ -901,12 +862,8 @@ class _StaffEditDialogState extends State<StaffEditDialog> {
   }
 
   Widget _buildUnavailableShiftTypesSection() {
-    final shiftTimeProvider =
-        Provider.of<ShiftTimeProvider>(context, listen: false);
-    final activeShiftTypes = shiftTimeProvider.settings
-        .where((setting) => setting.isActive)
-        .map((setting) => setting.displayName)
-        .toList();
+    final shiftTimeProvider = Provider.of<ShiftTimeProvider>(context, listen: false);
+    final activeShiftTypes = shiftTimeProvider.settings.where((setting) => setting.isActive).map((setting) => setting.displayName).toList();
 
     return Card(
       child: Padding(
@@ -986,9 +943,7 @@ class _StaffEditDialogState extends State<StaffEditDialog> {
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: _useCustomMaxConsecutiveDays
-                    ? Colors.purple.shade50
-                    : Colors.grey.shade100,
+                color: _useCustomMaxConsecutiveDays ? Colors.purple.shade50 : Colors.grey.shade100,
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Column(
@@ -1017,12 +972,8 @@ class _StaffEditDialogState extends State<StaffEditDialog> {
                           '連続勤務日数上限を個別に設定',
                           style: TextStyle(
                             fontSize: 14,
-                            color: _useCustomMaxConsecutiveDays
-                                ? Colors.purple.shade900
-                                : Colors.grey.shade700,
-                            fontWeight: _useCustomMaxConsecutiveDays
-                                ? FontWeight.bold
-                                : FontWeight.normal,
+                            color: _useCustomMaxConsecutiveDays ? Colors.purple.shade900 : Colors.grey.shade700,
+                            fontWeight: _useCustomMaxConsecutiveDays ? FontWeight.bold : FontWeight.normal,
                           ),
                         ),
                       ),
@@ -1041,8 +992,7 @@ class _StaffEditDialogState extends State<StaffEditDialog> {
                               hintText: '',
                               suffixText: '日',
                               border: OutlineInputBorder(),
-                              contentPadding: EdgeInsets.symmetric(
-                                  horizontal: 12, vertical: 8),
+                              contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                               isDense: true,
                             ),
                             keyboardType: TextInputType.number,
@@ -1051,8 +1001,7 @@ class _StaffEditDialogState extends State<StaffEditDialog> {
                             ],
                             onChanged: (value) {
                               setState(() {
-                                _maxConsecutiveDays =
-                                    value.isEmpty ? null : int.tryParse(value);
+                                _maxConsecutiveDays = value.isEmpty ? null : int.tryParse(value);
                               });
                             },
                           ),
@@ -1078,9 +1027,7 @@ class _StaffEditDialogState extends State<StaffEditDialog> {
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: _useCustomMinRestHours
-                    ? Colors.purple.shade50
-                    : Colors.grey.shade100,
+                color: _useCustomMinRestHours ? Colors.purple.shade50 : Colors.grey.shade100,
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Column(
@@ -1109,12 +1056,8 @@ class _StaffEditDialogState extends State<StaffEditDialog> {
                           '勤務間インターバルを個別に設定',
                           style: TextStyle(
                             fontSize: 14,
-                            color: _useCustomMinRestHours
-                                ? Colors.purple.shade900
-                                : Colors.grey.shade700,
-                            fontWeight: _useCustomMinRestHours
-                                ? FontWeight.bold
-                                : FontWeight.normal,
+                            color: _useCustomMinRestHours ? Colors.purple.shade900 : Colors.grey.shade700,
+                            fontWeight: _useCustomMinRestHours ? FontWeight.bold : FontWeight.normal,
                           ),
                         ),
                       ),
@@ -1133,8 +1076,7 @@ class _StaffEditDialogState extends State<StaffEditDialog> {
                               hintText: '',
                               suffixText: '時間',
                               border: OutlineInputBorder(),
-                              contentPadding: EdgeInsets.symmetric(
-                                  horizontal: 12, vertical: 8),
+                              contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                               isDense: true,
                             ),
                             keyboardType: TextInputType.number,
@@ -1143,8 +1085,7 @@ class _StaffEditDialogState extends State<StaffEditDialog> {
                             ],
                             onChanged: (value) {
                               setState(() {
-                                _minRestHours =
-                                    value.isEmpty ? null : int.tryParse(value);
+                                _minRestHours = value.isEmpty ? null : int.tryParse(value);
                               });
                             },
                           ),
@@ -1170,9 +1111,7 @@ class _StaffEditDialogState extends State<StaffEditDialog> {
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: _overrideConsecutiveDaysOff
-                    ? Colors.purple.shade50
-                    : Colors.grey.shade100,
+                color: _overrideConsecutiveDaysOff ? Colors.purple.shade50 : Colors.grey.shade100,
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Column(
@@ -1198,12 +1137,8 @@ class _StaffEditDialogState extends State<StaffEditDialog> {
                           '連休を個別に設定',
                           style: TextStyle(
                             fontSize: 14,
-                            color: _overrideConsecutiveDaysOff
-                                ? Colors.purple.shade900
-                                : Colors.grey.shade700,
-                            fontWeight: _overrideConsecutiveDaysOff
-                                ? FontWeight.bold
-                                : FontWeight.normal,
+                            color: _overrideConsecutiveDaysOff ? Colors.purple.shade900 : Colors.grey.shade700,
+                            fontWeight: _overrideConsecutiveDaysOff ? FontWeight.bold : FontWeight.normal,
                           ),
                         ),
                       ),
@@ -1218,8 +1153,7 @@ class _StaffEditDialogState extends State<StaffEditDialog> {
                         'チーム設定でなく、このスタッフ専用の連休を設定します。'
                         '設定した連休は最低限の保証で、自動割り当ての結果'
                         '指定より長い連休になることはあります。',
-                        style: TextStyle(
-                            fontSize: 12, color: Colors.grey.shade600),
+                        style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
                       ),
                     ),
                     const SizedBox(height: 8),
@@ -1249,17 +1183,13 @@ class _StaffEditDialogState extends State<StaffEditDialog> {
                             ..._buildStaffDaysOffRuleRows(),
                             const SizedBox(height: 4),
                             TextButton.icon(
-                              onPressed: _consecutiveDaysOffRules.length >=
-                                      _staffDaysOffLengthOptions.length
-                                  ? null
-                                  : _addStaffDaysOffRule,
+                              onPressed: _consecutiveDaysOffRules.length >= _staffDaysOffLengthOptions.length ? null : _addStaffDaysOffRule,
                               icon: const Icon(Icons.add, size: 18),
                               label: const Text('連休パターンを追加'),
                               style: TextButton.styleFrom(
                                 padding: EdgeInsets.zero,
                                 minimumSize: const Size(0, 32),
-                                tapTargetSize:
-                                    MaterialTapTargetSize.shrinkWrap,
+                                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                               ),
                             ),
                           ],
@@ -1279,8 +1209,7 @@ class _StaffEditDialogState extends State<StaffEditDialog> {
               ),
               child: Row(
                 children: [
-                  Icon(Icons.info_outline,
-                      color: Colors.purple.shade700, size: 18),
+                  Icon(Icons.info_outline, color: Colors.purple.shade700, size: 18),
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
@@ -1308,7 +1237,7 @@ class _StaffEditDialogState extends State<StaffEditDialog> {
     if (_consecutiveDaysOffRules.isEmpty) {
       return [
         Text(
-          '連休を確保しません（休み希望やチーム休みで結果的に連休になることはあります）',
+          '連休を確保しません（休みの日やチーム休みで結果的に連休になることはあります）',
           style: TextStyle(fontSize: 13, color: Colors.grey[600]),
         ),
       ];
@@ -1316,20 +1245,14 @@ class _StaffEditDialogState extends State<StaffEditDialog> {
     return List.generate(_consecutiveDaysOffRules.length, (index) {
       final rule = _consecutiveDaysOffRules[index];
       // 選択肢に無い値が来ても落ちないように補正
-      final lengthValue = _staffDaysOffLengthOptions.contains(rule.length)
-          ? rule.length
-          : _staffDaysOffLengthOptions.first;
-      final countValue = _staffDaysOffCountOptions.contains(rule.count)
-          ? rule.count
-          : _staffDaysOffCountOptions.first;
+      final lengthValue = _staffDaysOffLengthOptions.contains(rule.length) ? rule.length : _staffDaysOffLengthOptions.first;
+      final countValue = _staffDaysOffCountOptions.contains(rule.count) ? rule.count : _staffDaysOffCountOptions.first;
       // 同じ長さの連休を複数行作っても意味がないので、他の行で使用中の長さは選べないようにする
       final usedByOthers = <int>{
         for (int j = 0; j < _consecutiveDaysOffRules.length; j++)
           if (j != index) _consecutiveDaysOffRules[j].length,
       };
-      final lengthItems = _staffDaysOffLengthOptions
-          .where((v) => v == lengthValue || !usedByOthers.contains(v))
-          .toList();
+      final lengthItems = _staffDaysOffLengthOptions.where((v) => v == lengthValue || !usedByOthers.contains(v)).toList();
       return Padding(
         padding: const EdgeInsets.symmetric(vertical: 2),
         child: Row(
@@ -1337,9 +1260,7 @@ class _StaffEditDialogState extends State<StaffEditDialog> {
             DropdownButton<int>(
               value: lengthValue,
               isDense: true,
-              items: lengthItems
-                  .map((v) => DropdownMenuItem(value: v, child: Text('$v')))
-                  .toList(),
+              items: lengthItems.map((v) => DropdownMenuItem(value: v, child: Text('$v'))).toList(),
               onChanged: (v) {
                 if (v == null) return;
                 setState(() {
@@ -1351,9 +1272,7 @@ class _StaffEditDialogState extends State<StaffEditDialog> {
             DropdownButton<int>(
               value: countValue,
               isDense: true,
-              items: _staffDaysOffCountOptions
-                  .map((v) => DropdownMenuItem(value: v, child: Text('$v')))
-                  .toList(),
+              items: _staffDaysOffCountOptions.map((v) => DropdownMenuItem(value: v, child: Text('$v'))).toList(),
               onChanged: (v) {
                 if (v == null) return;
                 setState(() {
@@ -1439,37 +1358,25 @@ class _StaffEditDialogState extends State<StaffEditDialog> {
       final updatedStaff = Staff(
         id: widget.existingStaff!.id,
         name: _nameController.text.trim(),
-        phoneNumber:
-            _phoneController.text.isNotEmpty ? _phoneController.text : null,
+        phoneNumber: _phoneController.text.isNotEmpty ? _phoneController.text : null,
         email: _emailController.text.isNotEmpty ? _emailController.text : null,
         maxShiftsPerMonth: int.parse(_maxShiftsController.text),
         preferredDaysOff: List.from(_selectedDaysOff),
         unavailableShiftTypes: List.from(_unavailableShiftTypes),
-        specificDaysOff: _specificDaysOff
-            .map((date) =>
-                DateTime(date.year, date.month, date.day).toIso8601String())
-            .toList(),
-        preferredDates: _preferredDates
-            .map((date) =>
-                DateTime(date.year, date.month, date.day).toIso8601String())
-            .toList(),
+        specificDaysOff: _specificDaysOff.map((date) => DateTime(date.year, date.month, date.day).toIso8601String()).toList(),
+        preferredDates: _preferredDates.map((date) => DateTime(date.year, date.month, date.day).toIso8601String()).toList(),
         holidaysOff: _holidaysOff,
         isActive: widget.existingStaff!.isActive,
         createdAt: widget.existingStaff!.createdAt,
         userId: widget.existingStaff!.userId,
-        maxConsecutiveDays:
-            _useCustomMaxConsecutiveDays ? _maxConsecutiveDays : null,
+        maxConsecutiveDays: _useCustomMaxConsecutiveDays ? _maxConsecutiveDays : null,
         minRestHours: _useCustomMinRestHours ? _minRestHours : null,
         overrideConsecutiveDaysOff: _overrideConsecutiveDaysOff,
-        consecutiveDaysOffRules: _overrideConsecutiveDaysOff
-            ? _consecutiveDaysOffRules.map((r) => r.copyWith()).toList()
-            : [],
+        consecutiveDaysOffRules: _overrideConsecutiveDaysOff ? _consecutiveDaysOffRules.map((r) => r.copyWith()).toList() : [],
       );
 
       // ロール変更がある場合、確認ダイアログを表示
-      if (_linkedUser != null &&
-          _selectedRole != null &&
-          _linkedUser!.role != _selectedRole) {
+      if (_linkedUser != null && _selectedRole != null && _linkedUser!.role != _selectedRole) {
         final confirmed = await _showRoleChangeConfirmationDialog();
         if (!confirmed) return;
       }
@@ -1480,8 +1387,7 @@ class _StaffEditDialogState extends State<StaffEditDialog> {
       // 勤務希望日が設定されている場合はAnalyticsイベントを送信
       if (_preferredDates.isNotEmpty) {
         try {
-          await AnalyticsService.logPreferredDatesSet(
-              count: _preferredDates.length);
+          await AnalyticsService.logPreferredDatesSet(count: _preferredDates.length);
         } catch (_) {
           // Analyticsエラーは無視
         }
@@ -1489,9 +1395,7 @@ class _StaffEditDialogState extends State<StaffEditDialog> {
 
       // ロール変更がある場合、AuthServiceで更新
       bool isSelfRoleChange = false;
-      if (_linkedUser != null &&
-          _selectedRole != null &&
-          _linkedUser!.role != _selectedRole) {
+      if (_linkedUser != null && _selectedRole != null && _linkedUser!.role != _selectedRole) {
         try {
           final authService = AuthService();
           final currentUserId = FirebaseAuth.instance.currentUser?.uid;
@@ -1562,30 +1466,20 @@ class _StaffEditDialogState extends State<StaffEditDialog> {
       final staff = Staff(
         id: DateTime.now().millisecondsSinceEpoch.toString(),
         name: _nameController.text.trim(),
-        phoneNumber:
-            _phoneController.text.isNotEmpty ? _phoneController.text : null,
+        phoneNumber: _phoneController.text.isNotEmpty ? _phoneController.text : null,
         email: _emailController.text.isNotEmpty ? _emailController.text : null,
         maxShiftsPerMonth: int.parse(_maxShiftsController.text),
         preferredDaysOff: List.from(_selectedDaysOff),
         unavailableShiftTypes: List.from(_unavailableShiftTypes),
-        specificDaysOff: _specificDaysOff
-            .map((date) =>
-                DateTime(date.year, date.month, date.day).toIso8601String())
-            .toList(),
-        preferredDates: _preferredDates
-            .map((date) =>
-                DateTime(date.year, date.month, date.day).toIso8601String())
-            .toList(),
+        specificDaysOff: _specificDaysOff.map((date) => DateTime(date.year, date.month, date.day).toIso8601String()).toList(),
+        preferredDates: _preferredDates.map((date) => DateTime(date.year, date.month, date.day).toIso8601String()).toList(),
         holidaysOff: _holidaysOff,
         isActive: true,
         createdAt: DateTime.now(),
-        maxConsecutiveDays:
-            _useCustomMaxConsecutiveDays ? _maxConsecutiveDays : null,
+        maxConsecutiveDays: _useCustomMaxConsecutiveDays ? _maxConsecutiveDays : null,
         minRestHours: _useCustomMinRestHours ? _minRestHours : null,
         overrideConsecutiveDaysOff: _overrideConsecutiveDaysOff,
-        consecutiveDaysOffRules: _overrideConsecutiveDaysOff
-            ? _consecutiveDaysOffRules.map((r) => r.copyWith()).toList()
-            : [],
+        consecutiveDaysOffRules: _overrideConsecutiveDaysOff ? _consecutiveDaysOffRules.map((r) => r.copyWith()).toList() : [],
       );
 
       await staffProvider.addStaff(staff);
@@ -1593,8 +1487,7 @@ class _StaffEditDialogState extends State<StaffEditDialog> {
       // 勤務希望日が設定されている場合はAnalyticsイベントを送信
       if (_preferredDates.isNotEmpty) {
         try {
-          await AnalyticsService.logPreferredDatesSet(
-              count: _preferredDates.length);
+          await AnalyticsService.logPreferredDatesSet(count: _preferredDates.length);
         } catch (_) {
           // Analyticsエラーは無視
         }
@@ -1699,7 +1592,7 @@ class _PreferredDatesDialog extends StatefulWidget {
   final List<DateTime> initialDates;
   final List<int> unavailableDaysOff; // 勤務不可曜日
   final List<DateTime> specificDaysOff; // 勤務不可日
-  final bool holidaysOff; // 祝日を休み希望とするか
+  final bool holidaysOff; // 祝日を休みとするか
 
   const _PreferredDatesDialog({
     required this.initialDates,
@@ -1732,9 +1625,7 @@ class _PreferredDatesDialogState extends State<_PreferredDatesDialog> {
 
     // 勤務不可日チェック
     for (final offDate in widget.specificDaysOff) {
-      if (offDate.year == date.year &&
-          offDate.month == date.month &&
-          offDate.day == date.day) {
+      if (offDate.year == date.year && offDate.month == date.month && offDate.day == date.day) {
         return true;
       }
     }
@@ -1744,16 +1635,14 @@ class _PreferredDatesDialogState extends State<_PreferredDatesDialog> {
 
   /// 日付が選択されているかどうかをチェック
   bool _isSelectedDate(DateTime date) {
-    return _selectedDates.any((d) =>
-        d.year == date.year && d.month == date.month && d.day == date.day);
+    return _selectedDates.any((d) => d.year == date.year && d.month == date.month && d.day == date.day);
   }
 
   /// 日付の選択/解除
   void _toggleDate(DateTime date) {
     setState(() {
       if (_isSelectedDate(date)) {
-        _selectedDates.removeWhere((d) =>
-            d.year == date.year && d.month == date.month && d.day == date.day);
+        _selectedDates.removeWhere((d) => d.year == date.year && d.month == date.month && d.day == date.day);
       } else {
         _selectedDates.add(DateTime(date.year, date.month, date.day));
       }
@@ -1805,7 +1694,8 @@ class _PreferredDatesDialogState extends State<_PreferredDatesDialog> {
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Text(
-                        'シフトに入りたい日をタップして選択',
+                        'シフトに入りたい日をタップして選択\n'
+                        '※必ず希望どおりになるとは限りません',
                         style: TextStyle(
                           fontSize: 13,
                           color: Colors.grey.shade600,
@@ -1866,8 +1756,7 @@ class _PreferredDatesDialogState extends State<_PreferredDatesDialog> {
             padding: const EdgeInsets.symmetric(vertical: 8),
             decoration: BoxDecoration(
               color: Colors.grey.shade100,
-              borderRadius:
-                  const BorderRadius.vertical(top: Radius.circular(8)),
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(8)),
             ),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -1875,8 +1764,7 @@ class _PreferredDatesDialogState extends State<_PreferredDatesDialog> {
                 IconButton(
                   onPressed: () {
                     setState(() {
-                      _focusedDay =
-                          DateTime(_focusedDay.year, _focusedDay.month - 1);
+                      _focusedDay = DateTime(_focusedDay.year, _focusedDay.month - 1);
                       if (_focusedDay.isBefore(firstDay)) {
                         _focusedDay = firstDay;
                       }
@@ -1894,8 +1782,7 @@ class _PreferredDatesDialogState extends State<_PreferredDatesDialog> {
                 IconButton(
                   onPressed: () {
                     setState(() {
-                      _focusedDay =
-                          DateTime(_focusedDay.year, _focusedDay.month + 1);
+                      _focusedDay = DateTime(_focusedDay.year, _focusedDay.month + 1);
                       if (_focusedDay.isAfter(lastDay)) {
                         _focusedDay = lastDay;
                       }
@@ -1920,9 +1807,7 @@ class _PreferredDatesDialogState extends State<_PreferredDatesDialog> {
                       style: TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.bold,
-                        color: isWeekend
-                            ? Colors.red.shade400
-                            : Colors.grey.shade700,
+                        color: isWeekend ? Colors.red.shade400 : Colors.grey.shade700,
                       ),
                     ),
                   ),
@@ -1958,14 +1843,11 @@ class _PreferredDatesDialogState extends State<_PreferredDatesDialog> {
     // 日付
     for (int day = 1; day <= daysInMonth; day++) {
       final date = DateTime(_focusedDay.year, _focusedDay.month, day);
-      final isToday = date.year == todayOnly.year &&
-          date.month == todayOnly.month &&
-          date.day == todayOnly.day;
+      final isToday = date.year == todayOnly.year && date.month == todayOnly.month && date.day == todayOnly.day;
       final isPast = date.isBefore(todayOnly);
       final isUnavailable = _isUnavailableDate(date);
       final isSelected = _isSelectedDate(date);
-      final isWeekend =
-          date.weekday == DateTime.sunday || date.weekday == DateTime.saturday;
+      final isWeekend = date.weekday == DateTime.sunday || date.weekday == DateTime.saturday;
 
       currentRow.add(
         Expanded(
@@ -1980,9 +1862,7 @@ class _PreferredDatesDialogState extends State<_PreferredDatesDialog> {
                         ? Colors.grey.shade200
                         : null,
                 borderRadius: BorderRadius.circular(8),
-                border: isToday
-                    ? Border.all(color: Colors.blue.shade700, width: 2)
-                    : null,
+                border: isToday ? Border.all(color: Colors.blue.shade700, width: 2) : null,
               ),
               padding: const EdgeInsets.symmetric(vertical: 8),
               child: Center(
@@ -2000,8 +1880,7 @@ class _PreferredDatesDialogState extends State<_PreferredDatesDialog> {
                                 : isWeekend
                                     ? Colors.red.shade400
                                     : Colors.black87,
-                    decoration:
-                        isUnavailable ? TextDecoration.lineThrough : null,
+                    decoration: isUnavailable ? TextDecoration.lineThrough : null,
                   ),
                 ),
               ),
@@ -2063,16 +1942,12 @@ class _PreferredDatesDialogState extends State<_PreferredDatesDialog> {
   }
 
   Widget _buildSelectedDates() {
-    final sortedDates = List<DateTime>.from(_selectedDates)
-      ..sort((a, b) => a.compareTo(b));
+    final sortedDates = List<DateTime>.from(_selectedDates)..sort((a, b) => a.compareTo(b));
     final now = DateTime.now();
     final firstDayOfCurrentMonth = DateTime(now.year, now.month, 1);
 
     // 今月以降のみ表示
-    final displayDates = sortedDates
-        .where((date) => date
-            .isAfter(firstDayOfCurrentMonth.subtract(const Duration(days: 1))))
-        .toList();
+    final displayDates = sortedDates.where((date) => date.isAfter(firstDayOfCurrentMonth.subtract(const Duration(days: 1)))).toList();
 
     return ConstrainedBox(
       constraints: const BoxConstraints(maxHeight: 150),
@@ -2112,7 +1987,7 @@ class _PreferredDatesDialogState extends State<_PreferredDatesDialog> {
   }
 }
 
-/// 休み希望日（特定日）選択ダイアログ
+/// 休みの日（特定日）選択ダイアログ
 class _SpecificDaysOffDialog extends StatefulWidget {
   final List<DateTime> initialDates;
 
@@ -2136,16 +2011,14 @@ class _SpecificDaysOffDialogState extends State<_SpecificDaysOffDialog> {
 
   /// 日付が選択されているかどうかをチェック
   bool _isSelectedDate(DateTime date) {
-    return _selectedDates.any((d) =>
-        d.year == date.year && d.month == date.month && d.day == date.day);
+    return _selectedDates.any((d) => d.year == date.year && d.month == date.month && d.day == date.day);
   }
 
   /// 日付の選択/解除
   void _toggleDate(DateTime date) {
     setState(() {
       if (_isSelectedDate(date)) {
-        _selectedDates.removeWhere((d) =>
-            d.year == date.year && d.month == date.month && d.day == date.day);
+        _selectedDates.removeWhere((d) => d.year == date.year && d.month == date.month && d.day == date.day);
       } else {
         _selectedDates.add(DateTime(date.year, date.month, date.day));
       }
@@ -2177,7 +2050,7 @@ class _SpecificDaysOffDialogState extends State<_SpecificDaysOffDialog> {
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
-                      '休み希望日の設定',
+                      '休みの日の設定',
                       style: Theme.of(context).textTheme.titleLarge?.copyWith(
                             color: Colors.orange.shade900,
                           ),
@@ -2197,7 +2070,7 @@ class _SpecificDaysOffDialogState extends State<_SpecificDaysOffDialog> {
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Text(
-                        '休みを希望する日をタップして選択',
+                        '休みの日をタップして選択',
                         style: TextStyle(
                           fontSize: 13,
                           color: Colors.grey.shade600,
@@ -2258,8 +2131,7 @@ class _SpecificDaysOffDialogState extends State<_SpecificDaysOffDialog> {
             padding: const EdgeInsets.symmetric(vertical: 8),
             decoration: BoxDecoration(
               color: Colors.grey.shade100,
-              borderRadius:
-                  const BorderRadius.vertical(top: Radius.circular(8)),
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(8)),
             ),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -2267,8 +2139,7 @@ class _SpecificDaysOffDialogState extends State<_SpecificDaysOffDialog> {
                 IconButton(
                   onPressed: () {
                     setState(() {
-                      _focusedDay =
-                          DateTime(_focusedDay.year, _focusedDay.month - 1);
+                      _focusedDay = DateTime(_focusedDay.year, _focusedDay.month - 1);
                       if (_focusedDay.isBefore(firstDay)) {
                         _focusedDay = firstDay;
                       }
@@ -2286,8 +2157,7 @@ class _SpecificDaysOffDialogState extends State<_SpecificDaysOffDialog> {
                 IconButton(
                   onPressed: () {
                     setState(() {
-                      _focusedDay =
-                          DateTime(_focusedDay.year, _focusedDay.month + 1);
+                      _focusedDay = DateTime(_focusedDay.year, _focusedDay.month + 1);
                       if (_focusedDay.isAfter(lastDay)) {
                         _focusedDay = lastDay;
                       }
@@ -2312,9 +2182,7 @@ class _SpecificDaysOffDialogState extends State<_SpecificDaysOffDialog> {
                       style: TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.bold,
-                        color: isWeekend
-                            ? Colors.red.shade400
-                            : Colors.grey.shade700,
+                        color: isWeekend ? Colors.red.shade400 : Colors.grey.shade700,
                       ),
                     ),
                   ),
@@ -2350,13 +2218,10 @@ class _SpecificDaysOffDialogState extends State<_SpecificDaysOffDialog> {
     // 日付
     for (int day = 1; day <= daysInMonth; day++) {
       final date = DateTime(_focusedDay.year, _focusedDay.month, day);
-      final isToday = date.year == todayOnly.year &&
-          date.month == todayOnly.month &&
-          date.day == todayOnly.day;
+      final isToday = date.year == todayOnly.year && date.month == todayOnly.month && date.day == todayOnly.day;
       final isPast = date.isBefore(todayOnly);
       final isSelected = _isSelectedDate(date);
-      final isWeekend =
-          date.weekday == DateTime.sunday || date.weekday == DateTime.saturday;
+      final isWeekend = date.weekday == DateTime.sunday || date.weekday == DateTime.saturday;
 
       currentRow.add(
         Expanded(
@@ -2367,9 +2232,7 @@ class _SpecificDaysOffDialogState extends State<_SpecificDaysOffDialog> {
               decoration: BoxDecoration(
                 color: isSelected ? Colors.orange.shade400 : null,
                 borderRadius: BorderRadius.circular(8),
-                border: isToday
-                    ? Border.all(color: Colors.orange.shade700, width: 2)
-                    : null,
+                border: isToday ? Border.all(color: Colors.orange.shade700, width: 2) : null,
               ),
               padding: const EdgeInsets.symmetric(vertical: 8),
               child: Center(
@@ -2417,7 +2280,7 @@ class _SpecificDaysOffDialogState extends State<_SpecificDaysOffDialog> {
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        _buildLegendItem(Colors.orange.shade400, '休み希望日'),
+        _buildLegendItem(Colors.orange.shade400, '休みの日'),
       ],
     );
   }
@@ -2444,16 +2307,12 @@ class _SpecificDaysOffDialogState extends State<_SpecificDaysOffDialog> {
   }
 
   Widget _buildSelectedDates() {
-    final sortedDates = List<DateTime>.from(_selectedDates)
-      ..sort((a, b) => a.compareTo(b));
+    final sortedDates = List<DateTime>.from(_selectedDates)..sort((a, b) => a.compareTo(b));
     final now = DateTime.now();
     final firstDayOfCurrentMonth = DateTime(now.year, now.month, 1);
 
     // 今月以降のみ表示
-    final displayDates = sortedDates
-        .where((date) => date
-            .isAfter(firstDayOfCurrentMonth.subtract(const Duration(days: 1))))
-        .toList();
+    final displayDates = sortedDates.where((date) => date.isAfter(firstDayOfCurrentMonth.subtract(const Duration(days: 1)))).toList();
 
     return ConstrainedBox(
       constraints: const BoxConstraints(maxHeight: 150),

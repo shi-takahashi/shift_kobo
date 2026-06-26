@@ -265,7 +265,8 @@ class _PairSettingsScreenState extends State<PairSettingsScreen> {
                 title: Text('$target ＋ 誰か1人'),
                 subtitle: Text(
                   '相方候補: ${companions.isEmpty ? "(未設定)" : companions}\n'
-                  '${rule.hard ? "絶対（相方がいなければ入れない）" : "なるべく（最悪は単独も可）"}',
+                  '${rule.hard ? "絶対（相方がいなければ入れない）" : "なるべく（最悪は単独も可）"}'
+                  ' / ${rule.countsAsWorkforce ? "戦力に数える" : "別枠+1（研修扱い）"}',
                 ),
                 isThreeLine: true,
                 trailing: Row(
@@ -433,6 +434,7 @@ class _CompanionRuleDialogState extends State<_CompanionRuleDialog> {
   String? _targetId;
   late Set<String> _companionIds;
   late bool _hard;
+  late bool _countsAsWorkforce;
 
   @override
   void initState() {
@@ -440,6 +442,7 @@ class _CompanionRuleDialogState extends State<_CompanionRuleDialog> {
     _targetId = widget.existing?.staffId;
     _companionIds = {...?widget.existing?.companionIds};
     _hard = widget.existing?.hard ?? true;
+    _countsAsWorkforce = widget.existing?.countsAsWorkforce ?? true;
   }
 
   @override
@@ -496,6 +499,31 @@ class _CompanionRuleDialogState extends State<_CompanionRuleDialog> {
                   style: const TextStyle(fontSize: 12),
                 ),
               ),
+              const Divider(),
+              const Padding(
+                padding: EdgeInsets.only(bottom: 8),
+                child: Text('人数の数え方', style: TextStyle(fontWeight: FontWeight.w500)),
+              ),
+              SizedBox(
+                width: double.infinity,
+                child: SegmentedButton<bool>(
+                  segments: const [
+                    ButtonSegment(value: true, label: Text('戦力に数える')),
+                    ButtonSegment(value: false, label: Text('別枠+1（研修）')),
+                  ],
+                  selected: {_countsAsWorkforce},
+                  showSelectedIcon: false,
+                  onSelectionChanged: (s) => setState(() => _countsAsWorkforce = s.first),
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                _countsAsWorkforce
+                    ? '本人が必要人数の1人分を埋めます。必要人数を2名以上に設定しておいてください。'
+                    : '必要人数とは別に+1で上乗せします（戦力に数えません）。必要人数1名のままでも、'
+                        '本人が入る日だけ相方と合わせて実質2名になります。出勤日数は本人の月間上限に合わせて自動配分します。',
+                style: const TextStyle(fontSize: 12, color: Colors.black54),
+              ),
             ],
           ),
         ),
@@ -511,6 +539,7 @@ class _CompanionRuleDialogState extends State<_CompanionRuleDialog> {
                     staffId: _targetId!,
                     companionIds: _companionIds.toList(),
                     hard: _hard,
+                    countsAsWorkforce: _countsAsWorkforce,
                   ))
               : null,
           child: const Text('保存'),

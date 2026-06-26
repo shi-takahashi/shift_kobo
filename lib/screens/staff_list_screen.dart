@@ -49,10 +49,10 @@ class _StaffListScreenState extends State<StaffListScreen> {
     // 月間最大シフト数
     constraints.add('月間最大: ${staff.maxShiftsPerMonth}回');
 
-    // 休み希望（曜日 + 祝日）
+    // 休み（曜日 + 祝日）
     if (staff.preferredDaysOff.isNotEmpty || staff.holidaysOff) {
       constraints.add(
-          '休み希望: ${_getDayOffText(staff.preferredDaysOff, staff.holidaysOff)}');
+          '休み: ${_getDayOffText(staff.preferredDaysOff, staff.holidaysOff)}');
     }
 
     // 勤務不可シフトタイプ

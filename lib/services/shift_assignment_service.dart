@@ -163,9 +163,24 @@ class ShiftAssignmentService {
     // ペア設定（チーム単位）。NGは同居不可のハード制約として使う。
     final Set<String> ngPairKeys = team?.ngPairs.toSet() ?? <String>{};
     // 付き添い必須ルール（スタッフID -> ルール）。ハードは適格判定、ソフトはスコアで扱う。
+    final List<CompanionRule> allCompanionRules = team?.companionRules ?? const <CompanionRule>[];
+
+    // ② 別枠+1（研修扱い・戦力カウントしない）の新人は、生成・リバランスから除外して
+    // 最後に上乗せする（後処理 _assignTrainingShadows）。こうすることで通常の戦力スケジュール
+    // （相方＝指導役を含む）を歪めず・壊さずに、相方が出勤している日へ新人をシャドーで重ねられる。
+    final List<CompanionRule> extraTraineeRules =
+        allCompanionRules.where((r) => !r.countsAsWorkforce).toList();
+    final Set<String> extraTraineeIds = extraTraineeRules.map((r) => r.staffId).toSet();
+
+    // 生成・リバランスで使う付き添いマップは ①（戦力カウントする）ルールのみ。
     final Map<String, CompanionRule> companionByStaff = {
-      for (final r in (team?.companionRules ?? const <CompanionRule>[])) r.staffId: r,
+      for (final r in allCompanionRules)
+        if (r.countsAsWorkforce) r.staffId: r,
     };
+
+    // 生成・リバランス対象スタッフ（② 研修扱いの新人は除外。後処理で別枠+1する）。
+    final List<Staff> genStaff =
+        availableStaff.where((s) => !extraTraineeIds.contains(s.id)).toList();
 
     // 前月のシフトを取得（連続勤務日数・勤務間インターバルのチェック用）
     // スタッフ個別設定の最大値を考慮して取得範囲を決定
@@ -206,13 +221,34 @@ class ShiftAssignmentService {
     _reservedDaysOff = _computeConsecutiveDaysOffReservations(
       startDate,
       endDate,
-      availableStaff,
+      genStaff,
       team,
       filteredRequirements,
       requirementsProvider,
       activeShiftTypeNames,
       reserveRng,
     );
+    // ② 別枠+1（研修扱い）の新人は genStaff から外れているため、上の計算に含まれない。
+    // 彼らは必要人数を消費しない（休んでも未充足を生まない）ので、戦力のカバレッジ計算と分けて
+    // 連休を別計算し、結果をマージする。これで研修新人の連休も確保される（後処理 _assignTrainingShadows が
+    // _reservedDaysOff を尊重して上乗せを避ける）。
+    if (extraTraineeIds.isNotEmpty) {
+      final traineeStaff =
+          availableStaff.where((s) => extraTraineeIds.contains(s.id)).toList();
+      final traineeReservations = _computeConsecutiveDaysOffReservations(
+        startDate,
+        endDate,
+        traineeStaff,
+        team,
+        filteredRequirements,
+        requirementsProvider,
+        activeShiftTypeNames,
+        reserveRng,
+      );
+      traineeReservations.forEach((staffId, days) {
+        _reservedDaysOff.putIfAbsent(staffId, () => <String>{}).addAll(days);
+      });
+    }
     final reservedTotal = _reservedDaysOff.values.fold<int>(0, (a, b) => a + b.length);
     if (reservedTotal > 0) {
       final rulesDesc = (team?.consecutiveDaysOffRules ?? const [])
@@ -235,7 +271,7 @@ class ShiftAssignmentService {
         startDate,
         endDate,
         filteredRequirements,
-        availableStaff,
+        genStaff,
         team,
         maxConsecutiveDays,
         minRestHours,
@@ -248,7 +284,7 @@ class ShiftAssignmentService {
         previousMonthShifts,
         rng,
       );
-      final score = _scoreCandidate(candidate, availableStaff, activeShiftTypeNames, companionByStaff);
+      final score = _scoreCandidate(candidate, genStaff, activeShiftTypeNames, companionByStaff);
       _log('候補#$i: score=${score.toStringAsFixed(1)}, shifts=${candidate.shifts.length}, 未充足=${candidate.unfilled}, 希望充足=${candidate.preferredGranted}');
       if (score > bestScore) {
         bestScore = score;
@@ -259,7 +295,7 @@ class ShiftAssignmentService {
     // best候補に対して公平化リバランス（後処理で総数・種別の偏りをならす）。
     // 貪欲生成の経路依存（種別の偏り・4連休など）を、制約を守ったまま付け替えで解消する。
     if (best != null) {
-      _logFairnessSummary('リバランス前', best.shifts, availableStaff, activeShiftTypeNames);
+      _logFairnessSummary('リバランス前', best.shifts, genStaff, activeShiftTypeNames);
       // 厳しい連勤上限でも総数を揃えられるよう、先に「間隔ならし」で塊をほぐして隙間を作り、
       // その隙間に総数/種別リバランスで少ない人のシフトを入れ、最後にもう一度ならす。
       // 各パスとも制約安全（連勤上限などの違反は作らない）。
@@ -267,7 +303,7 @@ class ShiftAssignmentService {
         // 総数・種別を変えずに、勤務/休みのタイミングだけ平均化する（同種別の日付交換）。
         _rebalanceSpacing(
           best.shifts,
-          availableStaff,
+          genStaff,
           maxConsecutiveDays,
           minRestHours,
           overnightCountsAsTwoDays,
@@ -277,7 +313,7 @@ class ShiftAssignmentService {
         );
         _rebalanceFairness(
           best.shifts,
-          availableStaff,
+          genStaff,
           activeShiftTypeNames,
           maxConsecutiveDays,
           minRestHours,
@@ -289,7 +325,7 @@ class ShiftAssignmentService {
       }
       _rebalanceSpacing(
         best.shifts,
-        availableStaff,
+        genStaff,
         maxConsecutiveDays,
         minRestHours,
         overnightCountsAsTwoDays,
@@ -297,9 +333,31 @@ class ShiftAssignmentService {
         companionByStaff,
         previousMonthShifts,
       );
-      _logFairnessSummary('リバランス後', best.shifts, availableStaff, activeShiftTypeNames);
+      _logFairnessSummary('リバランス後', best.shifts, genStaff, activeShiftTypeNames);
       // 念のため: 最終結果が連勤上限を満たしているか自動検証してログに出す。
-      _logConsecutiveCheck(best.shifts, availableStaff, maxConsecutiveDays, overnightCountsAsTwoDays, previousMonthShifts);
+      _logConsecutiveCheck(best.shifts, genStaff, maxConsecutiveDays, overnightCountsAsTwoDays, previousMonthShifts);
+
+      // ② 別枠+1（研修扱い）の新人を、生成・リバランス後のシフトへ上乗せする。
+      // 相方（指導役）が既に出勤している日へ、本人の月間上限・公平性に従って分散配置する。
+      if (extraTraineeRules.isNotEmpty) {
+        _assignTrainingShadows(
+          best.shifts,
+          extraTraineeRules,
+          availableStaff,
+          startDate,
+          endDate,
+          team,
+          maxConsecutiveDays,
+          minRestHours,
+          overnightCountsAsTwoDays,
+          ngPairKeys,
+          requirementsProvider,
+          filteredRequirements,
+          activeShiftTypeNames,
+          previousMonthShifts,
+          strategy,
+        );
+      }
     }
 
     final result = best?.shifts ?? [];
@@ -315,6 +373,171 @@ class ShiftAssignmentService {
     await _logPreferredAnalytics(startDate, endDate, availableStaff, result);
 
     _log('best-of-$_candidateCount 採用: score=${bestScore.toStringAsFixed(1)}, 作成シフト数=${result.length}');
+    return result;
+  }
+
+  // ========================================
+  // ② 別枠+1（研修扱い）の付き添い新人を、生成・リバランス後のシフトへ上乗せする
+  // ========================================
+  // 新人は「戦力としてカウントしない」ため必要人数を消費しない。相方（指導役）が既に出勤している日へ、
+  // 本人の月間上限・公平性に従って分散配置する（相方在席は _isEligible のハード判定で担保）。
+  // リバランス後に動くので、戦力スケジュールを一切歪めず・壊さない。
+  void _assignTrainingShadows(
+    List<Shift> shifts,
+    List<CompanionRule> traineeRules,
+    List<Staff> allStaff,
+    DateTime startDate,
+    DateTime endDate,
+    Team? team,
+    int maxConsecutiveDays,
+    int minRestHours,
+    bool overnightCountsAsTwoDays,
+    Set<String> ngPairKeys,
+    MonthlyRequirementsProvider? requirementsProvider,
+    Map<String, int> filteredRequirements,
+    Set<String> activeShiftTypeNames,
+    List<Shift> previousMonthShifts,
+    AssignmentStrategy strategy,
+  ) {
+    final staffById = {for (final s in allStaff) s.id: s};
+
+    // 通常スタッフ（戦力）の実出勤水準を「充足率＝担当数 / 月間上限 の平均」で求める。
+    // 研修新人は頭数に入らず必要枠で律速されないため、上限まで埋めると働きすぎる
+    // （他が15日／上限20なのに新人だけ20日になる）。そこで目標を「上限」ではなく
+    // 「通常スタッフと同じ充足率」にし、max が同じなら同じ出勤日数に揃うようにする。
+    final traineeIds = traineeRules.map((r) => r.staffId).toSet();
+    final workforce = allStaff
+        .where((s) => s.maxShiftsPerMonth > 0 && !traineeIds.contains(s.id))
+        .toList();
+    double workforceFillRate = 1.0;
+    if (workforce.isNotEmpty) {
+      double sum = 0;
+      for (final s in workforce) {
+        final c = shifts.where((sh) => sh.staffId == s.id).length;
+        sum += c / s.maxShiftsPerMonth;
+      }
+      workforceFillRate = sum / workforce.length;
+    }
+
+    for (final rule in traineeRules) {
+      final trainee = staffById[rule.staffId];
+      if (trainee == null) continue;
+      if (trainee.maxShiftsPerMonth <= 0) continue;
+
+      // この新人を1人だけ含む付き添いマップ（_isEligible の相方在席チェックを効かせるため）。
+      final soloCompanionMap = {rule.staffId: rule};
+      // _isEligible が読むのは本人の月間カウントのみ。本人分だけ持てば十分。
+      final counts = <String, int>{
+        rule.staffId: shifts.where((s) => s.staffId == rule.staffId).length,
+      };
+
+      // その日に本人が入れる（相方在席・休み希望・連勤・インターバル・NG など全制約クリアの）
+      // シフト種別を1つ返す。無ければ null。判定はその時点の shifts/counts に対して都度行う。
+      String? eligibleTypeFor(DateTime date) {
+        if (team != null && _isTeamHoliday(team, date)) return null;
+        final rawReq = requirementsProvider?.getRequirementsForDate(date) ?? filteredRequirements;
+        for (final shiftType in rawReq.keys) {
+          if (!activeShiftTypeNames.contains(shiftType)) continue;
+          if (_getShiftTimeRange(shiftType, date) == null) continue;
+          if (_isEligible(
+            trainee,
+            date,
+            shiftType,
+            shifts,
+            counts,
+            maxConsecutiveDays,
+            minRestHours,
+            previousMonthShifts,
+            overnightCountsAsTwoDays: overnightCountsAsTwoDays,
+            ngPairKeys: ngPairKeys,
+            companionByStaff: soloCompanionMap,
+          )) {
+            return shiftType;
+          }
+        }
+        return null;
+      }
+
+      final placedDates = <String>{};
+      int placed = 0;
+      void place(DateTime date, String shiftType) {
+        final range = _getShiftTimeRange(shiftType, date)!;
+        shifts.add(Shift(
+          id: 'tmp_shadow_${rule.staffId}_$placed',
+          date: date,
+          startTime: range.$1,
+          endTime: range.$2,
+          staffId: rule.staffId,
+          shiftType: shiftType,
+          assignmentStrategy: strategy.name,
+        ));
+        counts[rule.staffId] = (counts[rule.staffId] ?? 0) + 1;
+        placedDates.add(_dateKey(date));
+        placed++;
+      }
+
+      final startOnly = DateTime(startDate.year, startDate.month, startDate.day);
+
+      // 1) 勤務希望日（制約）を最優先で確保する。全制約をクリアできる希望日は必ず置く。
+      //    （戦力側の _assignPreferredDates と同じ「希望日を先に置く」流儀。）
+      int preferredPlaced = 0;
+      final preferredInRange = trainee.preferredDates
+          .map((iso) => DateTime.parse(iso))
+          .map((dt) => DateTime(dt.year, dt.month, dt.day))
+          .where((dt) => !dt.isBefore(startOnly) && !dt.isAfter(endDate))
+          .toList()
+        ..sort((a, b) => a.compareTo(b));
+      for (final date in preferredInRange) {
+        final type = eligibleTypeFor(date);
+        if (type != null) {
+          place(date, type);
+          preferredPlaced++;
+        }
+      }
+
+      // 2) 残りを「通常スタッフと同じ充足率」の日数まで、相方のいる日へできるだけ公平に
+      //    （月内で等間隔に）分散する。目標は上限ではなく水準（max が同じなら他と同じ出勤日数）。
+      final fairTarget = (workforceFillRate * trainee.maxShiftsPerMonth)
+          .round()
+          .clamp(0, trainee.maxShiftsPerMonth)
+          .toInt();
+      final remainingBudget = fairTarget - placed;
+      if (remainingBudget > 0) {
+        final feasible = <({DateTime date, String shiftType})>[];
+        DateTime d = startOnly;
+        while (!d.isAfter(endDate)) {
+          if (!placedDates.contains(_dateKey(d))) {
+            final type = eligibleTypeFor(d);
+            if (type != null) feasible.add((date: d, shiftType: type));
+          }
+          d = d.add(const Duration(days: 1));
+        }
+        final target = remainingBudget < feasible.length ? remainingBudget : feasible.length;
+        for (final slot in _evenlySample(feasible, target)) {
+          // 直前の上乗せで連勤/インターバル等が崩れていないか都度再判定する。
+          final type = eligibleTypeFor(slot.date);
+          if (type != null) place(slot.date, type);
+        }
+      }
+
+      if (placed == 0) {
+        _log('付き添い(別枠+1): ${trainee.name} は相方の出勤日が無く配置できませんでした');
+      } else {
+        _log('付き添い(別枠+1): ${trainee.name} を $placed 日上乗せ'
+            '（勤務希望 $preferredPlaced 日 / 目標 ${(workforceFillRate * trainee.maxShiftsPerMonth).round()} 日'
+            '＝通常充足率${(workforceFillRate * 100).round()}% / 月間上限 ${trainee.maxShiftsPerMonth}）');
+      }
+    }
+  }
+
+  /// リストから target 個を等間隔で選ぶ（月内に均等分散させるため）。
+  List<T> _evenlySample<T>(List<T> items, int target) {
+    if (target <= 0) return [];
+    if (target >= items.length) return List<T>.from(items);
+    final result = <T>[];
+    for (int i = 0; i < target; i++) {
+      result.add(items[(i * items.length) ~/ target]);
+    }
     return result;
   }
 
