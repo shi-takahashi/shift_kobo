@@ -51,6 +51,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
   DateTime? _selectedDay;
   Map<String, bool> _userRoleCache = {}; // userId -> isAdmin のキャッシュ
   Team? _team; // チーム情報（休み設定用）
+  bool _teamLoaded = false; // チーム情報のロードが済んだか（済むまで未充足バッジを出さない）
 
   // 入れ替えモード関連
   bool _isSwapMode = false;
@@ -79,42 +80,30 @@ class _CalendarScreenState extends State<CalendarScreen> {
   /// チーム情報を取得
   Future<void> _loadTeamInfo() async {
     final teamId = widget.appUser.teamId;
-    if (teamId == null) return;
+    // チーム未所属（オフライン等）はチーム休みが無いので、ロード済み扱いにしてバッジを許可する。
+    if (teamId == null) {
+      if (mounted) setState(() => _teamLoaded = true);
+      return;
+    }
 
     try {
       final team = await AuthService().getTeam(teamId);
       if (mounted) {
         setState(() {
           _team = team;
+          _teamLoaded = true;
         });
       }
     } catch (e) {
       debugPrint('⚠️ チーム情報の取得に失敗: $e');
+      // 取得失敗時もバッジ自体は出せるようにする（チーム休み除外は効かないが安全側）。
+      if (mounted) setState(() => _teamLoaded = true);
     }
   }
 
   /// 指定日がチームの休みかどうかを判定
-  bool _isTeamHoliday(DateTime day, bool isHoliday) {
-    if (_team == null) return false;
-
-    // 1. 曜日休みをチェック（1=月曜〜7=日曜）
-    if (_team!.teamDaysOff.contains(day.weekday)) {
-      return true;
-    }
-
-    // 2. 特定日休みをチェック
-    final dayStr = DateTime(day.year, day.month, day.day).toIso8601String();
-    if (_team!.teamSpecificDaysOff.contains(dayStr)) {
-      return true;
-    }
-
-    // 3. 祝日休みをチェック
-    if (_team!.teamHolidaysOff && isHoliday) {
-      return true;
-    }
-
-    return false;
-  }
+  // チーム休み判定は Team.isDayOff を正典とする（曜日定休・特定日・祝日休みを内包）。
+  bool _isTeamHoliday(DateTime day) => _team?.isDayOff(day) ?? false;
 
   void _onShiftProviderChanged() {
     // ShiftProviderのデータが変更されたら、選択日のシフトリストを更新
@@ -1017,9 +1006,14 @@ class _CalendarScreenState extends State<CalendarScreen> {
                       markerBuilder: (context, date, shifts) {
                         // その日が設定人数を満たしているか（自動・手動・プラン切替を問わず
                         // 現在のシフトで都度判定。埋めれば自動でバッジが消える）。
+                        // チーム休みの日は誰も勤務しないのが正しいので未充足判定から除外する。
+                        // チーム情報のロード完了までは判定を保留（_team が null の一瞬だけ
+                        // チーム休みが除外されず赤枠が点滅するのを防ぐ）。
                         final required =
                             requirementsProvider.getRequirementsForDate(date);
                         final underfilled = hasAnyShiftThisMonth &&
+                            _teamLoaded &&
+                            !_isTeamHoliday(date) &&
                             isDateUnderfilled(
                               required: required,
                               assigned: shifts,
@@ -1053,7 +1047,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
                       },
                       defaultBuilder: (context, day, focusedDay) {
                         final isHoliday = holiday_jp.isHoliday(day);
-                        final isTeamHoliday = _isTeamHoliday(day, isHoliday);
+                        final isTeamHoliday = _isTeamHoliday(day);
 
                         // 色の優先順位: チームの休み > 日曜・祝日(赤) > 土曜(青) > 平日(黒)
                         Color textColor;

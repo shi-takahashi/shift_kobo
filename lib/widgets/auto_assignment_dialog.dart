@@ -543,6 +543,8 @@ class _AutoAssignmentDialogState extends State<AutoAssignmentDialog> {
       for (var d = DateTime(_startDate.year, _startDate.month, _startDate.day);
           !d.isAfter(_endDate);
           d = d.add(const Duration(days: 1))) {
+        // チーム休みの日は誰も勤務しないのが正しいので未充足判定から除外する。
+        if (_currentTeam?.isDayOff(d) ?? false) continue;
         final sf = computeDateShortfall(
           required: requirementsProvider.getRequirementsForDate(d),
           assigned: shiftsByDate[d] ?? const [],

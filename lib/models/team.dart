@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:holiday_jp/holiday_jp.dart' as holiday_jp;
 
 import 'companion_rule.dart';
 import 'consecutive_days_off_rule.dart';
@@ -55,6 +56,28 @@ class Team {
   static String pairKey(String a, String b) => a.compareTo(b) <= 0 ? '$a|$b' : '$b|$a';
 
   bool isNgPair(String a, String b) => ngPairs.contains(pairKey(a, b));
+
+  /// その日がチーム全体の休み（曜日定休・特定日・祝日休み）か。
+  /// チーム休みの日は誰も勤務しない＝自動割り当ての対象外であり、
+  /// 必要人数の未充足判定からも除外する（必要人数が残っていても不足扱いにしない）。
+  /// 付き添い・連休・未充足バッジなど休み判定が必要な全箇所はこれを正典として使う。
+  bool isDayOff(DateTime date) {
+    // 1. 曜日定休（1=月曜〜7=日曜）
+    if (teamDaysOff.contains(date.weekday)) return true;
+
+    // 2. 祝日休み
+    if (teamHolidaysOff && holiday_jp.isHoliday(date)) return true;
+
+    // 3. 特定日休み（年月日で比較。保存形式の差異に強い）
+    final d = DateTime(date.year, date.month, date.day);
+    for (final iso in teamSpecificDaysOff) {
+      final off = DateTime.tryParse(iso);
+      if (off != null && off.year == d.year && off.month == d.month && off.day == d.day) {
+        return true;
+      }
+    }
+    return false;
+  }
 
   /// 指定スタッフの付き添い必須ルール（無ければnull）
   CompanionRule? companionRuleFor(String staffId) {

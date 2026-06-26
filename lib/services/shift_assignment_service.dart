@@ -1965,31 +1965,8 @@ class ShiftAssignmentService {
   }
 
   /// チーム全体の休みかどうかをチェック
-  bool _isTeamHoliday(Team team, DateTime date) {
-    // 曜日ベースのチーム休みをチェック
-    if (team.teamDaysOff.contains(date.weekday)) {
-      return true;
-    }
-
-    // 祝日のチーム休みをチェック
-    if (team.teamHolidaysOff) {
-      final isHoliday = holiday_jp.isHoliday(date);
-      if (isHoliday) {
-        return true;
-      }
-    }
-
-    // 特定日のチーム休みをチェック
-    final dateOnly = DateTime(date.year, date.month, date.day);
-    for (final dayOffStr in team.teamSpecificDaysOff) {
-      final dayOff = DateTime.parse(dayOffStr);
-      if (dayOff.year == dateOnly.year && dayOff.month == dateOnly.month && dayOff.day == dateOnly.day) {
-        return true;
-      }
-    }
-
-    return false;
-  }
+  // チーム休み判定は Team.isDayOff を正典とする（曜日定休・特定日・祝日休みを内包）。
+  bool _isTeamHoliday(Team team, DateTime date) => team.isDayOff(date);
 
   Map<String, int> analyzeCurrentShifts(DateTime month) {
     List<Shift> monthShifts = shiftProvider.getShiftsForMonth(month.year, month.month);
